@@ -18,9 +18,17 @@ function NativeTabLayout() {
         <Icon sf={{ default: "brain", selected: "brain.fill" }} md="psychology" />
         <Label>AI Advisor</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="bot">
+        <Icon sf={{ default: "cpu", selected: "cpu.fill" }} md="smart_toy" />
+        <Label>Bot</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="watchlist">
         <Icon sf={{ default: "star", selected: "star.fill" }} md="star" />
         <Label>Watchlist</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="strategy">
+        <Icon sf={{ default: "gearshape.2", selected: "gearshape.2.fill" }} md="auto_fix_high" />
+        <Label>Strategy</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
@@ -75,11 +83,29 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="bot"
+        options={{
+          title: "Bot",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="hardware-chip" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="watchlist"
         options={{
           title: "Watchlist",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="star" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="strategy"
+        options={{
+          title: "Strategy",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="git-network" size={size} color={color} />
           ),
         }}
       />

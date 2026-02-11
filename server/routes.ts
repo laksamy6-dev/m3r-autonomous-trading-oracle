@@ -2,6 +2,11 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import OpenAI from "openai";
 
+let upstoxAccessToken: string | null = null;
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const upstoxApiKey = process.env.UPSTOX_API_KEY;
+const upstoxApiSecret = process.env.UPSTOX_API_SECRET;
+
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -351,7 +356,177 @@ Based on this data, give me:
   app.get("/api/upstox/status", (_req, res) => {
     const apiKey = process.env.UPSTOX_API_KEY;
     const apiSecret = process.env.UPSTOX_API_SECRET;
-    res.json({ configured: !!(apiKey && apiSecret), connected: false });
+    res.json({ configured: !!(apiKey && apiSecret), connected: !!upstoxAccessToken });
+  });
+
+  app.post("/api/gemini/analyze", async (req, res) => {
+    try {
+      const { optionChain, question } = req.body;
+      if (!geminiApiKey) return res.status(400).json({ error: "Gemini API key not configured" });
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
+
+      const geminiRes = await globalThis.fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `You are a Nifty 50 options trading expert. ${prompt}` }] }],
+            generationConfig: { maxOutputTokens: 1024 }
+          })
+        }
+      );
+
+      const data = await geminiRes.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Unable to analyze.";
+
+      const words = text.split(" ");
+      for (let i = 0; i < words.length; i += 3) {
+        const chunk = words.slice(i, i + 3).join(" ") + " ";
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error) {
+      console.error("Error in Gemini analyze:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Gemini analysis failed" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to analyze with Gemini" });
+      }
+    }
+  });
+
+  app.get("/api/upstox/auth-url", (req, res) => {
+    if (!upstoxApiKey) return res.status(400).json({ error: "Upstox API key not configured" });
+    const redirectUri = `${req.protocol}://${req.get("host")}/api/upstox/callback`;
+    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    res.json({ authUrl, redirectUri });
+  });
+
+  app.get("/api/upstox/callback", async (req, res) => {
+    const { code } = req.query;
+    if (!code) return res.status(400).json({ error: "No authorization code" });
+
+    try {
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/upstox/callback`;
+      const tokenRes = await globalThis.fetch("https://api.upstox.com/v2/login/authorization/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          code: code as string,
+          client_id: upstoxApiKey!,
+          client_secret: upstoxApiSecret!,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }).toString(),
+      });
+      const tokenData = await tokenRes.json();
+      upstoxAccessToken = tokenData.access_token || null;
+      res.send("<html><body><h2>Connected to Upstox!</h2><p>You can close this window.</p></body></html>");
+    } catch (error) {
+      res.status(500).send("<html><body><h2>Connection Failed</h2></body></html>");
+    }
+  });
+
+  app.get("/api/upstox/profile", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Not connected to Upstox" });
+    try {
+      const profileRes = await globalThis.fetch("https://api.upstox.com/v2/user/profile", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      const data = await profileRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get profile" });
+    }
+  });
+
+  app.get("/api/upstox/holdings", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Not connected to Upstox" });
+    try {
+      const holdingsRes = await globalThis.fetch("https://api.upstox.com/v2/portfolio/long-term-holdings", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      const data = await holdingsRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get holdings" });
+    }
+  });
+
+  app.get("/api/upstox/positions", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Not connected to Upstox" });
+    try {
+      const posRes = await globalThis.fetch("https://api.upstox.com/v2/portfolio/short-term-positions", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      const data = await posRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get positions" });
+    }
+  });
+
+  app.post("/api/upstox/order", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Not connected to Upstox" });
+    try {
+      const orderRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const data = await orderRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to place order" });
+    }
+  });
+
+  app.get("/api/upstox/option-chain", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Not connected to Upstox" });
+    try {
+      const { expiry } = req.query;
+      const ocRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX|Nifty 50&expiry_date=${expiry || ""}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const data = await ocRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get option chain" });
+    }
+  });
+
+  app.post("/api/telegram/test", async (_req, res) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return res.status(400).json({ error: "Not configured", configured: false });
+    try {
+      const telegramRes = await globalThis.fetch(
+        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: "Nifty Options Bot connected successfully! You will receive trade signals here.", parse_mode: "Markdown" }),
+        }
+      );
+      const data = await telegramRes.json();
+      res.json({ success: data.ok, configured: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send test message" });
+    }
   });
 
   const httpServer = createServer(app);
