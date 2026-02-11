@@ -1092,7 +1092,12 @@ function computeNeuralDecision(
   memory: TradeMemory,
   profitRunner: ProfitRunnerState,
   patterns: HistoricalPattern[],
-  global: GlobalIntelligence
+  global: GlobalIntelligence,
+  wavelet?: WaveletAnalysis,
+  lyapunov?: LyapunovAnalysis,
+  garch?: GARCHResult,
+  markov?: MarkovChainResult,
+  quantum?: QuantumSuperposition
 ): NeuralDecision {
   const analysis = analyzeMarketBias(chain);
   const reasoning: string[] = [];
@@ -1168,8 +1173,56 @@ function computeNeuralDecision(
   layerOutputs.push(l9);
   reasoning.push(`Global: ${global.globalBias} (US:${global.usImpact > 0 ? "+" : ""}${global.usImpact}%, EU:${global.europeImpact > 0 ? "+" : ""}${global.europeImpact}%, Asia:${global.asiaImpact > 0 ? "+" : ""}${global.asiaImpact}%), DXY:${global.dollarIndex}, Crude:$${global.crudeOil}`);
 
-  // Neural Consensus (10,000 virtual neurons voting across 9 layers)
-  const weightedSum = l1 * 0.15 + l2 * 0.18 + l3 * 0.13 + l4 * 0.12 + l5 * 0.08 + l6 * 0.07 + l7 * 0.06 + l8 * 0.06 + l9 * 0.15;
+  // Layer 10: Wavelet Multi-Scale Trend Alignment
+  const waveletSignal = wavelet
+    ? (wavelet.multiScaleTrend === "ALIGNED_UP" ? 1 : wavelet.multiScaleTrend === "ALIGNED_DOWN" ? -1 : wavelet.multiScaleTrend === "CONVERGING" ? 0.3 : 0)
+    : 0;
+  const l10 = neuralActivation(waveletSignal * 3 + (wavelet ? wavelet.signalPurity / 100 : 0.5));
+  layerOutputs.push(l10);
+  reasoning.push(`Wavelet: ${wavelet?.multiScaleTrend || "N/A"}, Purity: ${wavelet?.signalPurity || 0}%, Trend: ${wavelet?.trendComponent || 0}%`);
+
+  // Layer 11: Lyapunov Stability — Chaos/Butterfly Effect Gate
+  const lyapunovGate = lyapunov
+    ? (lyapunov.stabilityClass === "HIGHLY_STABLE" || lyapunov.stabilityClass === "STABLE" ? 1.2 :
+       lyapunov.stabilityClass === "EDGE_OF_CHAOS" ? 0.8 :
+       lyapunov.stabilityClass === "CHAOTIC" ? 0.4 : 0.1)
+    : 0.8;
+  const l11 = neuralActivation((lyapunovGate - 0.5) * 4);
+  layerOutputs.push(l11);
+  reasoning.push(`Lyapunov: ${lyapunov?.stabilityClass || "N/A"}, Butterfly Risk: ${lyapunov?.butterflyRisk || 0}%, Horizon: ${lyapunov?.predictabilityHorizon || 0}`);
+
+  // Layer 12: GARCH Volatility Forecasting — Future Vol Prediction
+  const garchSignal = garch
+    ? (garch.volTrend === "CONTRACTING" ? 0.3 : garch.volTrend === "EXPANDING" ? -0.3 : 0) +
+      (garch.volRegime === "VOL_SPIKE" ? -0.5 : garch.volRegime === "LOW_VOL" ? 0.3 : 0)
+    : 0;
+  const l12 = neuralActivation(garchSignal * 3);
+  layerOutputs.push(l12);
+  reasoning.push(`GARCH: ${garch?.volRegime || "N/A"}, Current: ${garch?.currentVolatility || 0}% → Forecast: ${garch?.forecastedVolatility || 0}%, Trend: ${garch?.volTrend || "N/A"}`);
+
+  // Layer 13: Markov State Transition — Regime Prediction
+  const markovSignal = markov
+    ? (markov.mostLikelyNextState.includes("BULL") ? 1 : markov.mostLikelyNextState.includes("BEAR") ? -1 : 0) *
+      (markov.trendContinuationProb / 100)
+    : 0;
+  const l13 = neuralActivation(markovSignal * 3);
+  layerOutputs.push(l13);
+  reasoning.push(`Markov: ${markov?.currentState || "N/A"} → ${markov?.mostLikelyNextState || "N/A"}, Continuation: ${markov?.trendContinuationProb || 0}%`);
+
+  // Layer 14: Quantum Superposition — Strategy Certainty
+  const quantumSignal = quantum
+    ? (quantum.collapsedStrategy === "TREND_FOLLOW" || quantum.collapsedStrategy === "MOMENTUM_BURST" ? 0.3 :
+       quantum.collapsedStrategy === "REVERSAL_SNIPER" || quantum.collapsedStrategy === "MEAN_REVERSION" ? -0.3 : 0) *
+      (quantum.collapsedProbability / 100)
+    : 0;
+  const quantumCertainty = quantum ? (quantum.superpositionState === "COLLAPSED" ? 0.3 : quantum.superpositionState === "ENTANGLED" ? -0.2 : 0) : 0;
+  const l14 = neuralActivation((quantumSignal + quantumCertainty) * 3);
+  layerOutputs.push(l14);
+  reasoning.push(`Quantum: ${quantum?.collapsedStrategy || "N/A"} (${quantum?.collapsedProbability || 0}%), State: ${quantum?.superpositionState || "N/A"}`);
+
+  // Neural Consensus (10,000 virtual neurons voting across 14 layers)
+  const weightedSum = l1 * 0.11 + l2 * 0.13 + l3 * 0.10 + l4 * 0.09 + l5 * 0.06 + l6 * 0.05 + l7 * 0.05 + l8 * 0.05 + l9 * 0.10
+    + l10 * 0.07 + l11 * 0.06 + l12 * 0.05 + l13 * 0.04 + l14 * 0.04;
   const neuralScore = Math.round(weightedSum * 10000) / 100;
 
   const buyVotes = Math.round(weightedSum * MONTE_CARLO_PATHS);
@@ -2986,9 +3039,19 @@ export interface NeuralEngineOutput {
   experienceReplay: ExperienceReplayState;
   cognitiveAlpha: CognitiveAlphaState;
   zeroLoss: ZeroLossStrategy;
+  waveletData: WaveletAnalysis;
+  lyapunovData: LyapunovAnalysis;
+  garchData: GARCHResult;
+  markovData: MarkovChainResult;
+  fourierData: FourierAnalysis;
+  fractalData: FractalDimensionResult;
+  quantumData: QuantumSuperposition;
+  consciousness: DigitalConsciousness;
   engineTick: number;
   totalCalcTimeMs: number;
   engineVersion: string;
+  neuralLayers: number;
+  totalFormulas: number;
 }
 
 export function runNeuralEngine(
@@ -3047,19 +3110,37 @@ export function runNeuralEngine(
   const fisherData = computeFisherTransform(syntheticPrices);
   const hilbertData = computeHilbertCycle(syntheticPrices);
 
+  const waveletData = computeWaveletTransform(syntheticPrices);
+  const lyapunovData = computeLyapunovExponent(syntheticPrices);
+  const garchData = computeGARCH(syntheticPrices);
+  const markovData = computeMarkovChain(syntheticPrices);
+  const fourierData = computeFourierTransform(syntheticPrices);
+  const fractalData = computeFractalDimension(syntheticPrices);
+
   const experienceReplay = computeExperienceReplay(hpiData, entropyData, fisherData, kalmanData);
 
   const cognitiveAlpha = computeCognitiveAlpha(
     hpiData, entropyData, kalmanData, fisherData, hilbertData, experienceReplay, monteCarlo, physics
   );
 
+  const quantumData = computeQuantumSuperposition(
+    hpiData, entropyData, kalmanData, fisherData, garchData, lyapunovData, markovData, waveletData, monteCarlo
+  );
+
   const decision = computeNeuralDecision(
-    chain, monteCarlo, physics, institutional, gap, volMetrics, memory, profitRunner, patterns, global
+    chain, monteCarlo, physics, institutional, gap, volMetrics, memory, profitRunner, patterns, global,
+    waveletData, lyapunovData, garchData, markovData, quantumData
   );
 
   const zeroLoss = computeZeroLossStrategy(chain, decision, monteCarlo, entropyData, cognitiveAlpha);
 
   const correction = selfCorrectingLoop(decision, chain, physics);
+
+  const consciousness = computeDigitalConsciousness(
+    hpiData, entropyData, kalmanData, fisherData, hilbertData,
+    waveletData, lyapunovData, garchData, markovData, fourierData, fractalData,
+    quantumData, cognitiveAlpha, monteCarlo
+  );
 
   addExperience({
     timestamp: Date.now(),
@@ -3106,9 +3187,19 @@ export function runNeuralEngine(
     experienceReplay,
     cognitiveAlpha,
     zeroLoss,
+    waveletData,
+    lyapunovData,
+    garchData,
+    markovData,
+    fourierData,
+    fractalData,
+    quantumData,
+    consciousness,
     engineTick: tickCount,
     totalCalcTimeMs,
-    engineVersion: "JARVIS v6.0 — Zero-Loss Cognitive Alpha Brain",
+    engineVersion: "JARVIS v7.0 — Digital SuperBrain",
+    neuralLayers: 14,
+    totalFormulas: 18,
   };
 }
 
