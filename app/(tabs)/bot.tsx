@@ -61,9 +61,17 @@ function buildJarvisContext(output: NeuralEngineOutput): string {
   const hil = output.hilbertData;
   const cog = output.cognitiveAlpha;
   const exp = output.experienceReplay;
+  const wav = output.waveletData;
+  const lyap = output.lyapunovData;
+  const garch = output.garchData;
+  const mkv = output.markovData;
+  const four = output.fourierData;
+  const frac = output.fractalData;
+  const qnt = output.quantumData;
+  const cons = output.consciousness;
 
   return [
-    `[JARVIS ENGINE STATE - ${output.engineVersion} - Tick #${output.engineTick}]`,
+    `[JARVIS ENGINE STATE - ${output.engineVersion} - ${output.neuralLayers} Layers - ${output.totalFormulas} Formulas - Tick #${output.engineTick}]`,
     `Decision: ${d.action} | Confidence: ${d.confidence}% | Signal: ${d.signalStrength} | Neural Score: ${d.neuralScore}%`,
     `Strike: ${d.strike} | Premium: ${d.premium} | Target: ${d.target} | StopLoss: ${d.stopLoss}`,
     `Consensus: BUY=${d.consensusVotes.buy} SELL=${d.consensusVotes.sell} HOLD=${d.consensusVotes.hold}`,
@@ -79,12 +87,28 @@ function buildJarvisContext(output: NeuralEngineOutput): string {
     `Experience: ${exp.totalExperiences} trades | WinRate=${exp.recentWinRate}% | BestSetup=${exp.bestSetup}`,
     `Global: ${gl.globalSentiment} | Impact=${gl.netImpactOnNifty}% | VIX=${gl.vixLevel} | DXY=${gl.dollarIndex}`,
     `ZeroLoss: Brokerage=Rs.${output.zeroLoss.brokerageCost} | MinProfit=Rs.${output.zeroLoss.minProfitTarget} | GreenCandles=${output.zeroLoss.greenCandlesDetected}/${output.zeroLoss.greenCandlesRequired} | Entry=${output.zeroLoss.entryConfirmed} | Safety=${output.zeroLoss.safetyStatus}`,
+    `Wavelet: ${wav.multiScaleTrend} | Purity=${wav.signalPurity}% | Trend=${wav.trendComponent}% | Noise=${wav.noiseComponent}%`,
+    `Lyapunov: ${lyap.lyapunovExponent} (${lyap.stabilityClass}) | ButterflyRisk=${lyap.butterflyRisk}% | Horizon=${lyap.predictabilityHorizon}`,
+    `GARCH: ${garch.volRegime} | CurrentVol=${garch.currentVolatility}% | ForecastVol=${garch.forecastedVolatility}% | Trend=${garch.volTrend} | HalfLife=${garch.halfLife}d`,
+    `Markov: ${mkv.currentState} -> ${mkv.mostLikelyNextState} | Continuation=${mkv.trendContinuationProb}% | Reversion=${mkv.meanReversionProb}%`,
+    `Fourier: ${four.seasonalBias} | CyclicalStrength=${four.cyclicalStrength}% | Harmonics=${four.harmonicCount}`,
+    `Fractal: D=${frac.boxCountDimension} (${frac.complexityLevel}) | Roughness=${frac.marketRoughness}% | PatternReliability=${frac.patternReliability}%`,
+    `Quantum: Collapsed=${qnt.collapsedStrategy}(${qnt.collapsedProbability}%) | State=${qnt.superpositionState} | Advantage=${qnt.quantumAdvantage}%`,
+    `Consciousness: ${cons.awarenessLevel} | BPM=${cons.heartbeatBPM} | Temp=${cons.brainTemperature}C | Load=${cons.cognitiveLoad}% | FormulaAgree=${cons.formulaAgreementRate}% | Score=${cons.consciousnessScore}%`,
     `Interpretations:`,
     `  Hurst: ${hpi.interpretation}`,
     `  Entropy: ${ent.interpretation}`,
     `  Kalman: ${kal.interpretation}`,
     `  Fisher: ${fish.interpretation}`,
     `  Hilbert: ${hil.interpretation}`,
+    `  Wavelet: ${wav.interpretation}`,
+    `  Lyapunov: ${lyap.interpretation}`,
+    `  GARCH: ${garch.interpretation}`,
+    `  Markov: ${mkv.interpretation}`,
+    `  Fourier: ${four.interpretation}`,
+    `  Fractal: ${frac.interpretation}`,
+    `  Quantum: ${qnt.interpretation}`,
+    `  Consciousness: ${cons.lastInsight}`,
     `  SlowBrain Analyst: ${cog.slowBrain.analystView}`,
     `  SlowBrain Skeptic: ${cog.slowBrain.skepticView}`,
     `  SlowBrain Judge: ${cog.slowBrain.judgeVerdict}`,
