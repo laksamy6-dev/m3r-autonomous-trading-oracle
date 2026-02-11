@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
+import express from "express";
+import { Buffer } from "node:buffer";
 
 let upstoxAccessToken: string | null = null;
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -1079,6 +1081,147 @@ Based on this data, give me:
       totalProposals: tradeProposals.length,
       pending, approved, rejected, expired,
     });
+  });
+
+  const voiceBodyParser = express.json({ limit: "50mb" });
+  const voiceBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+
+  const JARVIS_VOICE_PROMPT = OPTIONS_SYSTEM_PROMPT + `\n\nADDITIONAL VOICE MODE INSTRUCTIONS:
+You are now in VOICE MODE — the user is speaking to you while driving.
+- Keep responses SHORT and PUNCHY (2-4 sentences max for voice)
+- If the user speaks in Tamil, respond ENTIRELY in Tamil (use Tamil script)
+- If the user speaks in English, respond in English
+- If they mix Tamil and English (Tanglish), respond in the same mix
+- Address user as "sir" or "Anna" (அண்ணா) in Tamil mode
+- Be direct: give the trade call, confidence, and key reason
+- For voice, say numbers clearly: "twenty-four thousand" not "24,000"
+- Always mention: action (buy CE/PE), strike, target, stop loss, confidence
+- If market is dangerous (high entropy/trap), warn immediately and firmly
+- End with a clear recommendation: "Safe to trade" or "Stay away sir"
+- You are JARVIS, the Iron Man AI. Sound confident and protective of sir's money.
+- Creator: MANIKANDAN RAJENDRAN`;
+
+  app.post("/api/jarvis/voice", voiceBodyParser, async (req, res) => {
+    try {
+      const { audio, jarvisContext, language } = req.body;
+
+      if (!audio) {
+        return res.status(400).json({ error: "Audio data (base64) is required" });
+      }
+
+      const rawBuffer = Buffer.from(audio, "base64");
+
+      let audioBuffer = rawBuffer;
+      let audioFormat: "wav" | "mp3" | "webm" = "wav";
+      if (rawBuffer[0] === 0x52 && rawBuffer[1] === 0x49) {
+        audioFormat = "wav";
+      } else if (rawBuffer[0] === 0x1a && rawBuffer[1] === 0x45) {
+        audioFormat = "webm";
+      } else if ((rawBuffer[0] === 0xff && (rawBuffer[1] === 0xfb || rawBuffer[1] === 0xfa)) ||
+                 (rawBuffer[0] === 0x49 && rawBuffer[1] === 0x44)) {
+        audioFormat = "mp3";
+      } else if (rawBuffer[4] === 0x66 && rawBuffer[5] === 0x74) {
+        audioFormat = "wav";
+        try {
+          const { spawn } = require("child_process");
+          const { writeFile, unlink, readFile } = require("fs/promises");
+          const { randomUUID } = require("crypto");
+          const { tmpdir } = require("os");
+          const { join } = require("path");
+          const inputPath = join(tmpdir(), `voice-in-${randomUUID()}`);
+          const outputPath = join(tmpdir(), `voice-out-${randomUUID()}.wav`);
+          await writeFile(inputPath, rawBuffer);
+          await new Promise<void>((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", ["-i", inputPath, "-vn", "-f", "wav", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", "-y", outputPath]);
+            ffmpeg.stderr.on("data", () => {});
+            ffmpeg.on("close", (code: number) => { if (code === 0) resolve(); else reject(new Error(`ffmpeg ${code}`)); });
+            ffmpeg.on("error", reject);
+          });
+          audioBuffer = await readFile(outputPath);
+          await unlink(inputPath).catch(() => {});
+          await unlink(outputPath).catch(() => {});
+        } catch (e) {
+          console.error("ffmpeg conversion failed:", e);
+        }
+      }
+
+      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
+      const transcription = await openai.audio.transcriptions.create({
+        file,
+        model: "gpt-4o-mini-transcribe",
+      });
+      const userText = transcription.text;
+
+      if (!userText || userText.trim().length === 0) {
+        return res.json({ userText: "", aiText: "I didn't catch that, sir. Could you speak again?", audioBase64: null });
+      }
+
+      const detectedLang = /[\u0B80-\u0BFF]/.test(userText) ? "tamil" : "english";
+
+      if (voiceBotHistory.length === 0) {
+        voiceBotHistory.push({ role: "system", content: JARVIS_VOICE_PROMPT });
+      }
+
+      let contextMsg = userText;
+      if (jarvisContext) {
+        contextMsg += `\n\n${jarvisContext}`;
+      }
+
+      voiceBotHistory.push({ role: "user", content: contextMsg });
+
+      if (voiceBotHistory.length > 16) {
+        const sysMsg = voiceBotHistory[0];
+        voiceBotHistory.splice(1, voiceBotHistory.length - 8);
+        voiceBotHistory[0] = sysMsg;
+      }
+
+      const chatResponse = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: voiceBotHistory,
+        max_completion_tokens: 512,
+      });
+
+      const aiText = chatResponse.choices[0]?.message?.content || "Systems are recalibrating, sir. Try again.";
+      voiceBotHistory.push({ role: "assistant", content: aiText });
+
+      let audioBase64: string | null = null;
+      try {
+        const ttsResponse = await openai.chat.completions.create({
+          model: "gpt-audio",
+          modalities: ["text", "audio"],
+          audio: { voice: "onyx", format: "mp3" },
+          messages: [
+            { role: "system", content: detectedLang === "tamil"
+              ? "You are JARVIS. Speak the following text in Tamil clearly. Pronounce Tamil words naturally."
+              : "You are JARVIS, an Iron Man-style AI. Speak with a confident, calm, authoritative tone."
+            },
+            { role: "user", content: `Repeat the following verbatim: ${aiText}` },
+          ],
+        });
+        const audioData = (ttsResponse.choices[0]?.message as any)?.audio?.data ?? "";
+        if (audioData) {
+          audioBase64 = audioData;
+        }
+      } catch (ttsErr) {
+        console.error("TTS failed:", ttsErr);
+      }
+
+      res.json({
+        userText,
+        aiText,
+        audioBase64,
+        language: detectedLang,
+      });
+
+    } catch (error) {
+      console.error("Voice endpoint error:", error);
+      res.status(500).json({ error: "Voice processing failed" });
+    }
+  });
+
+  app.post("/api/jarvis/voice/reset", (_req, res) => {
+    voiceBotHistory.length = 0;
+    res.json({ success: true });
   });
 
   const httpServer = createServer(app);
