@@ -8,6 +8,7 @@ let upstoxAccessToken: string | null = null;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const upstoxApiKey = process.env.UPSTOX_API_KEY;
 const upstoxApiSecret = process.env.UPSTOX_API_SECRET;
+let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || null;
 
 interface TradeProposal {
   id: string;
