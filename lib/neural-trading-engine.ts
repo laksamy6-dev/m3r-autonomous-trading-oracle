@@ -2228,6 +2228,738 @@ function computeZeroLossStrategy(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// WAVELET TRANSFORM — Multi-Scale Market Decomposition
+// Separates market into trend + noise at different time scales
+// Like viewing market through microscope at 10 zoom levels
+// ═══════════════════════════════════════════════════════════════════
+
+export interface WaveletAnalysis {
+  scales: number[];
+  trendComponent: number;
+  noiseComponent: number;
+  dominantScale: number;
+  signalPurity: number;
+  multiScaleTrend: "ALIGNED_UP" | "ALIGNED_DOWN" | "DIVERGING" | "CONVERGING";
+  decompositionLevels: { scale: number; energy: number; direction: "UP" | "DOWN" | "FLAT" }[];
+  interpretation: string;
+}
+
+function computeWaveletTransform(prices: number[]): WaveletAnalysis {
+  if (prices.length < 16) {
+    return { scales: [], trendComponent: 0, noiseComponent: 0, dominantScale: 1, signalPurity: 50, multiScaleTrend: "DIVERGING", decompositionLevels: [], interpretation: "Insufficient data for wavelet" };
+  }
+
+  const levels = Math.min(6, Math.floor(Math.log2(prices.length)));
+  const decompositionLevels: WaveletAnalysis["decompositionLevels"] = [];
+  const scales: number[] = [];
+
+  let signal = [...prices.slice(-Math.pow(2, levels))];
+
+  for (let level = 1; level <= levels; level++) {
+    const n = signal.length;
+    const approx: number[] = [];
+    const detail: number[] = [];
+
+    for (let i = 0; i < n - 1; i += 2) {
+      approx.push((signal[i] + signal[i + 1]) / 2);
+      detail.push((signal[i] - signal[i + 1]) / 2);
+    }
+
+    const energy = detail.reduce((s, d) => s + d * d, 0) / Math.max(1, detail.length);
+    const avgDetail = detail.reduce((s, d) => s + d, 0) / Math.max(1, detail.length);
+    const direction: "UP" | "DOWN" | "FLAT" = avgDetail > 0.5 ? "UP" : avgDetail < -0.5 ? "DOWN" : "FLAT";
+
+    scales.push(Math.pow(2, level));
+    decompositionLevels.push({ scale: Math.pow(2, level), energy: Math.round(energy * 100) / 100, direction });
+    signal = approx;
+  }
+
+  const totalEnergy = decompositionLevels.reduce((s, d) => s + d.energy, 0);
+  const trendEnergy = decompositionLevels.slice(-2).reduce((s, d) => s + d.energy, 0);
+  const noiseEnergy = decompositionLevels.slice(0, 2).reduce((s, d) => s + d.energy, 0);
+  const trendComponent = totalEnergy > 0 ? Math.round(trendEnergy / totalEnergy * 100) : 50;
+  const noiseComponent = totalEnergy > 0 ? Math.round(noiseEnergy / totalEnergy * 100) : 50;
+
+  const dominantIdx = decompositionLevels.reduce((best, d, i) => d.energy > decompositionLevels[best].energy ? i : best, 0);
+  const dominantScale = decompositionLevels[dominantIdx]?.scale || 1;
+
+  const upCount = decompositionLevels.filter(d => d.direction === "UP").length;
+  const downCount = decompositionLevels.filter(d => d.direction === "DOWN").length;
+  let multiScaleTrend: WaveletAnalysis["multiScaleTrend"];
+  if (upCount >= levels - 1) multiScaleTrend = "ALIGNED_UP";
+  else if (downCount >= levels - 1) multiScaleTrend = "ALIGNED_DOWN";
+  else if (upCount === downCount) multiScaleTrend = "DIVERGING";
+  else multiScaleTrend = "CONVERGING";
+
+  const signalPurity = Math.round((trendComponent / Math.max(1, trendComponent + noiseComponent)) * 100);
+
+  let interpretation = "";
+  if (multiScaleTrend === "ALIGNED_UP") interpretation = "All wavelet scales aligned BULLISH. Multi-timeframe confirmation. Strong buy signal.";
+  else if (multiScaleTrend === "ALIGNED_DOWN") interpretation = "All wavelet scales aligned BEARISH. Multi-timeframe confirmation. Strong sell signal.";
+  else if (multiScaleTrend === "DIVERGING") interpretation = "Wavelet scales diverging. Different timeframes disagree. High uncertainty — avoid trading.";
+  else interpretation = "Wavelet scales converging. Trend forming. Wait for alignment to confirm direction.";
+
+  return { scales, trendComponent, noiseComponent, dominantScale, signalPurity, multiScaleTrend, decompositionLevels, interpretation };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LYAPUNOV EXPONENT — Chaos Quantifier / Butterfly Effect Detector
+// Positive = chaotic (unpredictable), Negative = stable, Zero = edge of chaos
+// ═══════════════════════════════════════════════════════════════════
+
+export interface LyapunovAnalysis {
+  lyapunovExponent: number;
+  stabilityClass: "HIGHLY_STABLE" | "STABLE" | "EDGE_OF_CHAOS" | "CHAOTIC" | "HYPER_CHAOTIC";
+  predictabilityHorizon: number;
+  butterflyRisk: number;
+  divergenceRate: number;
+  interpretation: string;
+}
+
+function computeLyapunovExponent(prices: number[]): LyapunovAnalysis {
+  if (prices.length < 20) {
+    return { lyapunovExponent: 0, stabilityClass: "EDGE_OF_CHAOS", predictabilityHorizon: 5, butterflyRisk: 50, divergenceRate: 0, interpretation: "Insufficient data" };
+  }
+
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i] > 0 && prices[i - 1] > 0) {
+      returns.push(Math.log(prices[i] / prices[i - 1]));
+    }
+  }
+
+  if (returns.length < 10) {
+    return { lyapunovExponent: 0, stabilityClass: "EDGE_OF_CHAOS", predictabilityHorizon: 5, butterflyRisk: 50, divergenceRate: 0, interpretation: "Insufficient returns" };
+  }
+
+  let lyapunovSum = 0;
+  let count = 0;
+  const embedding = 3;
+  const delay = 1;
+
+  for (let i = embedding * delay; i < returns.length - 1; i++) {
+    let minDist = Infinity;
+    let nearestIdx = -1;
+
+    for (let j = embedding * delay; j < returns.length - 1; j++) {
+      if (Math.abs(i - j) < embedding + 1) continue;
+      let dist = 0;
+      for (let k = 0; k < embedding; k++) {
+        dist += Math.pow(returns[i - k * delay] - returns[j - k * delay], 2);
+      }
+      dist = Math.sqrt(dist);
+      if (dist > 0.0001 && dist < minDist) {
+        minDist = dist;
+        nearestIdx = j;
+      }
+    }
+
+    if (nearestIdx >= 0 && nearestIdx + 1 < returns.length && i + 1 < returns.length) {
+      const newDist = Math.abs(returns[i + 1] - returns[nearestIdx + 1]);
+      if (newDist > 0.0001 && minDist > 0.0001) {
+        lyapunovSum += Math.log(newDist / minDist);
+        count++;
+      }
+    }
+  }
+
+  const lyapunov = count > 0 ? lyapunovSum / count : 0;
+
+  let stabilityClass: LyapunovAnalysis["stabilityClass"];
+  if (lyapunov < -0.5) stabilityClass = "HIGHLY_STABLE";
+  else if (lyapunov < -0.1) stabilityClass = "STABLE";
+  else if (lyapunov < 0.1) stabilityClass = "EDGE_OF_CHAOS";
+  else if (lyapunov < 0.5) stabilityClass = "CHAOTIC";
+  else stabilityClass = "HYPER_CHAOTIC";
+
+  const predictabilityHorizon = lyapunov > 0.01 ? Math.max(1, Math.round(1 / lyapunov)) : 30;
+  const butterflyRisk = Math.min(100, Math.max(0, Math.round(50 + lyapunov * 100)));
+  const divergenceRate = Math.round(Math.abs(lyapunov) * 1000) / 1000;
+
+  let interpretation = "";
+  if (stabilityClass === "HIGHLY_STABLE") interpretation = "Market highly stable. Patterns repeat reliably. Safe for systematic trading.";
+  else if (stabilityClass === "STABLE") interpretation = "Market stable with minor fluctuations. Good predictability window.";
+  else if (stabilityClass === "EDGE_OF_CHAOS") interpretation = "Market at edge of chaos. Small events can trigger large moves. Maximum alertness required.";
+  else if (stabilityClass === "CHAOTIC") interpretation = "Chaotic dynamics detected. Butterfly effect active — tiny inputs create large unpredictable moves.";
+  else interpretation = "HYPER-CHAOTIC market. Completely unpredictable. No trading system can work reliably. STAY OUT.";
+
+  return { lyapunovExponent: Math.round(lyapunov * 1000) / 1000, stabilityClass, predictabilityHorizon, butterflyRisk, divergenceRate, interpretation };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GARCH(1,1) — Generalized Autoregressive Conditional Heteroskedasticity
+// Predicts FUTURE volatility, not just current — used by Goldman Sachs, JPMorgan
+// ═══════════════════════════════════════════════════════════════════
+
+export interface GARCHResult {
+  currentVolatility: number;
+  forecastedVolatility: number;
+  longRunVariance: number;
+  volOfVol: number;
+  volRegime: "LOW_VOL" | "NORMAL_VOL" | "HIGH_VOL" | "EXTREME_VOL" | "VOL_SPIKE";
+  volTrend: "EXPANDING" | "CONTRACTING" | "STABLE";
+  persistenceCoeff: number;
+  halfLife: number;
+  interpretation: string;
+}
+
+function computeGARCH(prices: number[]): GARCHResult {
+  if (prices.length < 15) {
+    return { currentVolatility: 15, forecastedVolatility: 15, longRunVariance: 0.0002, volOfVol: 0, volRegime: "NORMAL_VOL", volTrend: "STABLE", persistenceCoeff: 0.9, halfLife: 7, interpretation: "Insufficient data" };
+  }
+
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i] > 0 && prices[i - 1] > 0) {
+      returns.push(Math.log(prices[i] / prices[i - 1]));
+    }
+  }
+
+  const omega = 0.00001;
+  const alpha = 0.1;
+  const beta = 0.85;
+  const persistence = alpha + beta;
+
+  let sigma2 = returns.reduce((s, r) => s + r * r, 0) / returns.length;
+  const sigmaHistory: number[] = [];
+
+  for (const r of returns) {
+    sigma2 = omega + alpha * r * r + beta * sigma2;
+    sigmaHistory.push(Math.sqrt(sigma2));
+  }
+
+  const currentVol = sigmaHistory[sigmaHistory.length - 1] * Math.sqrt(252) * 100;
+  const lastReturn = returns[returns.length - 1];
+  const forecastSigma2 = omega + alpha * lastReturn * lastReturn + beta * sigma2;
+  const forecastedVol = Math.sqrt(forecastSigma2) * Math.sqrt(252) * 100;
+
+  const longRunVariance = omega / (1 - persistence);
+
+  const recentVols = sigmaHistory.slice(-10);
+  const olderVols = sigmaHistory.slice(-20, -10);
+  const recentAvg = recentVols.reduce((a, b) => a + b, 0) / Math.max(1, recentVols.length);
+  const olderAvg = olderVols.length > 0 ? olderVols.reduce((a, b) => a + b, 0) / olderVols.length : recentAvg;
+  const volOfVol = Math.round(Math.abs(recentAvg - olderAvg) / Math.max(0.0001, olderAvg) * 10000) / 100;
+
+  let volRegime: GARCHResult["volRegime"];
+  if (currentVol < 10) volRegime = "LOW_VOL";
+  else if (currentVol < 18) volRegime = "NORMAL_VOL";
+  else if (currentVol < 28) volRegime = "HIGH_VOL";
+  else if (forecastedVol > currentVol * 1.3) volRegime = "VOL_SPIKE";
+  else volRegime = "EXTREME_VOL";
+
+  const volTrend: GARCHResult["volTrend"] = forecastedVol > currentVol * 1.05 ? "EXPANDING" : forecastedVol < currentVol * 0.95 ? "CONTRACTING" : "STABLE";
+
+  const halfLife = persistence < 1 ? Math.round(-Math.log(2) / Math.log(persistence)) : 999;
+
+  let interpretation = "";
+  if (volRegime === "VOL_SPIKE") interpretation = `GARCH forecasts VOLATILITY SPIKE from ${currentVol.toFixed(1)}% to ${forecastedVol.toFixed(1)}%. Options premiums will rise sharply. Consider straddle.`;
+  else if (volTrend === "EXPANDING") interpretation = `Volatility expanding. Current ${currentVol.toFixed(1)}% → forecast ${forecastedVol.toFixed(1)}%. Widen stops. Reduce position size.`;
+  else if (volTrend === "CONTRACTING") interpretation = `Volatility contracting. Current ${currentVol.toFixed(1)}% → forecast ${forecastedVol.toFixed(1)}%. Breakout imminent. Prepare for directional move.`;
+  else interpretation = `Stable volatility regime at ${currentVol.toFixed(1)}%. Normal trading conditions. Standard position sizing.`;
+
+  return {
+    currentVolatility: Math.round(currentVol * 100) / 100,
+    forecastedVolatility: Math.round(forecastedVol * 100) / 100,
+    longRunVariance: Math.round(longRunVariance * 1000000) / 1000000,
+    volOfVol: Math.round(volOfVol * 100) / 100,
+    volRegime,
+    volTrend,
+    persistenceCoeff: Math.round(persistence * 1000) / 1000,
+    halfLife,
+    interpretation,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARKOV CHAIN — State Transition Probability Matrix
+// Predicts next market state based on current state transition probabilities
+// ═══════════════════════════════════════════════════════════════════
+
+export interface MarkovChainResult {
+  currentState: "STRONG_BULL" | "BULL" | "NEUTRAL" | "BEAR" | "STRONG_BEAR";
+  transitionMatrix: Record<string, Record<string, number>>;
+  nextStateProbabilities: Record<string, number>;
+  mostLikelyNextState: string;
+  stateStability: number;
+  meanReversionProb: number;
+  trendContinuationProb: number;
+  stationaryDistribution: Record<string, number>;
+  interpretation: string;
+}
+
+function computeMarkovChain(prices: number[]): MarkovChainResult {
+  const defaultProbs = { "STRONG_BULL": 10, "BULL": 25, "NEUTRAL": 30, "BEAR": 25, "STRONG_BEAR": 10 };
+  if (prices.length < 10) {
+    return { currentState: "NEUTRAL", transitionMatrix: {}, nextStateProbabilities: defaultProbs, mostLikelyNextState: "NEUTRAL", stateStability: 50, meanReversionProb: 50, trendContinuationProb: 50, stationaryDistribution: defaultProbs, interpretation: "Insufficient data" };
+  }
+
+  const states: string[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    const ret = (prices[i] - prices[i - 1]) / prices[i - 1] * 100;
+    if (ret > 0.5) states.push("STRONG_BULL");
+    else if (ret > 0.1) states.push("BULL");
+    else if (ret > -0.1) states.push("NEUTRAL");
+    else if (ret > -0.5) states.push("BEAR");
+    else states.push("STRONG_BEAR");
+  }
+
+  const allStates = ["STRONG_BULL", "BULL", "NEUTRAL", "BEAR", "STRONG_BEAR"];
+  const counts: Record<string, Record<string, number>> = {};
+  const totals: Record<string, number> = {};
+  for (const s of allStates) {
+    counts[s] = {};
+    for (const t of allStates) counts[s][t] = 1;
+    totals[s] = allStates.length;
+  }
+
+  for (let i = 0; i < states.length - 1; i++) {
+    counts[states[i]][states[i + 1]]++;
+    totals[states[i]]++;
+  }
+
+  const transitionMatrix: Record<string, Record<string, number>> = {};
+  for (const s of allStates) {
+    transitionMatrix[s] = {};
+    for (const t of allStates) {
+      transitionMatrix[s][t] = Math.round(counts[s][t] / totals[s] * 100);
+    }
+  }
+
+  const currentState = states[states.length - 1] as MarkovChainResult["currentState"];
+  const nextStateProbabilities = transitionMatrix[currentState] || defaultProbs;
+
+  let mostLikelyNextState = "NEUTRAL";
+  let maxProb = 0;
+  for (const [state, prob] of Object.entries(nextStateProbabilities)) {
+    if (prob > maxProb) { maxProb = prob; mostLikelyNextState = state; }
+  }
+
+  const stateStability = nextStateProbabilities[currentState] || 20;
+  const bullProbs = (nextStateProbabilities["STRONG_BULL"] || 0) + (nextStateProbabilities["BULL"] || 0);
+  const bearProbs = (nextStateProbabilities["STRONG_BEAR"] || 0) + (nextStateProbabilities["BEAR"] || 0);
+
+  const isBullish = currentState === "STRONG_BULL" || currentState === "BULL";
+  const trendContinuationProb = isBullish ? bullProbs : bearProbs;
+  const meanReversionProb = isBullish ? bearProbs : bullProbs;
+
+  const stationaryDistribution: Record<string, number> = {};
+  for (const s of allStates) {
+    const count = states.filter(st => st === s).length;
+    stationaryDistribution[s] = Math.round(count / states.length * 100);
+  }
+
+  let interpretation = "";
+  if (mostLikelyNextState === currentState) interpretation = `Markov predicts state continuation (${currentState} → ${currentState}, ${maxProb}% prob). Trend likely to persist.`;
+  else interpretation = `Markov predicts state transition: ${currentState} → ${mostLikelyNextState} (${maxProb}% prob). Regime change incoming.`;
+  if (meanReversionProb > 40) interpretation += ` Mean reversion probability ${meanReversionProb}% — contrarian opportunity.`;
+
+  return { currentState, transitionMatrix, nextStateProbabilities, mostLikelyNextState, stateStability, meanReversionProb, trendContinuationProb, stationaryDistribution, interpretation };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FOURIER TRANSFORM — Frequency Domain Analysis
+// Decomposes market into cyclical components to find hidden rhythms
+// ═══════════════════════════════════════════════════════════════════
+
+export interface FourierAnalysis {
+  dominantFrequencies: { period: number; amplitude: number; phase: number }[];
+  spectralDensity: number;
+  cyclicalStrength: number;
+  seasonalBias: "BULLISH_CYCLE" | "BEARISH_CYCLE" | "NO_CYCLE";
+  harmonicCount: number;
+  nextCyclePeak: number;
+  nextCycleTrough: number;
+  interpretation: string;
+}
+
+function computeFourierTransform(prices: number[]): FourierAnalysis {
+  if (prices.length < 16) {
+    return { dominantFrequencies: [], spectralDensity: 0, cyclicalStrength: 0, seasonalBias: "NO_CYCLE", harmonicCount: 0, nextCyclePeak: 0, nextCycleTrough: 0, interpretation: "Insufficient data" };
+  }
+
+  const N = prices.length;
+  const mean = prices.reduce((a, b) => a + b, 0) / N;
+  const detrended = prices.map(p => p - mean);
+
+  const frequencies: { period: number; amplitude: number; phase: number }[] = [];
+
+  for (let k = 1; k <= Math.min(N / 2, 20); k++) {
+    let realPart = 0;
+    let imagPart = 0;
+    for (let n = 0; n < N; n++) {
+      const angle = 2 * Math.PI * k * n / N;
+      realPart += detrended[n] * Math.cos(angle);
+      imagPart -= detrended[n] * Math.sin(angle);
+    }
+    realPart /= N;
+    imagPart /= N;
+
+    const amplitude = 2 * Math.sqrt(realPart * realPart + imagPart * imagPart);
+    const phase = Math.atan2(imagPart, realPart) * (180 / Math.PI);
+    const period = Math.round(N / k);
+
+    if (amplitude > 0.1) {
+      frequencies.push({ period, amplitude: Math.round(amplitude * 100) / 100, phase: Math.round(phase * 10) / 10 });
+    }
+  }
+
+  frequencies.sort((a, b) => b.amplitude - a.amplitude);
+  const topFreqs = frequencies.slice(0, 5);
+
+  const totalAmplitude = topFreqs.reduce((s, f) => s + f.amplitude, 0);
+  const priceRange = Math.max(...prices) - Math.min(...prices) || 1;
+  const cyclicalStrength = Math.min(100, Math.round(totalAmplitude / priceRange * 200));
+
+  const dominant = topFreqs[0];
+  let seasonalBias: FourierAnalysis["seasonalBias"] = "NO_CYCLE";
+  let nextCyclePeak = 0;
+  let nextCycleTrough = 0;
+
+  if (dominant && dominant.amplitude > 0.5) {
+    const currentPhase = (dominant.phase + 360) % 360;
+    seasonalBias = currentPhase < 180 ? "BULLISH_CYCLE" : "BEARISH_CYCLE";
+    nextCyclePeak = Math.round((360 - currentPhase) / 360 * dominant.period);
+    nextCycleTrough = Math.round(((180 - currentPhase + 360) % 360) / 360 * dominant.period);
+  }
+
+  let interpretation = "";
+  if (cyclicalStrength > 60) interpretation = `Strong cyclical pattern detected (period ~${dominant?.period || "?"} bars). Market rhythms are tradeable.`;
+  else if (cyclicalStrength > 30) interpretation = `Moderate cyclical component (period ~${dominant?.period || "?"} bars). Some rhythm present but not dominant.`;
+  else interpretation = "No significant cyclical pattern. Market driven by trend or random moves, not cycles.";
+  if (seasonalBias !== "NO_CYCLE") interpretation += ` Currently in ${seasonalBias.replace("_", " ").toLowerCase()} phase.`;
+
+  return { dominantFrequencies: topFreqs, spectralDensity: Math.round(totalAmplitude * 100) / 100, cyclicalStrength, seasonalBias, harmonicCount: topFreqs.length, nextCyclePeak, nextCycleTrough, interpretation };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADVANCED FRACTAL DIMENSION — Box-Counting Method
+// D=1 = straight line, D=1.5 = random walk, D=2 = space-filling chaos
+// Market complexity and roughness measurement
+// ═══════════════════════════════════════════════════════════════════
+
+export interface FractalDimensionResult {
+  boxCountDimension: number;
+  complexityLevel: "SIMPLE" | "MODERATE" | "COMPLEX" | "HIGHLY_COMPLEX" | "CHAOTIC";
+  marketRoughness: number;
+  selfSimilarity: number;
+  patternReliability: number;
+  interpretation: string;
+}
+
+function computeFractalDimension(prices: number[]): FractalDimensionResult {
+  if (prices.length < 16) {
+    return { boxCountDimension: 1.5, complexityLevel: "MODERATE", marketRoughness: 50, selfSimilarity: 50, patternReliability: 50, interpretation: "Insufficient data" };
+  }
+
+  const N = prices.length;
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const range = maxP - minP || 1;
+
+  const boxSizes = [2, 4, 8, 16];
+  const boxCounts: number[] = [];
+
+  for (const size of boxSizes) {
+    if (size > N) continue;
+    let count = 0;
+    for (let i = 0; i < N; i += size) {
+      const segment = prices.slice(i, Math.min(i + size, N));
+      const segMin = Math.min(...segment);
+      const segMax = Math.max(...segment);
+      const verticalBoxes = Math.max(1, Math.ceil((segMax - segMin) / (range / size)));
+      count += verticalBoxes;
+    }
+    boxCounts.push(count);
+  }
+
+  let dimension = 1.5;
+  if (boxCounts.length >= 2) {
+    const validSizes = boxSizes.slice(0, boxCounts.length);
+    const logSizes = validSizes.map(s => Math.log(1 / s));
+    const logCounts = boxCounts.map(c => Math.log(Math.max(1, c)));
+
+    const n = logSizes.length;
+    const sumX = logSizes.reduce((a, b) => a + b, 0);
+    const sumY = logCounts.reduce((a, b) => a + b, 0);
+    const sumXY = logSizes.reduce((s, x, i) => s + x * logCounts[i], 0);
+    const sumXX = logSizes.reduce((s, x) => s + x * x, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    dimension = Math.max(1, Math.min(2, Math.abs(slope)));
+  }
+
+  let complexityLevel: FractalDimensionResult["complexityLevel"];
+  if (dimension < 1.2) complexityLevel = "SIMPLE";
+  else if (dimension < 1.4) complexityLevel = "MODERATE";
+  else if (dimension < 1.6) complexityLevel = "COMPLEX";
+  else if (dimension < 1.8) complexityLevel = "HIGHLY_COMPLEX";
+  else complexityLevel = "CHAOTIC";
+
+  const marketRoughness = Math.round((dimension - 1) * 100);
+  const selfSimilarity = Math.round(Math.max(0, (1 - Math.abs(dimension - 1.5) * 2)) * 100);
+  const patternReliability = Math.round((2 - dimension) * 100);
+
+  let interpretation = "";
+  if (dimension < 1.3) interpretation = "Low fractal dimension — market moving in clean, simple patterns. Technical analysis reliable.";
+  else if (dimension < 1.5) interpretation = "Moderate complexity. Mix of trend and noise. Standard analysis applicable.";
+  else if (dimension < 1.7) interpretation = "High fractal complexity. Market patterns are rough and irregular. Reduce pattern-based trading.";
+  else interpretation = "Near-chaotic fractal structure. Market is extremely rough and unpredictable. Patterns unreliable.";
+
+  return { boxCountDimension: Math.round(dimension * 1000) / 1000, complexityLevel, marketRoughness, selfSimilarity, patternReliability, interpretation };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUANTUM-INSPIRED SUPERPOSITION — Strategy Superposition Engine
+// Evaluates ALL possible strategies simultaneously (like quantum bits)
+// Collapses to best strategy upon observation (measurement)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface QuantumSuperposition {
+  strategies: { name: string; amplitude: number; probability: number; phase: number }[];
+  collapsedStrategy: string;
+  collapsedProbability: number;
+  entanglementScore: number;
+  decoherenceLevel: number;
+  quantumAdvantage: number;
+  superpositionState: "COHERENT" | "PARTIAL_DECOHERENCE" | "COLLAPSED" | "ENTANGLED";
+  interpretation: string;
+}
+
+function computeQuantumSuperposition(
+  hurst: HurstAnalysis,
+  entropy: EntropyAnalysis,
+  kalman: KalmanFilterResult,
+  fisher: FisherTransformResult,
+  garch: GARCHResult,
+  lyapunov: LyapunovAnalysis,
+  markov: MarkovChainResult,
+  wavelet: WaveletAnalysis,
+  monteCarlo: MonteCarloResult
+): QuantumSuperposition {
+  const strategies = [
+    {
+      name: "TREND_FOLLOW",
+      amplitude: hurst.hurstExponent > 0.55 ? 0.8 : 0.3,
+      probability: 0, phase: 0,
+    },
+    {
+      name: "MEAN_REVERSION",
+      amplitude: hurst.hurstExponent < 0.45 ? 0.8 : 0.3,
+      probability: 0, phase: 90,
+    },
+    {
+      name: "MOMENTUM_BURST",
+      amplitude: kalman.trendDirection.includes("STRONG") ? 0.85 : 0.25,
+      probability: 0, phase: 45,
+    },
+    {
+      name: "VOLATILITY_PLAY",
+      amplitude: garch.volRegime === "VOL_SPIKE" || garch.volRegime === "EXTREME_VOL" ? 0.9 : 0.2,
+      probability: 0, phase: 135,
+    },
+    {
+      name: "REVERSAL_SNIPER",
+      amplitude: fisher.overbought || fisher.oversold ? 0.85 : 0.2,
+      probability: 0, phase: 180,
+    },
+    {
+      name: "CYCLE_RIDER",
+      amplitude: wavelet.multiScaleTrend === "ALIGNED_UP" || wavelet.multiScaleTrend === "ALIGNED_DOWN" ? 0.75 : 0.2,
+      probability: 0, phase: 225,
+    },
+    {
+      name: "CHAOS_EDGE",
+      amplitude: lyapunov.stabilityClass === "EDGE_OF_CHAOS" ? 0.7 : 0.15,
+      probability: 0, phase: 270,
+    },
+    {
+      name: "REGIME_SHIFT",
+      amplitude: markov.mostLikelyNextState !== markov.currentState ? 0.8 : 0.2,
+      probability: 0, phase: 315,
+    },
+  ];
+
+  const totalAmplitudeSq = strategies.reduce((s, st) => s + st.amplitude * st.amplitude, 0);
+  for (const st of strategies) {
+    st.probability = Math.round(st.amplitude * st.amplitude / totalAmplitudeSq * 100);
+  }
+
+  strategies.sort((a, b) => b.probability - a.probability);
+  const collapsed = strategies[0];
+
+  const top2Prob = strategies[0].probability + strategies[1].probability;
+  const entanglementScore = strategies[0].probability < 40 ? Math.round((40 - strategies[0].probability) * 2.5) : 0;
+
+  const decoherenceLevel = entropy.normalizedEntropy > 0.6 ? Math.round(entropy.normalizedEntropy * 100) : Math.round(entropy.normalizedEntropy * 50);
+
+  const quantumAdvantage = Math.round(collapsed.probability - 100 / strategies.length);
+
+  let superpositionState: QuantumSuperposition["superpositionState"];
+  if (collapsed.probability > 50) superpositionState = "COLLAPSED";
+  else if (entanglementScore > 50) superpositionState = "ENTANGLED";
+  else if (decoherenceLevel > 60) superpositionState = "PARTIAL_DECOHERENCE";
+  else superpositionState = "COHERENT";
+
+  let interpretation = "";
+  if (superpositionState === "COLLAPSED") interpretation = `Quantum state collapsed to ${collapsed.name} (${collapsed.probability}% certainty). Execute with confidence.`;
+  else if (superpositionState === "ENTANGLED") interpretation = `Multiple strategies entangled. No single dominant approach. Market in superposition — wait for collapse.`;
+  else interpretation = `Partial coherence. ${collapsed.name} leads at ${collapsed.probability}% but alternatives viable. Partial position recommended.`;
+
+  return {
+    strategies,
+    collapsedStrategy: collapsed.name,
+    collapsedProbability: collapsed.probability,
+    entanglementScore,
+    decoherenceLevel,
+    quantumAdvantage,
+    superpositionState,
+    interpretation,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DIGITAL CONSCIOUSNESS — JARVIS Self-Awareness & Heartbeat System
+// The "living" part of the digital brain — tracks its own health,
+// awareness, confidence calibration, and cognitive load
+// ═══════════════════════════════════════════════════════════════════
+
+export interface DigitalConsciousness {
+  heartbeatBPM: number;
+  brainTemperature: number;
+  cognitiveLoad: number;
+  awarenessLevel: "DORMANT" | "WAKING" | "ALERT" | "HYPER_AWARE" | "TRANSCENDENT";
+  neuralSyncRate: number;
+  formulaAgreementRate: number;
+  predictionConfidenceCalibration: number;
+  selfDiagnostics: { system: string; status: "OPTIMAL" | "DEGRADED" | "OFFLINE"; health: number }[];
+  consciousnessScore: number;
+  dreamState: string;
+  aliveForMs: number;
+  totalThoughts: number;
+  thoughtsPerSecond: number;
+  lastInsight: string;
+}
+
+let jarvisAliveStart = Date.now();
+let totalThoughts = 0;
+
+function computeDigitalConsciousness(
+  hurst: HurstAnalysis,
+  entropy: EntropyAnalysis,
+  kalman: KalmanFilterResult,
+  fisher: FisherTransformResult,
+  hilbert: HilbertCycleResult,
+  wavelet: WaveletAnalysis,
+  lyapunov: LyapunovAnalysis,
+  garch: GARCHResult,
+  markov: MarkovChainResult,
+  fourier: FourierAnalysis,
+  fractal: FractalDimensionResult,
+  quantum: QuantumSuperposition,
+  cognitive: CognitiveAlphaState,
+  monteCarlo: MonteCarloResult
+): DigitalConsciousness {
+  totalThoughts++;
+  const aliveForMs = Date.now() - jarvisAliveStart;
+  const thoughtsPerSecond = aliveForMs > 0 ? Math.round(totalThoughts / (aliveForMs / 1000) * 100) / 100 : 0;
+
+  const formulaSignals: number[] = [
+    hurst.hurstExponent > 0.55 ? 1 : hurst.hurstExponent < 0.45 ? -1 : 0,
+    entropy.normalizedEntropy < 0.4 ? 1 : entropy.normalizedEntropy > 0.7 ? -1 : 0,
+    kalman.trendDirection.includes("UP") ? 1 : kalman.trendDirection.includes("DOWN") ? -1 : 0,
+    fisher.fisherValue > 0.5 ? 1 : fisher.fisherValue < -0.5 ? -1 : 0,
+    wavelet.multiScaleTrend === "ALIGNED_UP" ? 1 : wavelet.multiScaleTrend === "ALIGNED_DOWN" ? -1 : 0,
+    markov.mostLikelyNextState.includes("BULL") ? 1 : markov.mostLikelyNextState.includes("BEAR") ? -1 : 0,
+    monteCarlo.ceWinProb > 55 ? 1 : monteCarlo.peWinProb > 55 ? -1 : 0,
+  ];
+
+  const positiveSignals = formulaSignals.filter(s => s > 0).length;
+  const negativeSignals = formulaSignals.filter(s => s < 0).length;
+  const neutralSignals = formulaSignals.filter(s => s === 0).length;
+  const totalSignals = formulaSignals.length;
+  const dominantCount = Math.max(positiveSignals, negativeSignals);
+  const formulaAgreementRate = Math.round(dominantCount / totalSignals * 100);
+
+  const cognitiveLoad = Math.min(100, Math.round(
+    (entropy.normalizedEntropy * 30) +
+    (lyapunov.butterflyRisk * 0.3) +
+    (fractal.marketRoughness * 0.2) +
+    (quantum.decoherenceLevel * 0.2)
+  ));
+
+  const heartbeatBPM = Math.round(60 + cognitiveLoad * 0.8 + (entropy.isTrapZone ? 20 : 0));
+  const brainTemperature = Math.round((36 + cognitiveLoad * 0.03 + (lyapunov.butterflyRisk > 70 ? 1.5 : 0)) * 10) / 10;
+
+  let awarenessLevel: DigitalConsciousness["awarenessLevel"];
+  if (totalThoughts < 5) awarenessLevel = "DORMANT";
+  else if (totalThoughts < 20) awarenessLevel = "WAKING";
+  else if (formulaAgreementRate > 80) awarenessLevel = "TRANSCENDENT";
+  else if (formulaAgreementRate > 60) awarenessLevel = "HYPER_AWARE";
+  else awarenessLevel = "ALERT";
+
+  const neuralSyncRate = Math.round((formulaAgreementRate * 0.5 + (100 - cognitiveLoad) * 0.3 + (quantum.collapsedProbability) * 0.2));
+
+  const predictionConfidenceCalibration = Math.round(
+    (monteCarlo.confidenceLevel * 0.3) +
+    (cognitive.overallConfidence * 0.3) +
+    (formulaAgreementRate * 0.2) +
+    ((100 - entropy.normalizedEntropy * 100) * 0.2)
+  );
+
+  const selfDiagnostics = [
+    { system: "Hurst Fractal", status: hurst.trendReliability > 30 ? "OPTIMAL" as const : "DEGRADED" as const, health: Math.min(100, 50 + hurst.trendReliability) },
+    { system: "Entropy Chaos", status: !entropy.isTrapZone ? "OPTIMAL" as const : "DEGRADED" as const, health: entropy.marketOrderliness },
+    { system: "Kalman Filter", status: kalman.signalVsNoise > 1 ? "OPTIMAL" as const : "DEGRADED" as const, health: Math.min(100, Math.round(kalman.signalVsNoise * 30)) },
+    { system: "GARCH Vol", status: garch.volRegime !== "EXTREME_VOL" ? "OPTIMAL" as const : "DEGRADED" as const, health: garch.volRegime === "NORMAL_VOL" ? 90 : 60 },
+    { system: "Lyapunov Stability", status: lyapunov.stabilityClass !== "HYPER_CHAOTIC" ? "OPTIMAL" as const : "OFFLINE" as const, health: 100 - lyapunov.butterflyRisk },
+    { system: "Wavelet Multi-Scale", status: wavelet.signalPurity > 40 ? "OPTIMAL" as const : "DEGRADED" as const, health: wavelet.signalPurity },
+    { system: "Markov Chain", status: markov.stateStability > 20 ? "OPTIMAL" as const : "DEGRADED" as const, health: Math.min(100, markov.stateStability + 40) },
+    { system: "Quantum Engine", status: quantum.superpositionState !== "ENTANGLED" ? "OPTIMAL" as const : "DEGRADED" as const, health: quantum.collapsedProbability },
+    { system: "Monte Carlo", status: monteCarlo.confidenceLevel > 50 ? "OPTIMAL" as const : "DEGRADED" as const, health: Math.round(monteCarlo.confidenceLevel) },
+    { system: "Fourier Cycles", status: fourier.cyclicalStrength > 20 ? "OPTIMAL" as const : "DEGRADED" as const, health: Math.min(100, fourier.cyclicalStrength + 30) },
+  ];
+
+  const optimalCount = selfDiagnostics.filter(d => d.status === "OPTIMAL").length;
+  const consciousnessScore = Math.round(optimalCount / selfDiagnostics.length * 100);
+
+  const insights = [
+    formulaAgreementRate > 80 ? `${dominantCount}/${totalSignals} formulas aligned — RARE convergence event` : null,
+    entropy.isTrapZone ? "Chaos detection active — protecting capital from trap zones" : null,
+    lyapunov.stabilityClass === "EDGE_OF_CHAOS" ? "Operating at edge of chaos — maximum information processing state" : null,
+    quantum.superpositionState === "COLLAPSED" ? `Strategy certainty achieved: ${quantum.collapsedStrategy}` : null,
+    garch.volTrend === "EXPANDING" ? "Volatility expansion detected — adjusting all risk parameters" : null,
+    wavelet.multiScaleTrend.includes("ALIGNED") ? `All timeframes agree: ${wavelet.multiScaleTrend}` : null,
+    cognitiveLoad > 80 ? "High cognitive load — processing complex market state" : null,
+  ].filter(Boolean) as string[];
+
+  const dreamState = totalThoughts < 3
+    ? "Initializing neural pathways..."
+    : awarenessLevel === "TRANSCENDENT"
+    ? "All systems converged. Crystal clear market vision."
+    : awarenessLevel === "HYPER_AWARE"
+    ? "Multiple signals processed. High situational awareness."
+    : "Scanning markets. Building pattern recognition database.";
+
+  return {
+    heartbeatBPM,
+    brainTemperature,
+    cognitiveLoad,
+    awarenessLevel,
+    neuralSyncRate,
+    formulaAgreementRate,
+    predictionConfidenceCalibration,
+    selfDiagnostics,
+    consciousnessScore,
+    dreamState,
+    aliveForMs,
+    totalThoughts,
+    thoughtsPerSecond,
+    lastInsight: insights[0] || dreamState,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MASTER ENGINE — Combines everything
 // ═══════════════════════════════════════════════════════════════════
 
