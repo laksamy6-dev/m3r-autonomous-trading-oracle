@@ -725,9 +725,28 @@ export default function BotScreen() {
               <View style={styles.statusDot} />
               <Text style={styles.statusText}>
                 {engineOutput
-                  ? `v6.0 | Tick #${engineOutput.engineTick}`
+                  ? `v8.0 | Tick #${engineOutput.engineTick}`
                   : "Initializing..."}
               </Text>
+              <View style={{ width: 8 }} />
+              <Pressable 
+                onPress={() => setMode(mode === 'text' ? 'voice' : 'text')}
+                style={({ pressed }) => [
+                  { 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    gap: 4, 
+                    backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                  }, 
+                  pressed && { opacity: 0.7 }
+                ]}
+              >
+                <Ionicons name="sparkles" size={10} color={CYAN} />
+                <Text style={{ color: CYAN, fontSize: 10, fontFamily: 'DMSans_600SemiBold' }}>Gemini AI</Text>
+              </Pressable>
             </View>
           </View>
           <View style={styles.headerActions}>

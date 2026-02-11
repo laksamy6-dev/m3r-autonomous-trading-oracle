@@ -1112,6 +1112,34 @@ Based on this data, give me:
     };
 
     tradeProposals.push(proposal);
+    
+    // Direct Telegram Notification
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      try {
+        const telegramMsg = `🚀 *JARVIS Signal*\n\n` +
+          `💰 *NIFTY:* ${marketStatus?.price || strike}\n` +
+          `📈 *Action:* ${action}\n` +
+          `🎯 *Strike:* ${strike}\n` +
+          `💵 *Entry:* ₹${premium}\n` +
+          `🚀 *Target:* ₹${targetPremium}\n` +
+          `🛑 *SL:* ₹${slPremium}\n\n` +
+          `🧠 *Brain:* ${wisdomLevel}\n` +
+          `Probability: ${monteCarloWin}%`;
+
+        await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: process.env.TELEGRAM_CHAT_ID,
+            text: telegramMsg,
+            parse_mode: 'Markdown'
+          })
+        });
+      } catch (err) {
+        console.error("Telegram notification failed:", err);
+      }
+    }
+
     await sendTelegramApprovalRequest(proposal);
     res.json({ success: true, proposal });
   });
