@@ -14,20 +14,16 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chart.line.uptrend.xyaxis", selected: "chart.line.uptrend.xyaxis" }} md="trending_up" />
         <Label>Market</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ai">
-        <Icon sf={{ default: "brain", selected: "brain.fill" }} md="psychology" />
-        <Label>AI Advisor</Label>
+      <NativeTabs.Trigger name="options">
+        <Icon sf={{ default: "tablecells", selected: "tablecells.fill" }} md="grid_on" />
+        <Label>Options</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="bot">
         <Icon sf={{ default: "cpu", selected: "cpu.fill" }} md="smart_toy" />
         <Label>Bot</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="watchlist">
-        <Icon sf={{ default: "star", selected: "star.fill" }} md="star" />
-        <Label>Watchlist</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="strategy">
-        <Icon sf={{ default: "gearshape.2", selected: "gearshape.2.fill" }} md="auto_fix_high" />
+        <Icon sf={{ default: "bolt.shield", selected: "bolt.shield.fill" }} md="auto_fix_high" />
         <Label>Strategy</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
@@ -74,11 +70,11 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ai"
+        name="options"
         options={{
-          title: "AI Advisor",
+          title: "Options",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles" size={size} color={color} />
+            <Ionicons name="grid" size={size} color={color} />
           ),
         }}
       />
@@ -92,20 +88,11 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="watchlist"
-        options={{
-          title: "Watchlist",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="strategy"
         options={{
           title: "Strategy",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="git-network" size={size} color={color} />
+            <Ionicons name="flash" size={size} color={color} />
           ),
         }}
       />
@@ -117,6 +104,14 @@ function ClassicTabLayout() {
             <Ionicons name="briefcase" size={size} color={color} />
           ),
         }}
+      />
+      <Tabs.Screen
+        name="ai"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="watchlist"
+        options={{ href: null }}
       />
     </Tabs>
   );

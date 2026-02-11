@@ -138,14 +138,8 @@ export default function OptionsScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({
-          spotPrice: chain.spotPrice,
-          atmStrike: chain.atmStrike,
-          maxPain: chain.maxPainStrike,
-          pcr: chain.overallPCR,
-          bias: bias?.bias,
-          strength: bias?.strength,
-          topCeOI: chain.options.sort((a, b) => b.ceOI - a.ceOI).slice(0, 3).map((o) => ({ strike: o.strikePrice, oi: o.ceOI })),
-          topPeOI: chain.options.sort((a, b) => b.peOI - a.peOI).slice(0, 3).map((o) => ({ strike: o.strikePrice, oi: o.peOI })),
+          optionChain: chain,
+          currentStrategy: null,
         }),
       });
 
