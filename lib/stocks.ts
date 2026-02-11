@@ -1,4 +1,5 @@
 import { Stock, IndexData } from "./types";
+import { getMarketSession } from "./market-timing";
 
 const BASE_STOCKS: Stock[] = [
   { symbol: "RELIANCE", name: "Reliance Industries", price: 2985.60, change: 12.15, changePercent: 0.41, high: 2998.00, low: 2970.50, volume: "12.5M", marketCap: "20.2L Cr", sector: "Oil & Gas", pe: 28.4, weekHigh52: 3024.90, weekLow52: 2220.30 },
@@ -36,7 +37,12 @@ function randomVariation(base: number, maxPercent: number): number {
 }
 
 export function getStocks(): Stock[] {
+  const session = getMarketSession();
+  const isMarketLive = session.sessionStatus === "MARKET_OPEN" || session.sessionStatus === "PRE_MARKET";
+
   return BASE_STOCKS.map((stock) => {
+    if (!isMarketLive) return stock;
+
     const priceVar = randomVariation(stock.price, 0.8);
     const changeVar = randomVariation(stock.change, 30);
     const changePercentVar = (changeVar / priceVar) * 100;
@@ -52,7 +58,12 @@ export function getStocks(): Stock[] {
 }
 
 export function getIndices(): IndexData[] {
+  const session = getMarketSession();
+  const isMarketLive = session.sessionStatus === "MARKET_OPEN" || session.sessionStatus === "PRE_MARKET";
+
   return BASE_INDICES.map((idx) => {
+    if (!isMarketLive) return idx;
+
     const valVar = randomVariation(idx.value, 0.3);
     const changeVar = randomVariation(idx.change, 15);
     const changePercentVar = (changeVar / valVar) * 100;
