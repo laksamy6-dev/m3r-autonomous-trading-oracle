@@ -500,10 +500,16 @@ export default function BotScreen() {
     setVoiceStatus("processing");
 
     let base64Audio: string | null = null;
-    if (Platform.OS === "web") {
-      base64Audio = await stopRecordingWeb();
-    } else {
-      base64Audio = await stopRecordingNative();
+    try {
+      if (Platform.OS === "web") {
+        base64Audio = await stopRecordingWeb();
+      } else {
+        base64Audio = await stopRecordingNative();
+      }
+    } catch (err) {
+      console.error("Recording stop error:", err);
+      setVoiceStatus("ready");
+      return;
     }
 
     if (!base64Audio) {

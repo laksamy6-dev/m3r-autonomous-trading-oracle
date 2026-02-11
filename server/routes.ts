@@ -1090,7 +1090,7 @@ Based on this data, give me:
       id: generateProposalId(),
       action, confidence, strike, premium,
       target: targetPremium, stopLoss: slPremium,
-      lotSize, potentialProfit, brokerage, netProfit,
+      lotSize: 75, potentialProfit, brokerage, netProfit,
       reasoning: [
         `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal at ${strike}`,
         `Monte Carlo: ${monteCarloWin}% win across 10K paths`,

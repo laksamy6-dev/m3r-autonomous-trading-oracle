@@ -114,7 +114,7 @@ function generateOptionChainForStrike(
 }
 
 export function generateOptionChain(spotPrice?: number): OptionChainData {
-  const spot = spotPrice || 24856.75 + (Math.random() - 0.5) * 200;
+  const spot = spotPrice || 24856.75 + (Math.random() - 0.5) * 50; // Reduced variance to match market
   const atmStrike = Math.round(spot / 50) * 50;
   const expiries = getNextWeeklyExpiries();
   const expiryDate = expiries[0];
