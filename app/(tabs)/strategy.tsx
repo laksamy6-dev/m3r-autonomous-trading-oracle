@@ -19,6 +19,13 @@ import {
   runNeuralEngine,
   NeuralEngineOutput,
   CorrectionEvent,
+  HurstAnalysis,
+  EntropyAnalysis,
+  KalmanFilterResult,
+  FisherTransformResult,
+  HilbertCycleResult,
+  ExperienceReplayState,
+  CognitiveAlphaState,
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
 import Colors from "@/constants/colors";
@@ -116,6 +123,13 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Dollar Index ${gl.dollarIndex.toFixed(1)} | Crude Oil $${gl.crudeOil.toFixed(1)}`,
     `Monte Carlo median ${fmtIN(mc.medianPrice)} | VaR(95%) ${fmtIN(mc.valueAtRisk95)} pts`,
     `Risk ${d.riskScore}/100 | Reward ${d.rewardScore}/100 | Timing ${d.timingScore}/100`,
+    `Hurst Exponent ${output.hpiData.hurstExponent} -- ${output.hpiData.trendType}. ${output.hpiData.interpretation}`,
+    `Shannon Entropy ${output.entropyData.normalizedEntropy} -- Chaos: ${output.entropyData.chaosLevel}. ${output.entropyData.isTrapZone ? 'TRAP ZONE ACTIVE' : 'Market clean for signals'}`,
+    `Kalman Filter: filtered ${output.kalmanData.filteredPrice}, predicted ${output.kalmanData.predictedNextPrice}, velocity ${output.kalmanData.velocity}`,
+    `Fisher Transform ${output.fisherData.fisherValue} -- ${output.fisherData.crossover !== 'NONE' ? output.fisherData.crossover : 'no crossover'} ${output.fisherData.overbought ? 'OVERBOUGHT' : output.fisherData.oversold ? 'OVERSOLD' : 'neutral'}`,
+    `Hilbert Cycle: ${output.hilbertData.cyclePosition}, period ${output.hilbertData.dominantPeriod}, strength ${output.hilbertData.cycleStrength}%`,
+    `Cognitive Alpha: Fast=${output.cognitiveAlpha.fastBrain.signal} Slow=${output.cognitiveAlpha.slowBrain.verdict} Fusion=${output.cognitiveAlpha.fusionAction} (${output.cognitiveAlpha.overallConfidence}%)`,
+    `Growth Brain: ${output.experienceReplay.totalExperiences} experiences, win rate ${output.experienceReplay.recentWinRate}%, adaptation ${output.experienceReplay.adaptiveLearningRate}`,
   ];
 
   const count = 2 + Math.floor(Math.random() * 2);
@@ -259,6 +273,13 @@ export default function StrategyScreen() {
   const vol = output.volatility;
   const pr = output.profitRunner;
   const mem = output.memory;
+  const hpi = output.hpiData;
+  const ent = output.entropyData;
+  const kal = output.kalmanData;
+  const fish = output.fisherData;
+  const hilb = output.hilbertData;
+  const expReplay = output.experienceReplay;
+  const cogAlpha = output.cognitiveAlpha;
 
   const usMarkets = gl.markets.filter((m) => m.region === "US");
   const euroMarkets = gl.markets.filter((m) => m.region === "EUROPE");
@@ -406,6 +427,121 @@ export default function StrategyScreen() {
               <Text style={styles.scoreLabel}>Timing</Text>
               <Text style={[styles.scoreVal, { color: d.timingScore > 60 ? C.green : C.textSecondary }]}>{d.timingScore}</Text>
             </View>
+          </View>
+        </View>
+
+        {/* 3B. COGNITIVE ALPHA - 3-LAYER BRAIN */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="hardware-chip" size={16} color={CYAN} />
+            <Text style={styles.cardTitle}>COGNITIVE ALPHA</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: cogAlpha.fusionAction.includes("BUY") ? C.greenBg : cogAlpha.fusionAction.includes("SELL") ? C.redBg : C.goldBg }]}>
+              <Text style={[styles.fusionActionText, { color: cogAlpha.fusionAction.includes("BUY") ? C.green : cogAlpha.fusionAction.includes("SELL") ? C.red : C.gold }]}>
+                {cogAlpha.fusionAction.replace("_", " ")}
+              </Text>
+            </View>
+          </View>
+
+          {cogAlpha.conflictDetected && (
+            <View style={styles.conflictBanner}>
+              <Ionicons name="warning" size={14} color={C.red} />
+              <Text style={styles.conflictBannerText}>CONFLICT DETECTED - Fast Brain vs Physics disagree</Text>
+            </View>
+          )}
+
+          <View style={[styles.brainSection, { borderLeftColor: CYAN }]}>
+            <View style={styles.brainSectionHeader}>
+              <Ionicons name="flash" size={12} color={CYAN} />
+              <Text style={[styles.brainSectionTitle, { color: CYAN }]}>FAST BRAIN</Text>
+              <Text style={styles.brainSectionMeta}>{cogAlpha.fastBrain.responseTimeMs}ms</Text>
+            </View>
+            <View style={styles.brainRow}>
+              <View style={[styles.brainSignalBadge, { backgroundColor: cogAlpha.fastBrain.signal === "BUY" ? C.greenBg : cogAlpha.fastBrain.signal === "SELL" ? C.redBg : C.goldBg }]}>
+                <Text style={[styles.brainSignalText, { color: cogAlpha.fastBrain.signal === "BUY" ? C.green : cogAlpha.fastBrain.signal === "SELL" ? C.red : C.gold }]}>
+                  {cogAlpha.fastBrain.signal}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.brainMetaLabel}>Confidence</Text>
+                <View style={styles.barBg}>
+                  <View style={[styles.barFill, { width: `${cogAlpha.fastBrain.confidence}%`, backgroundColor: CYAN }]} />
+                </View>
+              </View>
+              <Text style={[styles.brainConfVal, { color: CYAN }]}>{cogAlpha.fastBrain.confidence}%</Text>
+            </View>
+            {cogAlpha.fastBrain.isTrapZone && (
+              <View style={styles.trapWarningRow}>
+                <Ionicons name="alert-circle" size={12} color={C.red} />
+                <Text style={styles.trapWarningText}>TRAP ZONE DETECTED</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.brainSection, { borderLeftColor: C.gold }]}>
+            <View style={styles.brainSectionHeader}>
+              <Ionicons name="bulb" size={12} color={C.gold} />
+              <Text style={[styles.brainSectionTitle, { color: C.gold }]}>SLOW BRAIN</Text>
+              <View style={[styles.verdictBadge, { backgroundColor: cogAlpha.slowBrain.verdict === "SNIPER_ENTRY" ? C.greenBg : cogAlpha.slowBrain.verdict === "NO_TRADE" || cogAlpha.slowBrain.verdict === "CONFLICT" ? C.redBg : C.goldBg }]}>
+                <Text style={[styles.verdictText, { color: cogAlpha.slowBrain.verdict === "SNIPER_ENTRY" ? C.green : cogAlpha.slowBrain.verdict === "NO_TRADE" || cogAlpha.slowBrain.verdict === "CONFLICT" ? C.red : C.gold }]}>
+                  {cogAlpha.slowBrain.verdict.replace(/_/g, " ")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.debateItem}>
+              <Text style={styles.debateRole}>Analyst</Text>
+              <Text style={styles.debateText} numberOfLines={2}>{cogAlpha.slowBrain.analystView}</Text>
+            </View>
+            <View style={styles.debateItem}>
+              <Text style={[styles.debateRole, { color: C.red }]}>Skeptic</Text>
+              <Text style={styles.debateText} numberOfLines={2}>{cogAlpha.slowBrain.skepticView}</Text>
+            </View>
+            <View style={styles.debateItem}>
+              <Text style={[styles.debateRole, { color: CYAN }]}>Judge</Text>
+              <Text style={[styles.debateText, { color: C.text }]} numberOfLines={2}>{cogAlpha.slowBrain.judgeVerdict}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.brainSection, { borderLeftColor: C.green }]}>
+            <View style={styles.brainSectionHeader}>
+              <Ionicons name="trending-up" size={12} color={C.green} />
+              <Text style={[styles.brainSectionTitle, { color: C.green }]}>GROWTH BRAIN</Text>
+              <View style={[styles.adaptBadge, { backgroundColor: C.greenBg }]}>
+                <Text style={[styles.adaptText, { color: C.green }]}>{cogAlpha.growthBrain.adaptationLevel}</Text>
+              </View>
+            </View>
+            <View style={styles.growthGrid}>
+              <View style={styles.growthItem}>
+                <Text style={styles.growthLabel}>Learning Rate</Text>
+                <Text style={styles.growthVal}>{cogAlpha.growthBrain.learningRate}</Text>
+              </View>
+              <View style={styles.growthItem}>
+                <Text style={styles.growthLabel}>Improvement</Text>
+                <Text style={[styles.growthVal, { color: cogAlpha.growthBrain.improvementRate >= 0 ? C.green : C.red }]}>
+                  {cogAlpha.growthBrain.improvementRate >= 0 ? "+" : ""}{cogAlpha.growthBrain.improvementRate}%
+                </Text>
+              </View>
+              <View style={styles.growthItem}>
+                <Text style={styles.growthLabel}>Experiences</Text>
+                <Text style={styles.growthVal}>{cogAlpha.growthBrain.experienceCount}</Text>
+              </View>
+              <View style={styles.growthItem}>
+                <Text style={styles.growthLabel}>Weights</Text>
+                <Text style={[styles.growthVal, { color: cogAlpha.growthBrain.weightsUpdated ? C.green : C.textMuted }]}>
+                  {cogAlpha.growthBrain.weightsUpdated ? "UPDATED" : "STABLE"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.fusionSection}>
+            <Text style={styles.fusionLabel}>FUSION SCORE</Text>
+            <Text style={[styles.fusionScoreVal, { color: cogAlpha.fusionScore > 60 ? C.green : cogAlpha.fusionScore < 40 ? C.red : C.gold }]}>
+              {cogAlpha.fusionScore}
+            </Text>
+            <View style={styles.fusionBarBg}>
+              <View style={[styles.fusionBarFill, { width: `${cogAlpha.fusionScore}%`, backgroundColor: cogAlpha.fusionScore > 60 ? C.green : cogAlpha.fusionScore < 40 ? C.red : C.gold }]} />
+            </View>
+            <Text style={styles.fusionConfidence}>Overall Confidence: {cogAlpha.overallConfidence}%</Text>
           </View>
         </View>
 
@@ -609,6 +745,256 @@ export default function StrategyScreen() {
               <Text style={styles.mcBottomLabel}>Sim Time</Text>
               <Text style={styles.mcBottomVal}>{mc.simulationTimeMs}ms</Text>
             </View>
+          </View>
+        </View>
+
+        {/* 7B. ADVANCED FORMULAS PANEL */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="analytics" size={16} color={CYAN} />
+            <Text style={styles.cardTitle}>ADVANCED FORMULAS</Text>
+          </View>
+
+          <View style={styles.formulaSection}>
+            <View style={styles.formulaSectionHeader}>
+              <Ionicons name="pulse" size={12} color={CYAN} />
+              <Text style={styles.formulaSectionTitle}>HURST EXPONENT</Text>
+              <View style={[styles.trendTypeBadge, { backgroundColor: hpi.trendType === "STRONG_TREND" ? C.greenBg : hpi.trendType === "MEAN_REVERSION" || hpi.trendType === "STRONG_REVERSION" ? C.redBg : C.goldBg }]}>
+                <Text style={[styles.trendTypeText, { color: hpi.trendType === "STRONG_TREND" ? C.green : hpi.trendType === "MEAN_REVERSION" || hpi.trendType === "STRONG_REVERSION" ? C.red : C.gold }]}>
+                  {hpi.trendType.replace(/_/g, " ")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>H Value</Text>
+                <Text style={[styles.formulaMetricVal, { color: hpi.hurstExponent > 0.55 ? C.green : hpi.hurstExponent < 0.45 ? C.red : C.gold }]}>{hpi.hurstExponent}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Fractal Dim</Text>
+                <Text style={styles.formulaMetricVal}>{hpi.fractalDimension}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Long Memory</Text>
+                <Text style={[styles.formulaMetricVal, { color: hpi.longMemory ? C.green : C.textMuted }]}>{hpi.longMemory ? "YES" : "NO"}</Text>
+              </View>
+            </View>
+            <View style={styles.formulaBarRow}>
+              <Text style={styles.formulaBarLabel}>Trend Reliability</Text>
+              <View style={styles.formulaMiniBarBg}>
+                <View style={[styles.formulaMiniBarFill, { width: `${hpi.trendReliability}%`, backgroundColor: hpi.trendReliability > 60 ? C.green : C.gold }]} />
+              </View>
+              <Text style={styles.formulaBarVal}>{hpi.trendReliability}%</Text>
+            </View>
+            <Text style={styles.formulaInterpretation} numberOfLines={2}>{hpi.interpretation}</Text>
+          </View>
+
+          <View style={styles.formulaDivider} />
+
+          <View style={styles.formulaSection}>
+            <View style={styles.formulaSectionHeader}>
+              <Ionicons name="cellular" size={12} color={ent.chaosLevel === "EXTREME_CHAOS" || ent.chaosLevel === "CHAOTIC" ? C.red : ent.chaosLevel === "MODERATE" ? C.gold : C.green} />
+              <Text style={styles.formulaSectionTitle}>SHANNON ENTROPY</Text>
+              <View style={[styles.trendTypeBadge, { backgroundColor: ent.chaosLevel === "EXTREME_CHAOS" || ent.chaosLevel === "CHAOTIC" ? C.redBg : ent.chaosLevel === "MODERATE" ? C.goldBg : C.greenBg }]}>
+                <Text style={[styles.trendTypeText, { color: ent.chaosLevel === "EXTREME_CHAOS" || ent.chaosLevel === "CHAOTIC" ? C.red : ent.chaosLevel === "MODERATE" ? C.gold : C.green }]}>
+                  {ent.chaosLevel.replace(/_/g, " ")}
+                </Text>
+              </View>
+            </View>
+            {ent.isTrapZone && (
+              <View style={styles.trapWarningRow}>
+                <Ionicons name="alert-circle" size={12} color={C.red} />
+                <Text style={styles.trapWarningText}>TRAP ZONE - High probability of false signals</Text>
+              </View>
+            )}
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Entropy</Text>
+                <Text style={[styles.formulaMetricVal, { color: ent.normalizedEntropy > 0.7 ? C.red : ent.normalizedEntropy < 0.4 ? C.green : C.gold }]}>{ent.normalizedEntropy}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Trap Prob</Text>
+                <Text style={[styles.formulaMetricVal, { color: ent.trapProbability > 60 ? C.red : C.textSecondary }]}>{ent.trapProbability}%</Text>
+              </View>
+            </View>
+            <View style={styles.formulaBarRow}>
+              <Text style={styles.formulaBarLabel}>Market Orderliness</Text>
+              <View style={styles.formulaMiniBarBg}>
+                <View style={[styles.formulaMiniBarFill, { width: `${ent.marketOrderliness}%`, backgroundColor: ent.marketOrderliness > 60 ? C.green : ent.marketOrderliness > 30 ? C.gold : C.red }]} />
+              </View>
+              <Text style={styles.formulaBarVal}>{ent.marketOrderliness}%</Text>
+            </View>
+          </View>
+
+          <View style={styles.formulaDivider} />
+
+          <View style={styles.formulaSection}>
+            <View style={styles.formulaSectionHeader}>
+              <Ionicons name="navigate" size={12} color={CYAN} />
+              <Text style={styles.formulaSectionTitle}>KALMAN FILTER</Text>
+              <View style={[styles.trendTypeBadge, { backgroundColor: kal.trendDirection.includes("UP") ? C.greenBg : kal.trendDirection.includes("DOWN") ? C.redBg : C.goldBg }]}>
+                <Text style={[styles.trendTypeText, { color: kal.trendDirection.includes("UP") ? C.green : kal.trendDirection.includes("DOWN") ? C.red : C.gold }]}>
+                  {kal.trendDirection.replace(/_/g, " ")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Filtered</Text>
+                <Text style={styles.formulaMetricVal}>{fmtIN(kal.filteredPrice)}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Predicted</Text>
+                <Text style={[styles.formulaMetricVal, { color: CYAN }]}>{fmtIN(kal.predictedNextPrice)}</Text>
+              </View>
+            </View>
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Velocity</Text>
+                <Text style={[styles.formulaMetricVal, { color: kal.velocity > 0 ? C.green : kal.velocity < 0 ? C.red : C.textSecondary }]}>{kal.velocity}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Acceleration</Text>
+                <Text style={[styles.formulaMetricVal, { color: kal.acceleration > 0 ? C.green : kal.acceleration < 0 ? C.red : C.textSecondary }]}>{kal.acceleration}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>S/N Ratio</Text>
+                <Text style={[styles.formulaMetricVal, { color: kal.signalVsNoise > 2 ? C.green : C.gold }]}>{kal.signalVsNoise}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formulaDivider} />
+
+          <View style={styles.formulaSection}>
+            <View style={styles.formulaSectionHeader}>
+              <Ionicons name="swap-vertical" size={12} color={fish.overbought ? C.red : fish.oversold ? C.green : CYAN} />
+              <Text style={styles.formulaSectionTitle}>FISHER TRANSFORM</Text>
+              {fish.crossover !== "NONE" && (
+                <View style={[styles.trendTypeBadge, { backgroundColor: fish.crossover === "BULLISH_CROSS" ? C.greenBg : C.redBg }]}>
+                  <Text style={[styles.trendTypeText, { color: fish.crossover === "BULLISH_CROSS" ? C.green : C.red }]}>
+                    {fish.crossover.replace(/_/g, " ")}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.fisherGaugeContainer}>
+              <Text style={styles.fisherGaugeLabel}>-2</Text>
+              <View style={styles.fisherGaugeBg}>
+                <View style={[styles.fisherGaugeMarker, { left: `${Math.min(100, Math.max(0, (fish.fisherValue + 2) / 4 * 100))}%` }]} />
+                <View style={styles.fisherGaugeCenter} />
+              </View>
+              <Text style={styles.fisherGaugeLabel}>+2</Text>
+            </View>
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Fisher Val</Text>
+                <Text style={[styles.formulaMetricVal, { color: fish.fisherValue > 0 ? C.green : fish.fisherValue < 0 ? C.red : C.textSecondary }]}>{fish.fisherValue}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Reversal%</Text>
+                <Text style={[styles.formulaMetricVal, { color: fish.reversalProbability > 50 ? C.red : C.textSecondary }]}>{fish.reversalProbability}%</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>State</Text>
+                <Text style={[styles.formulaMetricVal, { color: fish.overbought ? C.red : fish.oversold ? C.green : C.textMuted }]}>
+                  {fish.overbought ? "OVERBOUGHT" : fish.oversold ? "OVERSOLD" : "NEUTRAL"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formulaDivider} />
+
+          <View style={styles.formulaSection}>
+            <View style={styles.formulaSectionHeader}>
+              <Ionicons name="sync" size={12} color={CYAN} />
+              <Text style={styles.formulaSectionTitle}>HILBERT CYCLE</Text>
+              <View style={[styles.trendTypeBadge, { backgroundColor: hilb.cyclePosition === "CYCLE_BOTTOM" || hilb.cyclePosition === "CYCLE_RISING" ? C.greenBg : C.redBg }]}>
+                <Text style={[styles.trendTypeText, { color: hilb.cyclePosition === "CYCLE_BOTTOM" || hilb.cyclePosition === "CYCLE_RISING" ? C.green : C.red }]}>
+                  {hilb.cyclePosition.replace(/_/g, " ")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.formulaRow}>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Period</Text>
+                <Text style={styles.formulaMetricVal}>{hilb.dominantPeriod}</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Strength</Text>
+                <Text style={[styles.formulaMetricVal, { color: hilb.cycleStrength > 50 ? C.green : C.textSecondary }]}>{hilb.cycleStrength}%</Text>
+              </View>
+              <View style={styles.formulaMetric}>
+                <Text style={styles.formulaMetricLabel}>Phase</Text>
+                <Text style={styles.formulaMetricVal}>{hilb.phase}deg</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* 7C. EXPERIENCE REPLAY / GROWTH */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="school" size={16} color={C.green} />
+            <Text style={styles.cardTitle}>EXPERIENCE REPLAY</Text>
+            <Text style={[styles.expCountBadge]}>{expReplay.totalExperiences}</Text>
+          </View>
+
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>Win Rate</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${expReplay.recentWinRate}%`, backgroundColor: expReplay.recentWinRate > 55 ? C.green : expReplay.recentWinRate > 45 ? C.gold : C.red }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{expReplay.recentWinRate}%</Text>
+          </View>
+
+          <View style={styles.expSetupRow}>
+            <View style={styles.expSetupItem}>
+              <Text style={styles.expSetupLabel}>Best Setup</Text>
+              <Text style={[styles.expSetupVal, { color: C.green }]} numberOfLines={1}>{expReplay.bestSetup}</Text>
+            </View>
+            <View style={styles.expSetupItem}>
+              <Text style={styles.expSetupLabel}>Worst Setup</Text>
+              <Text style={[styles.expSetupVal, { color: C.red }]} numberOfLines={1}>{expReplay.worstSetup}</Text>
+            </View>
+          </View>
+
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>Trap Avoidance</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${expReplay.trapAvoidanceScore}%`, backgroundColor: expReplay.trapAvoidanceScore > 60 ? C.green : C.gold }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{expReplay.trapAvoidanceScore}%</Text>
+          </View>
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>Trend Following</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${expReplay.trendFollowingScore}%`, backgroundColor: expReplay.trendFollowingScore > 60 ? C.green : C.gold }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{expReplay.trendFollowingScore}%</Text>
+          </View>
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>Reversal Detection</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${expReplay.reversalDetectionScore}%`, backgroundColor: expReplay.reversalDetectionScore > 60 ? C.green : C.gold }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{expReplay.reversalDetectionScore}%</Text>
+          </View>
+
+          <View style={styles.formulaDivider} />
+
+          <Text style={styles.lessonsTitle}>RECENT LESSONS</Text>
+          {expReplay.recentLessons.map((lesson, i) => (
+            <View key={`lesson-${i}`} style={styles.lessonItem}>
+              <Ionicons name="chevron-forward" size={10} color={NEON_GREEN} />
+              <Text style={styles.lessonText} numberOfLines={2}>{lesson}</Text>
+            </View>
+          ))}
+
+          <View style={styles.expMetaRow}>
+            <Text style={styles.expMetaLabel}>Adaptive Learning Rate</Text>
+            <Text style={[styles.expMetaVal, { color: CYAN }]}>{expReplay.adaptiveLearningRate}</Text>
           </View>
         </View>
 
@@ -1375,5 +1761,410 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "DMSans_700Bold",
     color: "#fff",
+  },
+
+  fusionActionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  fusionActionText: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  conflictBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: C.redBg,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+  },
+  conflictBannerText: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: C.red,
+    flex: 1,
+  },
+  brainSection: {
+    borderLeftWidth: 3,
+    paddingLeft: 12,
+    marginBottom: 14,
+    paddingVertical: 8,
+  },
+  brainSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  brainSectionTitle: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 1,
+    flex: 1,
+  },
+  brainSectionMeta: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+  },
+  brainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  brainSignalBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  brainSignalText: {
+    fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  brainMetaLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
+  brainConfVal: {
+    fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    minWidth: 36,
+    textAlign: "right" as const,
+  },
+  trapWarningRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  trapWarningText: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: C.red,
+    letterSpacing: 0.3,
+  },
+  verdictBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  verdictText: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.3,
+  },
+  debateItem: {
+    marginBottom: 6,
+  },
+  debateRole: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    color: C.gold,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  debateText: {
+    fontSize: 11,
+    fontFamily: "DMSans_400Regular",
+    color: C.textSecondary,
+    lineHeight: 16,
+  },
+  adaptBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  adaptText: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.3,
+  },
+  growthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  growthItem: {
+    width: "47%" as any,
+    backgroundColor: C.surface,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  growthLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  growthVal: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: C.text,
+  },
+  fusionSection: {
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+  },
+  fusionLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  fusionScoreVal: {
+    fontSize: 42,
+    fontFamily: "DMSans_700Bold",
+    marginBottom: 6,
+  },
+  fusionBarBg: {
+    width: "100%",
+    height: 10,
+    backgroundColor: C.surfaceElevated,
+    borderRadius: 5,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  fusionBarFill: {
+    height: 10,
+    borderRadius: 5,
+  },
+  fusionConfidence: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: C.textSecondary,
+  },
+
+  formulaSection: {
+    marginBottom: 4,
+  },
+  formulaSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  formulaSectionTitle: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    color: C.textSecondary,
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  trendTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  trendTypeText: {
+    fontSize: 8,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.3,
+  },
+  formulaRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
+  },
+  formulaMetric: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  formulaMetricLabel: {
+    fontSize: 8,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  formulaMetricVal: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    color: C.text,
+  },
+  formulaBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  formulaBarLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    width: 90,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+  },
+  formulaMiniBarBg: {
+    flex: 1,
+    height: 6,
+    backgroundColor: C.surfaceElevated,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  formulaMiniBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  formulaBarVal: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: C.textSecondary,
+    minWidth: 32,
+    textAlign: "right" as const,
+  },
+  formulaInterpretation: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: C.textMuted,
+    lineHeight: 15,
+    fontStyle: "italic" as const,
+    marginTop: 2,
+  },
+  formulaDivider: {
+    height: 1,
+    backgroundColor: C.cardBorder,
+    marginVertical: 10,
+  },
+
+  fisherGaugeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  fisherGaugeLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: C.textMuted,
+  },
+  fisherGaugeBg: {
+    flex: 1,
+    height: 10,
+    backgroundColor: C.surfaceElevated,
+    borderRadius: 5,
+    position: "relative",
+    overflow: "visible" as any,
+  },
+  fisherGaugeMarker: {
+    position: "absolute",
+    top: -2,
+    width: 6,
+    height: 14,
+    borderRadius: 3,
+    backgroundColor: CYAN,
+    marginLeft: -3,
+  },
+  fisherGaugeCenter: {
+    position: "absolute",
+    left: "50%",
+    top: 0,
+    width: 1,
+    height: 10,
+    backgroundColor: C.textMuted,
+    marginLeft: -0.5,
+  },
+
+  expCountBadge: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    color: C.green,
+    backgroundColor: C.greenBg,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  expSetupRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 10,
+  },
+  expSetupItem: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  expSetupLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  expSetupVal: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+  },
+  lessonsTitle: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: C.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    textTransform: "uppercase" as const,
+  },
+  lessonItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 4,
+  },
+  lessonText: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: NEON_GREEN,
+    flex: 1,
+    lineHeight: 15,
+  },
+  expMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: C.cardBorder,
+  },
+  expMetaLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.3,
+  },
+  expMetaVal: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
   },
 });
