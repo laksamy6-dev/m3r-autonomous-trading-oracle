@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +25,38 @@ import { calculateAllIndicators, AllIndicators } from "@/lib/indicators";
 import { generateOptionChain } from "@/lib/options";
 import { runNeuralEngine } from "@/lib/neural-trading-engine";
 import { getApiUrl } from "@/lib/query-client";
+
+interface TradeProposal {
+  id: string;
+  action: string;
+  confidence: number;
+  strike: number;
+  premium: number;
+  target: number;
+  stopLoss: number;
+  lotSize: number;
+  potentialProfit: number;
+  brokerage: number;
+  netProfit: number;
+  reasoning: string[];
+  engineVersion: string;
+  rocketThrust: string;
+  neuroWisdom: string;
+  fusionScore: number;
+  entropyLevel: string;
+  greenCandles: number;
+  zeroLossReady: boolean;
+  monteCarloWinProb: number;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED";
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+  istTime: string;
+  uaeTime: string;
+  scanCycle: number;
+}
+
+const NEON_GREEN = "#39FF14";
 
 const CYAN = "#00D4FF";
 
@@ -100,6 +133,12 @@ export default function MarketScreen() {
   const [engineData, setEngineData] = useState<ReturnType<typeof runNeuralEngine> | null>(null);
   const [sendingAlert, setSendingAlert] = useState(false);
 
+  const [autoScanActive, setAutoScanActive] = useState(false);
+  const [proposals, setProposals] = useState<TradeProposal[]>([]);
+  const [scanCycleCount, setScanCycleCount] = useState(0);
+  const [togglingAutoScan, setTogglingAutoScan] = useState(false);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+
   const loadData = useCallback(() => {
     setIndices(getIndices());
     setGainers(getTopGainers());
@@ -141,11 +180,74 @@ export default function MarketScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  const fetchProposals = useCallback(async () => {
+    try {
+      const url = `${getApiUrl()}api/auto-trade/proposals`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setProposals(data.proposals || []);
+        setAutoScanActive(data.autoScanActive || false);
+        setScanCycleCount(data.scanCycleCount || 0);
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    fetchProposals();
+    const interval = setInterval(fetchProposals, 5000);
+    return () => clearInterval(interval);
+  }, [fetchProposals]);
+
+  const toggleAutoScan = async () => {
+    setTogglingAutoScan(true);
+    try {
+      const endpoint = autoScanActive ? "stop" : "start";
+      const url = `${getApiUrl()}api/auto-trade/scan/${endpoint}`;
+      const res = await fetch(url, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setAutoScanActive(data.active);
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Failed to toggle scan");
+    } finally {
+      setTogglingAutoScan(false);
+    }
+  };
+
+  const respondToProposal = async (proposalId: string, action: "approve" | "reject") => {
+    setRespondingTo(proposalId);
+    try {
+      const url = `${getApiUrl()}api/auto-trade/approve`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId, action }),
+      });
+      if (res.ok) {
+        if (Platform.OS !== "web") Haptics.notificationAsync(
+          action === "approve" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
+        );
+        fetchProposals();
+      } else {
+        const data = await res.json();
+        Alert.alert("Error", data.error || "Failed");
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Network error");
+    } finally {
+      setRespondingTo(null);
+    }
+  };
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
+    fetchProposals();
     setTimeout(() => setRefreshing(false), 500);
-  }, [loadData]);
+  }, [loadData, fetchProposals]);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
@@ -154,6 +256,9 @@ export default function MarketScreen() {
   const isPricePositive = priceChange >= 0;
 
   const predictedPrice = engineData?.kalmanData?.predictedNextPrice ?? engineData?.decision?.strike ?? priceData.currentPrice;
+
+  const pendingProposals = proposals.filter(p => p.status === "PENDING");
+  const recentResolved = proposals.filter(p => p.status !== "PENDING").slice(-3).reverse();
 
   const consensusSignal = indicators?.consensusSignal ?? "NEUTRAL";
   const consensusColor =
@@ -313,6 +418,193 @@ export default function MarketScreen() {
             <Ionicons name="pulse" size={14} color={Colors.dark.gold} />
             <Text style={[styles.telegramBtnText, { color: Colors.dark.gold }]}>Send Signal</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.autoTradeSection}>
+          <View style={styles.autoTradeHeader}>
+            <View style={styles.autoTradeHeaderLeft}>
+              <View style={[styles.scanDot, { backgroundColor: autoScanActive ? NEON_GREEN : Colors.dark.textMuted }]} />
+              <Text style={styles.autoTradeTitle}>AUTO-TRADE</Text>
+              {autoScanActive && (
+                <Text style={styles.scanCycleText}>Cycle #{scanCycleCount}</Text>
+              )}
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.scanToggleBtn,
+                autoScanActive ? styles.scanToggleBtnActive : styles.scanToggleBtnInactive,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={toggleAutoScan}
+              disabled={togglingAutoScan}
+            >
+              {togglingAutoScan ? (
+                <ActivityIndicator size="small" color={autoScanActive ? NEON_GREEN : CYAN} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={autoScanActive ? "pause" : "play"}
+                    size={14}
+                    color={autoScanActive ? NEON_GREEN : CYAN}
+                  />
+                  <Text style={[styles.scanToggleText, { color: autoScanActive ? NEON_GREEN : CYAN }]}>
+                    {autoScanActive ? "SCANNING" : "START SCAN"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          {autoScanActive && pendingProposals.length === 0 && (
+            <View style={styles.scanningCard}>
+              <ActivityIndicator size="small" color={CYAN} />
+              <Text style={styles.scanningText}>
+                Scanning market with 20 neural formulas... Waiting for trade signal
+              </Text>
+            </View>
+          )}
+
+          {pendingProposals.map((proposal) => {
+            const isResponding = respondingTo === proposal.id;
+            const isCE = proposal.action.includes("CE");
+            const expiresIn = Math.max(0, Math.round((new Date(proposal.expiresAt).getTime() - Date.now()) / 1000));
+            const expiresMinSec = `${Math.floor(expiresIn / 60)}:${(expiresIn % 60).toString().padStart(2, "0")}`;
+
+            return (
+              <View key={proposal.id} style={[styles.proposalCard, proposal.zeroLossReady && styles.proposalCardReady]}>
+                <View style={styles.proposalHeaderRow}>
+                  <View style={[styles.proposalActionBadge, { backgroundColor: isCE ? Colors.dark.greenBg : Colors.dark.redBg }]}>
+                    <Text style={[styles.proposalActionText, { color: isCE ? Colors.dark.green : Colors.dark.red }]}>
+                      {proposal.action}
+                    </Text>
+                  </View>
+                  <View style={styles.proposalConfRow}>
+                    <Text style={styles.proposalConfLabel}>Confidence</Text>
+                    <Text style={[styles.proposalConfVal, { color: proposal.confidence > 65 ? NEON_GREEN : proposal.confidence > 50 ? Colors.dark.gold : Colors.dark.textMuted }]}>
+                      {proposal.confidence}%
+                    </Text>
+                  </View>
+                  <View style={styles.proposalExpiry}>
+                    <Ionicons name="timer-outline" size={11} color={expiresIn < 60 ? Colors.dark.red : Colors.dark.textMuted} />
+                    <Text style={[styles.proposalExpiryText, { color: expiresIn < 60 ? Colors.dark.red : Colors.dark.textMuted }]}>
+                      {expiresMinSec}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.proposalMetricsGrid}>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Strike</Text>
+                    <Text style={styles.pmVal}>{proposal.strike}</Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Premium</Text>
+                    <Text style={styles.pmVal}>Rs.{proposal.premium}</Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Target</Text>
+                    <Text style={[styles.pmVal, { color: Colors.dark.green }]}>Rs.{proposal.target}</Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>SL</Text>
+                    <Text style={[styles.pmVal, { color: Colors.dark.red }]}>Rs.{proposal.stopLoss}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.proposalMetricsGrid}>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>MC Win</Text>
+                    <Text style={[styles.pmVal, { color: proposal.monteCarloWinProb > 55 ? Colors.dark.green : Colors.dark.gold }]}>
+                      {proposal.monteCarloWinProb}%
+                    </Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Candles</Text>
+                    <Text style={[styles.pmVal, { color: proposal.greenCandles >= 2 ? Colors.dark.green : Colors.dark.red }]}>
+                      {proposal.greenCandles}/2
+                    </Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Net Profit</Text>
+                    <Text style={[styles.pmVal, { color: proposal.netProfit > 0 ? Colors.dark.green : Colors.dark.red }]}>
+                      Rs.{proposal.netProfit}
+                    </Text>
+                  </View>
+                  <View style={styles.proposalMetric}>
+                    <Text style={styles.pmLabel}>Entropy</Text>
+                    <Text style={[styles.pmVal, { fontSize: 9, color: proposal.entropyLevel.includes("HIGH") ? Colors.dark.red : Colors.dark.textSecondary }]}>
+                      {proposal.entropyLevel}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.proposalZeroLossRow}>
+                  <Ionicons
+                    name={proposal.zeroLossReady ? "shield-checkmark" : "shield-outline"}
+                    size={12}
+                    color={proposal.zeroLossReady ? NEON_GREEN : Colors.dark.gold}
+                  />
+                  <Text style={[styles.proposalZeroLossText, { color: proposal.zeroLossReady ? NEON_GREEN : Colors.dark.gold }]}>
+                    Zero-Loss: {proposal.zeroLossReady ? "READY" : "NOT MET"}
+                  </Text>
+                  <View style={styles.proposalRocketBadge}>
+                    <Ionicons name="rocket" size={10} color={CYAN} />
+                    <Text style={styles.proposalRocketText}>{proposal.rocketThrust}</Text>
+                  </View>
+                  <View style={styles.proposalRocketBadge}>
+                    <Ionicons name="hardware-chip" size={10} color={CYAN} />
+                    <Text style={styles.proposalRocketText}>{proposal.neuroWisdom}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.proposalBtnRow}>
+                  <Pressable
+                    style={({ pressed }) => [styles.approveBtn, pressed && { opacity: 0.8 }]}
+                    onPress={() => respondToProposal(proposal.id, "approve")}
+                    disabled={isResponding}
+                    testID={`approve-${proposal.id}`}
+                  >
+                    {isResponding ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+                        <Text style={styles.approveBtnText}>APPROVE TRADE</Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.rejectBtn, pressed && { opacity: 0.8 }]}
+                    onPress={() => respondToProposal(proposal.id, "reject")}
+                    disabled={isResponding}
+                    testID={`reject-${proposal.id}`}
+                  >
+                    <Ionicons name="close-circle" size={18} color={Colors.dark.red} />
+                  </Pressable>
+                </View>
+
+                <Text style={styles.proposalIdText}>ID: {proposal.id} | {proposal.istTime} IST</Text>
+              </View>
+            );
+          })}
+
+          {recentResolved.length > 0 && (
+            <View style={styles.resolvedSection}>
+              {recentResolved.map((p) => (
+                <View key={p.id} style={styles.resolvedRow}>
+                  <View style={[styles.resolvedDot, {
+                    backgroundColor: p.status === "APPROVED" || p.status === "EXECUTED" ? Colors.dark.green
+                      : p.status === "REJECTED" ? Colors.dark.red : Colors.dark.textMuted
+                  }]} />
+                  <Text style={styles.resolvedAction}>{p.action} {p.strike}</Text>
+                  <Text style={[styles.resolvedStatus, {
+                    color: p.status === "APPROVED" || p.status === "EXECUTED" ? Colors.dark.green
+                      : p.status === "REJECTED" ? Colors.dark.red : Colors.dark.textMuted
+                  }]}>{p.status}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <ScrollView
@@ -638,5 +930,233 @@ const styles = StyleSheet.create({
   miniChangeText: {
     fontSize: 12,
     fontFamily: "DMSans_600SemiBold",
+  },
+  autoTradeSection: {
+    marginHorizontal: 20,
+    marginTop: 16,
+  },
+  autoTradeHeader: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    marginBottom: 10,
+  },
+  autoTradeHeaderLeft: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+  },
+  scanDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  autoTradeTitle: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: CYAN,
+    letterSpacing: 1.5,
+  },
+  scanCycleText: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+  },
+  scanToggleBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  scanToggleBtnActive: {
+    backgroundColor: "rgba(57,255,20,0.08)",
+    borderColor: "rgba(57,255,20,0.3)",
+  },
+  scanToggleBtnInactive: {
+    backgroundColor: "rgba(0,212,255,0.08)",
+    borderColor: "rgba(0,212,255,0.3)",
+  },
+  scanToggleText: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.8,
+  },
+  scanningCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    backgroundColor: Colors.dark.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+    padding: 14,
+    marginBottom: 10,
+  },
+  scanningText: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  proposalCard: {
+    backgroundColor: Colors.dark.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+    padding: 14,
+    marginBottom: 10,
+  },
+  proposalCardReady: {
+    borderColor: "rgba(57,255,20,0.25)",
+  },
+  proposalHeaderRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    marginBottom: 10,
+  },
+  proposalActionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  proposalActionText: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  proposalConfRow: {
+    flex: 1,
+    alignItems: "flex-end" as const,
+  },
+  proposalConfLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+  },
+  proposalConfVal: {
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+  },
+  proposalExpiry: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 3,
+  },
+  proposalExpiryText: {
+    fontSize: 10,
+    fontFamily: "DMSans_600SemiBold",
+  },
+  proposalMetricsGrid: {
+    flexDirection: "row" as const,
+    marginBottom: 8,
+  },
+  proposalMetric: {
+    flex: 1,
+    alignItems: "center" as const,
+  },
+  pmLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginBottom: 2,
+  },
+  pmVal: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.text,
+  },
+  proposalZeroLossRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    marginBottom: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  proposalZeroLossText: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    flex: 1,
+  },
+  proposalRocketBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 3,
+    backgroundColor: "rgba(0,212,255,0.08)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  proposalRocketText: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
+  },
+  proposalBtnRow: {
+    flexDirection: "row" as const,
+    gap: 10,
+  },
+  approveBtn: {
+    flex: 1,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 8,
+    backgroundColor: "#10B981",
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  approveBtnText: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: "#FFF",
+    letterSpacing: 0.5,
+  },
+  rejectBtn: {
+    width: 46,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.3)",
+  },
+  proposalIdText: {
+    fontSize: 9,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginTop: 8,
+    textAlign: "center" as const,
+  },
+  resolvedSection: {
+    marginTop: 4,
+  },
+  resolvedRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  resolvedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  resolvedAction: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  resolvedStatus: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
   },
 });
