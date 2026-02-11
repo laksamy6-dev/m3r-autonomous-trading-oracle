@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -15,7 +15,10 @@ import * as Haptics from "expo-haptics";
 import { fetch } from "expo/fetch";
 import { getApiUrl } from "@/lib/query-client";
 import { generateOptionChain, analyzeMarketBias } from "@/lib/options";
+import { runNeuralEngine, NeuralEngineOutput } from "@/lib/neural-trading-engine";
 import Colors from "@/constants/colors";
+
+const CYAN = "#00D4FF";
 
 let msgCounter = 0;
 function genId() {
@@ -36,12 +39,56 @@ interface MarketContext {
 }
 
 const QUICK_ACTIONS = [
-  "What should I trade today?",
-  "Analyze current option chain",
-  "Explain my current position",
-  "Best strategy for volatile market",
-  "When to switch from CE to PE?",
+  "What should I trade right now?",
+  "Explain your current analysis in detail",
+  "Is this a trap zone or safe to enter?",
+  "What is Cognitive Alpha saying?",
+  "Analyze Hurst exponent and entropy",
+  "Give me full Monte Carlo breakdown",
+  "Any doubts about the current signal?",
+  "What are global markets telling you?",
 ];
+
+function buildJarvisContext(output: NeuralEngineOutput): string {
+  const d = output.decision;
+  const mc = output.monteCarlo;
+  const ph = output.physics;
+  const gl = output.global;
+  const hpi = output.hpiData;
+  const ent = output.entropyData;
+  const kal = output.kalmanData;
+  const fish = output.fisherData;
+  const hil = output.hilbertData;
+  const cog = output.cognitiveAlpha;
+  const exp = output.experienceReplay;
+
+  return [
+    `[JARVIS ENGINE STATE - ${output.engineVersion} - Tick #${output.engineTick}]`,
+    `Decision: ${d.action} | Confidence: ${d.confidence}% | Signal: ${d.signalStrength} | Neural Score: ${d.neuralScore}%`,
+    `Strike: ${d.strike} | Premium: ${d.premium} | Target: ${d.target} | StopLoss: ${d.stopLoss}`,
+    `Consensus: BUY=${d.consensusVotes.buy} SELL=${d.consensusVotes.sell} HOLD=${d.consensusVotes.hold}`,
+    `Monte Carlo: ${mc.paths} paths | CE Win: ${mc.ceWinProb}% | PE Win: ${mc.peWinProb}% | Median: ${mc.medianPrice} | VaR95: ${mc.valueAtRisk95}`,
+    `Physics: Momentum=${ph.momentum} | Velocity=${ph.velocity} | RocketFuel=${ph.rocketFuel} | Direction=${ph.predictedDirection} ${ph.predictedMove}pts`,
+    `Hurst: ${hpi.hurstExponent} (${hpi.trendType}) | Reliability: ${hpi.trendReliability}% | FractalDim: ${hpi.fractalDimension}`,
+    `Entropy: ${ent.normalizedEntropy} (${ent.chaosLevel}) | TrapZone: ${ent.isTrapZone} | TrapProb: ${ent.trapProbability}%`,
+    `Kalman: Filtered=${kal.filteredPrice} | Predicted=${kal.predictedNextPrice} | Velocity=${kal.velocity} | Trend=${kal.trendDirection}`,
+    `Fisher: ${fish.fisherValue} | Crossover: ${fish.crossover} | Overbought: ${fish.overbought} | Oversold: ${fish.oversold}`,
+    `Hilbert: Period=${hil.dominantPeriod} | CyclePos=${hil.cyclePosition} | Strength=${hil.cycleStrength}%`,
+    `Cognitive Alpha: FastBrain=${cog.fastBrain.signal}(${cog.fastBrain.confidence}%) | SlowBrain=${cog.slowBrain.verdict} | Fusion=${cog.fusionAction}(${cog.fusionScore}) | Conflict=${cog.conflictDetected}`,
+    `Growth Brain: Level=${cog.growthBrain.adaptationLevel} | LearningRate=${cog.growthBrain.learningRate} | Improvement=${cog.growthBrain.improvementRate}%`,
+    `Experience: ${exp.totalExperiences} trades | WinRate=${exp.recentWinRate}% | BestSetup=${exp.bestSetup}`,
+    `Global: ${gl.globalSentiment} | Impact=${gl.netImpactOnNifty}% | VIX=${gl.vixLevel} | DXY=${gl.dollarIndex}`,
+    `Interpretations:`,
+    `  Hurst: ${hpi.interpretation}`,
+    `  Entropy: ${ent.interpretation}`,
+    `  Kalman: ${kal.interpretation}`,
+    `  Fisher: ${fish.interpretation}`,
+    `  Hilbert: ${hil.interpretation}`,
+    `  SlowBrain Analyst: ${cog.slowBrain.analystView}`,
+    `  SlowBrain Skeptic: ${cog.slowBrain.skepticView}`,
+    `  SlowBrain Judge: ${cog.slowBrain.judgeVerdict}`,
+  ].join("\n");
+}
 
 export default function BotScreen() {
   const insets = useSafeAreaInsets();
@@ -49,26 +96,29 @@ export default function BotScreen() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [marketContext, setMarketContext] = useState<MarketContext | null>(null);
+  const [engineOutput, setEngineOutput] = useState<NeuralEngineOutput | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
-  useEffect(() => {
-    updateMarketContext();
-    const interval = setInterval(updateMarketContext, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  function updateMarketContext() {
+  const updateMarketContext = useCallback(() => {
     const chain = generateOptionChain();
     const analysis = analyzeMarketBias(chain);
+    const result = runNeuralEngine(chain);
+    setEngineOutput(result);
     setMarketContext({
       spotPrice: chain.spotPrice,
       pcr: chain.overallPCR,
       bias: analysis.bias,
     });
-  }
+  }, []);
+
+  useEffect(() => {
+    updateMarketContext();
+    const interval = setInterval(updateMarketContext, 10000);
+    return () => clearInterval(interval);
+  }, [updateMarketContext]);
 
   async function sendMessage(message: string) {
     if (isStreaming || !message.trim()) return;
@@ -80,6 +130,9 @@ export default function BotScreen() {
     setIsStreaming(true);
 
     const chain = generateOptionChain();
+    const latestEngine = runNeuralEngine(chain);
+    setEngineOutput(latestEngine);
+    const jarvisContext = buildJarvisContext(latestEngine);
     let fullContent = "";
     let assistantAdded = false;
 
@@ -88,7 +141,12 @@ export default function BotScreen() {
       const response = await fetch(`${baseUrl}api/options/bot`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ message: message.trim(), optionChain: chain, strategy: null }),
+        body: JSON.stringify({
+          message: message.trim(),
+          optionChain: chain,
+          strategy: null,
+          jarvisContext,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed");
@@ -161,10 +219,12 @@ export default function BotScreen() {
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 12 }]}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>Trading Bot</Text>
+            <Text style={styles.headerTitle}>JARVIS</Text>
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Online</Text>
+              <Text style={styles.statusText}>
+                {engineOutput ? `v5.0 | Tick #${engineOutput.engineTick}` : "Initializing..."}
+              </Text>
             </View>
           </View>
           <Pressable
@@ -177,11 +237,15 @@ export default function BotScreen() {
       </View>
 
       <View style={styles.chatWrapper}>
-        {marketContext && (
+        {marketContext && engineOutput && (
           <View style={styles.marketBadge}>
             <Text style={styles.marketBadgeText}>
-              NIFTY: {marketContext.spotPrice.toFixed(2)} | PCR: {marketContext.pcr} |{" "}
+              NIFTY {marketContext.spotPrice.toFixed(0)} | {engineOutput.cognitiveAlpha.fusionAction.replace("_", " ")} |{" "}
               <Text style={{ color: biasColor }}>{marketContext.bias}</Text>
+              {" | "}
+              <Text style={{ color: engineOutput.entropyData.isTrapZone ? Colors.dark.red : Colors.dark.green }}>
+                {engineOutput.entropyData.isTrapZone ? "TRAP" : "CLEAR"}
+              </Text>
             </Text>
           </View>
         )}
@@ -196,11 +260,11 @@ export default function BotScreen() {
           {messages.length === 0 && (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
-                <Ionicons name="hardware-chip" size={36} color={Colors.dark.accent} />
+                <Ionicons name="hardware-chip" size={36} color={CYAN} />
               </View>
-              <Text style={styles.emptyTitle}>Nifty 50 Options Trading Bot</Text>
+              <Text style={styles.emptyTitle}>JARVIS AI Assistant</Text>
               <Text style={styles.emptySubtitle}>
-                Ask me about option chains, trading strategies, market bias, and when to enter or exit positions.
+                Your personal AI trading assistant. I analyze markets using 9 neural layers, Monte Carlo simulation, Cognitive Alpha brain, and advanced formulas. Ask me anything and I'll explain my thinking in detail.
               </Text>
               <View style={styles.quickActions}>
                 {QUICK_ACTIONS.map((q) => (
@@ -223,8 +287,8 @@ export default function BotScreen() {
             >
               {msg.role === "assistant" && (
                 <View style={styles.assistantHeader}>
-                  <Ionicons name="hardware-chip" size={14} color={Colors.dark.accent} />
-                  <Text style={styles.assistantLabel}>Trading Bot</Text>
+                  <Ionicons name="hardware-chip" size={14} color={CYAN} />
+                  <Text style={styles.assistantLabel}>JARVIS</Text>
                 </View>
               )}
               <Text style={[styles.messageText, msg.role === "user" && styles.userText]}>
@@ -245,7 +309,7 @@ export default function BotScreen() {
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Ask about Nifty options..."
+            placeholder="Ask JARVIS anything..."
             placeholderTextColor={Colors.dark.textMuted}
             value={input}
             onChangeText={setInput}
@@ -290,7 +354,8 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontFamily: "DMSans_700Bold",
-    color: Colors.dark.text,
+    color: CYAN,
+    letterSpacing: 2,
   },
   statusRow: {
     flexDirection: "row",
