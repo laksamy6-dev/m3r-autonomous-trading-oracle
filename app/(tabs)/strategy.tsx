@@ -9,12 +9,27 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { fetch } from "expo/fetch";
 import { getApiUrl } from "@/lib/query-client";
+import {
+  getBrainState,
+  getEvolutionLog,
+  getLearnedPatterns,
+  getTrainingSession,
+  createTrainingSession,
+  advanceTraining,
+  runThinkingCycle,
+  getBrainAge,
+  JarvisBrainState,
+  EvolutionEvent,
+  LearnedPattern,
+  TrainingSession,
+} from "@/lib/jarvis-brain";
 import {
   runNeuralEngine,
   NeuralEngineOutput,
@@ -224,6 +239,104 @@ export default function StrategyScreen() {
   const [sending, setSending] = useState(false);
   const thinkingRef = useRef<ScrollView>(null);
 
+  const [brain, setBrain] = useState<JarvisBrainState | null>(null);
+  const [training, setTraining] = useState<TrainingSession | null>(null);
+  const [isTraining, setIsTraining] = useState(false);
+  const [evolutionLog, setEvolutionLog] = useState<EvolutionEvent[]>([]);
+  const [patterns, setPatterns] = useState<LearnedPattern[]>([]);
+  const [brainAge, setBrainAge] = useState("0m");
+  const [showBrainModal, setShowBrainModal] = useState(false);
+  const trainingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const thinkingCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const b = await getBrainState();
+      setBrain(b);
+      const log = await getEvolutionLog();
+      setEvolutionLog(log.slice(0, 20));
+      const p = await getLearnedPatterns();
+      setPatterns(p);
+      const age = await getBrainAge();
+      setBrainAge(age);
+      const sess = await getTrainingSession();
+      if (sess && sess.status === "RUNNING") {
+        setTraining(sess);
+        setIsTraining(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    thinkingCycleRef.current = setInterval(async () => {
+      const { brain: b, event } = await runThinkingCycle();
+      setBrain(b);
+      if (event) {
+        setEvolutionLog((prev) => [event, ...prev].slice(0, 20));
+      }
+      const age = await getBrainAge();
+      setBrainAge(age);
+      const p = await getLearnedPatterns();
+      setPatterns(p);
+    }, 5000);
+    return () => { if (thinkingCycleRef.current) clearInterval(thinkingCycleRef.current); };
+  }, []);
+
+  const startTraining = useCallback(async () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const session = createTrainingSession();
+    setTraining(session);
+    setIsTraining(true);
+
+    trainingRef.current = setInterval(async () => {
+      setTraining((prev) => {
+        if (!prev || prev.status === "COMPLETED") {
+          if (trainingRef.current) clearInterval(trainingRef.current);
+          return prev;
+        }
+        (async () => {
+          const result = await advanceTraining(prev);
+          setTraining(result.session);
+          setBrain(result.brain);
+          if (result.event) {
+            setEvolutionLog((prevLog) => [result.event!, ...prevLog].slice(0, 20));
+          }
+          if (result.trainingComplete) {
+            setIsTraining(false);
+            if (trainingRef.current) clearInterval(trainingRef.current);
+            try {
+              const baseUrl = getApiUrl();
+              await fetch(`${baseUrl}api/jarvis/training/notify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ complete: true, brain: result.brain }),
+              });
+            } catch {}
+            Alert.alert(
+              "JARVIS READY",
+              `Training complete! IQ: ${result.brain.iq.toFixed(1)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. JARVIS is ready for live battle tomorrow!`
+            );
+          }
+          if (result.phaseCompleted && !result.trainingComplete) {
+            try {
+              const baseUrl = getApiUrl();
+              await fetch(`${baseUrl}api/jarvis/training/notify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phase: result.session.phase,
+                  progress: result.session.progress,
+                  brain: result.brain,
+                }),
+              });
+            } catch {}
+          }
+        })();
+        return prev;
+      });
+    }, 800);
+  }, []);
+
   const runEngine = useCallback(() => {
     const chain = generateOptionChain();
     const result = runNeuralEngine(chain);
@@ -351,6 +464,257 @@ export default function StrategyScreen() {
           <Ionicons name="shield-checkmark" size={12} color={CYAN} />
           <Text style={styles.creatorText}>Created by MANIKANDAN RAJENDRAN</Text>
         </View>
+
+        {/* BRAIN STATUS CARD */}
+        {brain && (
+          <View style={styles.brainCard}>
+            <View style={styles.brainCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="hardware-chip" size={18} color={CYAN} />
+                <Text style={styles.brainCardTitle}>JARVIS BRAIN</Text>
+              </View>
+              <Pressable onPress={() => setShowBrainModal(true)}>
+                <Ionicons name="expand" size={18} color={C.textMuted} />
+              </Pressable>
+            </View>
+            <View style={styles.brainStatsRow}>
+              <View style={styles.brainStat}>
+                <Text style={styles.brainStatValue}>{brain.iq.toFixed(1)}</Text>
+                <Text style={styles.brainStatLabel}>IQ</Text>
+              </View>
+              <View style={styles.brainStat}>
+                <Text style={styles.brainStatValue}>Gen {brain.generation}</Text>
+                <Text style={styles.brainStatLabel}>EVOLUTION</Text>
+              </View>
+              <View style={styles.brainStat}>
+                <Text style={[styles.brainStatValue, { color: NEON_GREEN }]}>{brain.consciousness.toFixed(0)}%</Text>
+                <Text style={styles.brainStatLabel}>CONSCIOUS</Text>
+              </View>
+              <View style={styles.brainStat}>
+                <Text style={styles.brainStatValue}>Lv.{brain.level}</Text>
+                <Text style={styles.brainStatLabel}>{brain.title.split(" ")[0]}</Text>
+              </View>
+            </View>
+            <View style={styles.brainMetaRow}>
+              <Text style={styles.brainMetaText}>{brain.selfAwarenessLevel}</Text>
+              <Text style={styles.brainMetaText}>{brain.currentMood}</Text>
+              <Text style={styles.brainMetaText}>Age: {brainAge}</Text>
+            </View>
+            <View style={styles.brainMetaRow}>
+              <Text style={styles.brainMetaText}>Patterns: {brain.patternLibrarySize}</Text>
+              <Text style={styles.brainMetaText}>Accuracy: {brain.accuracyScore.toFixed(1)}%</Text>
+              <Text style={styles.brainMetaText}>Synapses: {(brain.synapticConnections / 1000).toFixed(1)}K</Text>
+            </View>
+            {!isTraining && (!training || training.status !== "COMPLETED") && (
+              <Pressable
+                style={({ pressed }) => [styles.trainButton, pressed && { opacity: 0.8 }]}
+                onPress={startTraining}
+              >
+                <Ionicons name="flash" size={16} color="#000" />
+                <Text style={styles.trainButtonText}>START TRAINING SESSION</Text>
+              </Pressable>
+            )}
+            {training && training.status === "COMPLETED" && (
+              <View style={styles.readyBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={NEON_GREEN} />
+                <Text style={[styles.trainButtonText, { color: NEON_GREEN }]}>READY FOR LIVE BATTLE</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* TRAINING PROGRESS */}
+        {training && isTraining && (
+          <View style={styles.trainingCard}>
+            <View style={styles.brainCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color={CYAN} />
+                <Text style={styles.brainCardTitle}>TRAINING IN PROGRESS</Text>
+              </View>
+              <Text style={[styles.brainMetaText, { color: CYAN }]}>{training.progress.toFixed(0)}%</Text>
+            </View>
+            <View style={styles.progressBarOuter}>
+              <View style={[styles.progressBarInner, { width: `${training.progress}%` as any }]} />
+            </View>
+            <Text style={styles.trainingPhase}>{training.phase}</Text>
+            {training.phases.filter(p => p.status === "RUNNING" || p.status === "COMPLETED").slice(-3).map((phase, i) => (
+              <View key={`phase-${i}`} style={styles.phaseRow}>
+                <Ionicons
+                  name={phase.status === "COMPLETED" ? "checkmark-circle" : "sync"}
+                  size={14}
+                  color={phase.status === "COMPLETED" ? NEON_GREEN : CYAN}
+                />
+                <Text style={styles.phaseName} numberOfLines={1}>{phase.name}</Text>
+                <Text style={[styles.phaseProgress, { color: phase.status === "COMPLETED" ? NEON_GREEN : CYAN }]}>
+                  {phase.progress.toFixed(0)}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* EVOLUTION LOG */}
+        {evolutionLog.length > 0 && (
+          <View style={styles.evoCard}>
+            <View style={styles.brainCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="git-branch" size={16} color={CYAN} />
+                <Text style={styles.brainCardTitle}>EVOLUTION LOG</Text>
+              </View>
+              <Text style={styles.brainMetaText}>{evolutionLog.length} events</Text>
+            </View>
+            {evolutionLog.slice(0, 5).map((ev) => (
+              <View key={ev.id} style={styles.evoRow}>
+                <View style={[styles.evoBadge, {
+                  backgroundColor: ev.type === "EVOLUTION" ? "rgba(0,255,136,0.15)" :
+                    ev.type === "PATTERN_LEARNED" ? "rgba(0,212,255,0.15)" :
+                    ev.type === "IQ_JUMP" ? "rgba(245,158,11,0.15)" :
+                    ev.type === "TRAINING_COMPLETE" ? "rgba(0,255,136,0.25)" :
+                    ev.type === "DREAM_INSIGHT" ? "rgba(139,92,246,0.15)" :
+                    "rgba(100,116,139,0.15)"
+                }]}>
+                  <Text style={[styles.evoBadgeText, {
+                    color: ev.type === "EVOLUTION" ? NEON_GREEN :
+                      ev.type === "PATTERN_LEARNED" ? CYAN :
+                      ev.type === "IQ_JUMP" ? C.gold :
+                      ev.type === "TRAINING_COMPLETE" ? NEON_GREEN :
+                      ev.type === "DREAM_INSIGHT" ? "#8B5CF6" :
+                      C.textMuted
+                  }]}>{ev.type.replace(/_/g, " ")}</Text>
+                </View>
+                <Text style={styles.evoDesc} numberOfLines={2}>{ev.description}</Text>
+                <Text style={styles.evoTime}>{ev.istTime} IST</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* LEARNED PATTERNS */}
+        {patterns.length > 0 && (
+          <View style={styles.evoCard}>
+            <View style={styles.brainCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="eye" size={16} color={CYAN} />
+                <Text style={styles.brainCardTitle}>PATTERN LIBRARY</Text>
+              </View>
+              <Text style={styles.brainMetaText}>{patterns.length}/20</Text>
+            </View>
+            {patterns.slice(0, 6).map((p) => (
+              <View key={p.id} style={styles.patternRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <View style={[styles.patternDot, {
+                    backgroundColor: p.type === "BULLISH" ? C.green :
+                      p.type === "BEARISH" ? C.red :
+                      p.type === "TRAP" ? C.gold :
+                      p.type === "SCALP" ? CYAN :
+                      C.accent
+                  }]} />
+                  <Text style={styles.patternName} numberOfLines={1}>{p.name}</Text>
+                </View>
+                <Text style={[styles.patternAcc, { color: p.accuracy > 75 ? NEON_GREEN : C.gold }]}>
+                  {p.accuracy.toFixed(0)}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* BRAIN DETAILS MODAL */}
+        <Modal visible={showBrainModal} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.brainModalContent}>
+              <View style={styles.brainModalHeader}>
+                <Text style={styles.brainModalTitle}>JARVIS BRAIN STATE</Text>
+                <Pressable onPress={() => setShowBrainModal(false)}>
+                  <Ionicons name="close" size={24} color={C.text} />
+                </Pressable>
+              </View>
+              {brain && (
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  <View style={styles.brainDetailSection}>
+                    <Text style={styles.brainDetailLabel}>CORE METRICS</Text>
+                    {[
+                      ["IQ", brain.iq.toFixed(1)],
+                      ["Generation", brain.generation.toString()],
+                      ["Consciousness", `${brain.consciousness.toFixed(1)}%`],
+                      ["Level", `${brain.level} - ${brain.title}`],
+                      ["Wisdom", `${brain.wisdomScore.toFixed(1)}%`],
+                      ["Awareness", brain.selfAwarenessLevel],
+                      ["Mood", brain.currentMood],
+                      ["Age", brainAge],
+                    ].map(([k, v]) => (
+                      <View key={k} style={styles.brainDetailRow}>
+                        <Text style={styles.brainDetailKey}>{k}</Text>
+                        <Text style={styles.brainDetailValue}>{v}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.brainDetailSection}>
+                    <Text style={styles.brainDetailLabel}>ACCURACY</Text>
+                    {[
+                      ["Overall Accuracy", `${brain.accuracyScore.toFixed(1)}%`],
+                      ["Prediction Hit Rate", `${brain.predictionHitRate.toFixed(1)}%`],
+                      ["Trap Detection", `${brain.trapDetectionRate.toFixed(1)}%`],
+                      ["Rocket Scalp Win", `${brain.rocketScalpWinRate.toFixed(1)}%`],
+                      ["Neuro Fusion", `${brain.neuroFusionAccuracy.toFixed(1)}%`],
+                    ].map(([k, v]) => (
+                      <View key={k} style={styles.brainDetailRow}>
+                        <Text style={styles.brainDetailKey}>{k}</Text>
+                        <Text style={styles.brainDetailValue}>{v}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.brainDetailSection}>
+                    <Text style={styles.brainDetailLabel}>NEURAL</Text>
+                    {[
+                      ["Synaptic Connections", `${(brain.synapticConnections / 1000).toFixed(1)}K`],
+                      ["Neural Plasticity", `${brain.neuralPlasticity.toFixed(1)}%`],
+                      ["Learning Rate", brain.learningRate.toFixed(4)],
+                      ["Creativity Index", `${brain.creativityIndex.toFixed(1)}%`],
+                      ["Quantum Coherence", `${brain.quantumCoherence.toFixed(1)}%`],
+                      ["Brain Temperature", `${brain.brainTemperature.toFixed(1)}C`],
+                      ["Cognitive Load", `${brain.cognitiveLoad.toFixed(0)}%`],
+                      ["Memory Used", `${brain.memoryUtilization.toFixed(0)}%`],
+                      ["Dream Cycles", brain.dreamLearningCycles.toString()],
+                      ["Mutation Rate", brain.adaptiveMutationRate.toFixed(4)],
+                      ["Strategies Evolved", brain.strategiesEvolved.toString()],
+                      ["Thinking Cycles", brain.totalThinkingCycles.toLocaleString()],
+                    ].map(([k, v]) => (
+                      <View key={k} style={styles.brainDetailRow}>
+                        <Text style={styles.brainDetailKey}>{k}</Text>
+                        <Text style={styles.brainDetailValue}>{v}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  {brain.strengths.length > 0 && (
+                    <View style={styles.brainDetailSection}>
+                      <Text style={styles.brainDetailLabel}>STRENGTHS</Text>
+                      {brain.strengths.map((s, i) => (
+                        <Text key={`s-${i}`} style={[styles.brainDetailValue, { color: NEON_GREEN, marginBottom: 4 }]}>{s}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {brain.weaknesses.length > 0 && (
+                    <View style={styles.brainDetailSection}>
+                      <Text style={styles.brainDetailLabel}>WEAKNESSES</Text>
+                      {brain.weaknesses.map((w, i) => (
+                        <Text key={`w-${i}`} style={[styles.brainDetailValue, { color: C.gold, marginBottom: 4 }]}>{w}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {brain.discoveries.length > 0 && (
+                    <View style={styles.brainDetailSection}>
+                      <Text style={styles.brainDetailLabel}>DISCOVERIES</Text>
+                      {brain.discoveries.slice(0, 5).map((d, i) => (
+                        <Text key={`d-${i}`} style={[styles.brainDetailValue, { color: "#8B5CF6", marginBottom: 6, fontSize: 12 }]}>{d}</Text>
+                      ))}
+                    </View>
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* 1. JARVIS HEADER */}
         <View style={styles.headerRow}>
@@ -1680,6 +2044,245 @@ const styles = StyleSheet.create({
     color: CYAN,
     letterSpacing: 1.5,
     textTransform: "uppercase",
+  },
+  brainCard: {
+    backgroundColor: "rgba(0, 212, 255, 0.06)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+    padding: 14,
+    marginBottom: 12,
+  },
+  brainCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  brainCardTitle: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: CYAN,
+    letterSpacing: 1,
+  },
+  brainStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  brainStat: {
+    alignItems: "center",
+    flex: 1,
+  },
+  brainStatValue: {
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: C.text,
+  },
+  brainStatLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  brainMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  brainMetaText: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+  },
+  trainButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: CYAN,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  trainButtonText: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: "#000",
+    letterSpacing: 1,
+  },
+  readyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,255,136,0.3)",
+    backgroundColor: "rgba(0,255,136,0.08)",
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  trainingCard: {
+    backgroundColor: "rgba(0, 212, 255, 0.04)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.15)",
+    padding: 14,
+    marginBottom: 12,
+  },
+  progressBarOuter: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 3,
+    marginVertical: 10,
+    overflow: "hidden",
+  },
+  progressBarInner: {
+    height: 6,
+    backgroundColor: CYAN,
+    borderRadius: 3,
+  },
+  trainingPhase: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: C.gold,
+    marginBottom: 8,
+  },
+  phaseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+  },
+  phaseName: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: C.text,
+    flex: 1,
+  },
+  phaseProgress: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+  },
+  evoCard: {
+    backgroundColor: "rgba(0, 212, 255, 0.04)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.12)",
+    padding: 14,
+    marginBottom: 12,
+  },
+  evoRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.06)",
+  },
+  evoBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  evoBadgeText: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  evoDesc: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: C.text,
+    lineHeight: 16,
+  },
+  evoTime: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+    marginTop: 2,
+  },
+  patternRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  patternDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  patternName: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: C.text,
+    flex: 1,
+  },
+  patternAcc: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "flex-end",
+  },
+  brainModalContent: {
+    backgroundColor: C.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "85%",
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  brainModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.1)",
+  },
+  brainModalTitle: {
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: CYAN,
+    letterSpacing: 1,
+  },
+  brainDetailSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  brainDetailLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: CYAN,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  brainDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  brainDetailKey: {
+    fontSize: 12,
+    fontFamily: "DMSans_500Medium",
+    color: C.textMuted,
+  },
+  brainDetailValue: {
+    fontSize: 12,
+    fontFamily: "DMSans_600SemiBold",
+    color: C.text,
   },
   headerRow: {
     flexDirection: "row",

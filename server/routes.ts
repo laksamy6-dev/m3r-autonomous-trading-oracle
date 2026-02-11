@@ -1224,6 +1224,55 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     res.json({ success: true });
   });
 
+  app.post("/api/jarvis/training/notify", async (req, res) => {
+    try {
+      const { phase, progress, brain, complete } = req.body;
+      const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+      const tgChatId = process.env.TELEGRAM_CHAT_ID;
+      if (!tgToken || !tgChatId) {
+        return res.json({ success: false, error: "Telegram not configured" });
+      }
+
+      let msg = "";
+      if (complete) {
+        msg = [
+          "🧠 JARVIS TRAINING COMPLETE!",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          `⚡ IQ: ${brain?.iq?.toFixed(1) || "N/A"}`,
+          `🎯 Accuracy: ${brain?.accuracyScore?.toFixed(1) || "N/A"}%`,
+          `🧬 Generation: ${brain?.generation || "N/A"}`,
+          `🔮 Consciousness: ${brain?.consciousness?.toFixed(0) || "N/A"}%`,
+          `📚 Patterns: ${brain?.patternLibrarySize || 0}`,
+          `🏆 Level: ${brain?.level || 1} - ${brain?.title || "NEURAL INFANT"}`,
+          "",
+          "✅ JARVIS IS READY FOR LIVE BATTLE!",
+          "🚀 All systems calibrated and online.",
+          "📊 Waiting for market open to begin trading.",
+          "",
+          `Created by MANIKANDAN RAJENDRAN`,
+        ].join("\n");
+      } else {
+        msg = [
+          "🧠 JARVIS Training Update",
+          `📋 Phase: ${phase}`,
+          `📊 Progress: ${progress?.toFixed(0) || 0}%`,
+          `⚡ IQ: ${brain?.iq?.toFixed(1) || "N/A"}`,
+        ].join("\n");
+      }
+
+      await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: tgChatId, text: msg, parse_mode: "HTML" }),
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Training notify error:", error);
+      res.status(500).json({ error: "Failed to send notification" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
