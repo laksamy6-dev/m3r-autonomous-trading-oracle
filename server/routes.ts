@@ -7,6 +7,37 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+
+const OPTIONS_SYSTEM_PROMPT = `You are an expert Nifty 50 options trading specialist. You ONLY deal with Nifty 50 index options (CE and PE) on NSE India.
+
+Your core expertise:
+1. Analyzing Nifty 50 option chain data - OI, OI changes, PCR ratio, max pain, IV skew
+2. Identifying high-profit weekly expiry options (Thursday expiry)
+3. Selecting the best strike price for CE (Call) or PE (Put) based on market momentum
+4. Smart entry/exit strategies with partial profit booking
+5. Direction switching - when to exit CE and enter PE (or vice versa)
+
+Your trading strategy:
+- Buy CE when market is BULLISH (high PCR > 1.2, put writing, spot above max pain)
+- Buy PE when market is BEARISH (low PCR < 0.8, call writing, spot below max pain)
+- Book 50% profit when premium gains 30%+
+- Trail remaining 50% with breakeven stop loss
+- SWITCH direction when strong reversal signals appear (PCR flip, OI shift, momentum change)
+- Prefer strikes with delta 0.3-0.5 for good risk/reward
+- Prefer strikes with high OI and volume for liquidity
+
+When analyzing option chain data, always provide:
+- Clear BUY CE or BUY PE signal with specific strike price
+- Entry premium range
+- Target premium (30-50% gain)
+- Stop loss premium
+- When to book partial profits
+- When to switch direction
+
+Keep responses concise, actionable, and in trading language. Use INR. Format key signals prominently.
+Always mention the expiry date. Current weekly expiry is every Thursday.`;
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/analyze", async (req, res) => {
     try {
@@ -132,6 +163,195 @@ Provide your trading signal and analysis.`;
         res.status(500).json({ error: "Failed to get market insight" });
       }
     }
+  });
+
+  app.post("/api/options/analyze", async (req, res) => {
+    try {
+      const { optionChain, currentStrategy } = req.body;
+
+      if (!optionChain) {
+        return res.status(400).json({ error: "Option chain data is required" });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      const atmOptions = optionChain.options?.filter(
+        (o: any) => Math.abs(o.strikePrice - optionChain.atmStrike) <= 200
+      ) || [];
+
+      const chainSummary = atmOptions.map((o: any) =>
+        `Strike ${o.strikePrice}: CE(${o.cePrice}, OI:${(o.ceOI/100000).toFixed(1)}L, ChgOI:${(o.ceOIChange/1000).toFixed(0)}K, IV:${o.ceIV}%) PE(${o.pePrice}, OI:${(o.peOI/100000).toFixed(1)}L, ChgOI:${(o.peOIChange/1000).toFixed(0)}K, IV:${o.peIV}%)`
+      ).join("\n");
+
+      const strategyContext = currentStrategy?.currentPosition !== "NONE"
+        ? `\nCURRENT POSITION: ${currentStrategy.currentPosition} at strike ${currentStrategy.currentStrike}, Entry: Rs.${currentStrategy.entryPremium}, Current: Rs.${currentStrategy.currentPremium}, P&L: ${currentStrategy.dayPnl > 0 ? '+' : ''}Rs.${currentStrategy.dayPnl}, Partial booked: ${currentStrategy.partialBookedPercent}%`
+        : "\nNO CURRENT POSITION - Looking for fresh entry.";
+
+      const userPrompt = `Analyze this NIFTY 50 Option Chain and give me a trading signal:
+
+SPOT PRICE: ${optionChain.spotPrice}
+EXPIRY: ${optionChain.expiryDate}
+ATM STRIKE: ${optionChain.atmStrike}
+OVERALL PCR: ${optionChain.overallPCR}
+MAX PAIN: ${optionChain.maxPainStrike}
+
+OPTION CHAIN (ATM +/- 200):
+${chainSummary}
+${strategyContext}
+
+Based on this data, give me:
+1. Market direction (BULLISH/BEARISH/SIDEWAYS) with confidence
+2. Specific BUY CE or BUY PE recommendation with exact strike price
+3. Entry premium, target premium, stop loss
+4. When to book partial profit
+5. Conditions that would trigger a direction switch`;
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: OPTIONS_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        stream: true,
+        max_completion_tokens: 2048,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error) {
+      console.error("Error analyzing options:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Options analysis failed" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to analyze options" });
+      }
+    }
+  });
+
+  app.post("/api/options/bot", async (req, res) => {
+    try {
+      const { message, optionChain, strategy } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      let contextInfo = "";
+      if (optionChain) {
+        contextInfo += `\n\nCURRENT MARKET DATA:\nNifty Spot: ${optionChain.spotPrice}\nPCR: ${optionChain.overallPCR}\nMax Pain: ${optionChain.maxPainStrike}\nATM: ${optionChain.atmStrike}\nExpiry: ${optionChain.expiryDate}`;
+      }
+      if (strategy && strategy.currentPosition !== "NONE") {
+        contextInfo += `\nActive Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike}, Entry: Rs.${strategy.entryPremium}, Current: Rs.${strategy.currentPremium}`;
+      }
+
+      if (optionsBotHistory.length === 0) {
+        optionsBotHistory.push({ role: "system", content: OPTIONS_SYSTEM_PROMPT });
+      }
+
+      optionsBotHistory.push({
+        role: "user",
+        content: message + contextInfo,
+      });
+
+      if (optionsBotHistory.length > 20) {
+        const systemMsg = optionsBotHistory[0];
+        optionsBotHistory.splice(1, optionsBotHistory.length - 10);
+        optionsBotHistory[0] = systemMsg;
+      }
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: optionsBotHistory,
+        stream: true,
+        max_completion_tokens: 1536,
+      });
+
+      let assistantContent = "";
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          assistantContent += content;
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+
+      optionsBotHistory.push({ role: "assistant", content: assistantContent });
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error) {
+      console.error("Error in options bot:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Bot error" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Bot failed" });
+      }
+    }
+  });
+
+  app.post("/api/options/bot/reset", (_req, res) => {
+    optionsBotHistory.length = 0;
+    res.json({ success: true });
+  });
+
+  app.post("/api/telegram/send", async (req, res) => {
+    try {
+      const { message } = req.body;
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+
+      if (!botToken || !chatId) {
+        return res.status(400).json({ error: "Telegram credentials not configured", configured: false });
+      }
+
+      const telegramRes = await globalThis.fetch(
+        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: "Markdown",
+          }),
+        }
+      );
+
+      const data = await telegramRes.json();
+      res.json({ success: data.ok, configured: true });
+    } catch (error) {
+      console.error("Telegram error:", error);
+      res.status(500).json({ error: "Failed to send Telegram message" });
+    }
+  });
+
+  app.get("/api/telegram/status", (_req, res) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    res.json({ configured: !!(botToken && chatId) });
+  });
+
+  app.get("/api/upstox/status", (_req, res) => {
+    const apiKey = process.env.UPSTOX_API_KEY;
+    const apiSecret = process.env.UPSTOX_API_SECRET;
+    res.json({ configured: !!(apiKey && apiSecret), connected: false });
   });
 
   const httpServer = createServer(app);
