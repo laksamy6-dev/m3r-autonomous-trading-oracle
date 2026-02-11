@@ -35,6 +35,8 @@ import {
   FractalDimensionResult,
   QuantumSuperposition,
   DigitalConsciousness,
+  RocketScalpData,
+  NeuroQuantumFusion,
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
 import Colors from "@/constants/colors";
@@ -59,6 +61,8 @@ const LAYER_NAMES = [
   "GARCH",
   "Markov",
   "Quantum",
+  "Rocket Scalp",
+  "Neuro Fusion",
 ];
 
 function fmtIN(val: number): string {
@@ -153,6 +157,8 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Fractal D=${output.fractalData.boxCountDimension} | ${output.fractalData.complexityLevel} | Roughness ${output.fractalData.marketRoughness}%`,
     `Quantum: ${output.quantumData.collapsedStrategy} (${output.quantumData.collapsedProbability}%) | ${output.quantumData.superpositionState}`,
     `Consciousness: ${output.consciousness.awarenessLevel} | BPM ${output.consciousness.heartbeatBPM} | Temp ${output.consciousness.brainTemperature}C | ${output.consciousness.lastInsight}`,
+    `Rocket Scalp: ${output.rocketScalp.thrustLevel} | Score ${output.rocketScalp.rocketScore}% | Fuel ${output.rocketScalp.fuelRemaining}% | ${output.rocketScalp.scalpDirection} | Afterburner ${output.rocketScalp.afterburnerActive ? "ACTIVE" : "standby"}`,
+    `Neuro Fusion: Gen-${output.neuroFusion.brainGeneration} ${output.neuroFusion.wisdomLevel} | IQ ${output.neuroFusion.iqEstimate} | Accuracy ${output.neuroFusion.patternRecognitionAccuracy}% | Plasticity ${output.neuroFusion.neuralPlasticity}% | ${output.neuroFusion.dreamLearning ? "Dream learning active" : "Bootstrapping"}`,
   ];
 
   const count = 2 + Math.floor(Math.random() * 2);
@@ -1346,6 +1352,220 @@ export default function StrategyScreen() {
               <Text style={styles.physicsVal}>{frac.patternReliability}%</Text>
             </View>
           </View>
+        </View>
+
+        {/* 7G. ROCKET SCALPING */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="rocket" size={16} color={output.rocketScalp.afterburnerActive ? NEON_GREEN : CYAN} />
+            <Text style={styles.cardTitle}>ROCKET SCALPING</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: output.rocketScalp.thrustLevel === "HYPERDRIVE" ? C.greenBg : output.rocketScalp.thrustLevel === "ORBIT" || output.rocketScalp.thrustLevel === "LIFTOFF" ? C.goldBg : "rgba(100,116,139,0.12)" }]}>
+              <Text style={[styles.fusionActionText, { color: output.rocketScalp.thrustLevel === "HYPERDRIVE" ? NEON_GREEN : output.rocketScalp.thrustLevel === "ORBIT" || output.rocketScalp.thrustLevel === "LIFTOFF" ? C.gold : C.textMuted }]}>
+                {output.rocketScalp.thrustLevel}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>ROCKET SCORE</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${output.rocketScalp.rocketScore}%`, backgroundColor: output.rocketScalp.rocketScore > 70 ? NEON_GREEN : output.rocketScalp.rocketScore > 40 ? C.gold : C.textMuted }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{output.rocketScalp.rocketScore}%</Text>
+          </View>
+          
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>FUEL</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${output.rocketScalp.fuelRemaining}%`, backgroundColor: output.rocketScalp.fuelRemaining > 50 ? C.green : output.rocketScalp.fuelRemaining > 25 ? C.gold : C.red }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{output.rocketScalp.fuelRemaining}%</Text>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Direction</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.rocketScalp.scalpDirection === "LONG" ? C.green : output.rocketScalp.scalpDirection === "SHORT" ? C.red : C.textMuted }]}>{output.rocketScalp.scalpDirection}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Micro Mom</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.rocketScalp.microMomentum > 0 ? C.green : C.red }]}>{output.rocketScalp.microMomentum}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Burn Vel</Text>
+              <Text style={styles.formulaMetricVal}>{output.rocketScalp.burnVelocity}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Entry</Text>
+              <Text style={[styles.formulaMetricVal, { color: CYAN }]}>{fmtIN(output.rocketScalp.entryZone)}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Target</Text>
+              <Text style={[styles.formulaMetricVal, { color: C.green }]}>{fmtIN(output.rocketScalp.targetZone)}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Eject</Text>
+              <Text style={[styles.formulaMetricVal, { color: C.red }]}>{fmtIN(output.rocketScalp.ejectZone)}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>RR Ratio</Text>
+              <Text style={styles.formulaMetricVal}>{output.rocketScalp.riskRewardRatio}x</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Win Streak</Text>
+              <Text style={[styles.formulaMetricVal, { color: C.green }]}>{output.rocketScalp.consecutiveMicroWins}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Scalps</Text>
+              <Text style={styles.formulaMetricVal}>{output.rocketScalp.scalpsToday}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>PnL Today</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.rocketScalp.scalpPnl > 0 ? C.green : C.red }]}>Rs.{fmtIN(output.rocketScalp.scalpPnl)}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Afterburner</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.rocketScalp.afterburnerActive ? NEON_GREEN : C.textMuted }]}>{output.rocketScalp.afterburnerActive ? "ACTIVE" : "STANDBY"}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Tick Press</Text>
+              <Text style={styles.formulaMetricVal}>{output.rocketScalp.tickPressure}</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.formulaInterpretation}>{output.rocketScalp.interpretation}</Text>
+        </View>
+
+        {/* 7H. NEURO QUANTUM FUSION */}
+        <View style={[styles.card, { borderWidth: 1, borderColor: output.neuroFusion.fusionScore > 70 ? NEON_GREEN + "33" : CYAN + "22" }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="hardware-chip" size={16} color={output.neuroFusion.dreamLearning ? NEON_GREEN : CYAN} />
+            <Text style={styles.cardTitle}>NEURO QUANTUM FUSION</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: output.neuroFusion.wisdomLevel === "TRANSCENDENT" || output.neuroFusion.wisdomLevel === "GRANDMASTER" ? C.greenBg : output.neuroFusion.wisdomLevel === "MASTER" || output.neuroFusion.wisdomLevel === "EXPERT" ? C.goldBg : "rgba(100,116,139,0.12)" }]}>
+              <Text style={[styles.fusionActionText, { color: output.neuroFusion.wisdomLevel === "TRANSCENDENT" || output.neuroFusion.wisdomLevel === "GRANDMASTER" ? NEON_GREEN : output.neuroFusion.wisdomLevel === "MASTER" || output.neuroFusion.wisdomLevel === "EXPERT" ? C.gold : C.textSecondary }]}>
+                {output.neuroFusion.wisdomLevel}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>FUSION SCORE</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${output.neuroFusion.fusionScore}%`, backgroundColor: output.neuroFusion.fusionScore > 70 ? NEON_GREEN : output.neuroFusion.fusionScore > 40 ? CYAN : C.textMuted }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{output.neuroFusion.fusionScore}%</Text>
+          </View>
+          
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>PLASTICITY</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${output.neuroFusion.neuralPlasticity}%`, backgroundColor: output.neuroFusion.neuralPlasticity > 60 ? C.green : C.gold }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{output.neuroFusion.neuralPlasticity}%</Text>
+          </View>
+          
+          <View style={styles.formulaBarRow}>
+            <Text style={styles.formulaBarLabel}>SYNAPTIC</Text>
+            <View style={styles.formulaMiniBarBg}>
+              <View style={[styles.formulaMiniBarFill, { width: `${output.neuroFusion.synapticStrength}%`, backgroundColor: output.neuroFusion.synapticStrength > 60 ? C.green : C.gold }]} />
+            </View>
+            <Text style={styles.formulaBarVal}>{output.neuroFusion.synapticStrength}%</Text>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Generation</Text>
+              <Text style={[styles.formulaMetricVal, { color: CYAN }]}>Gen-{output.neuroFusion.brainGeneration}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>IQ</Text>
+              <Text style={[styles.formulaMetricVal, { color: NEON_GREEN }]}>{output.neuroFusion.iqEstimate}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Brain Age</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.brainAge}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Accuracy</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.neuroFusion.patternRecognitionAccuracy > 55 ? C.green : C.gold }]}>{output.neuroFusion.patternRecognitionAccuracy}%</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Creativity</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.creativityIndex}</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Intuition</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.intuitionAccuracy}%</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Evolution</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.evolutionRate} gen/hr</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Memory</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.memoryConsolidation}%</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Fitness</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.neuroFusion.geneticFitness > 60 ? C.green : C.gold }]}>{output.neuroFusion.geneticFitness}%</Text>
+            </View>
+          </View>
+          
+          <View style={styles.formulaRow}>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Learning Vel</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.learningVelocity}/min</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Mutation</Text>
+              <Text style={styles.formulaMetricVal}>{output.neuroFusion.adaptiveMutationRate}%</Text>
+            </View>
+            <View style={styles.formulaMetric}>
+              <Text style={styles.formulaMetricLabel}>Dream</Text>
+              <Text style={[styles.formulaMetricVal, { color: output.neuroFusion.dreamLearning ? NEON_GREEN : C.textMuted }]}>{output.neuroFusion.dreamLearning ? "ACTIVE" : "OFF"}</Text>
+            </View>
+          </View>
+          
+          {output.neuroFusion.weaknessDetected.length > 0 && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.lessonsTitle}>WEAKNESSES DETECTED</Text>
+              {output.neuroFusion.weaknessDetected.map((w, i) => (
+                <View key={`w-${i}`} style={styles.lessonItem}>
+                  <Ionicons name="warning" size={10} color={C.gold} />
+                  <Text style={[styles.lessonText, { color: C.gold }]}>{w}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          
+          {output.neuroFusion.strengthsIdentified.length > 0 && (
+            <View style={{ marginTop: 6 }}>
+              <Text style={styles.lessonsTitle}>STRENGTHS IDENTIFIED</Text>
+              {output.neuroFusion.strengthsIdentified.map((s, i) => (
+                <View key={`s-${i}`} style={styles.lessonItem}>
+                  <Ionicons name="checkmark-circle" size={10} color={NEON_GREEN} />
+                  <Text style={[styles.lessonText, { color: NEON_GREEN }]}>{s}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          
+          <Text style={styles.formulaInterpretation}>{output.neuroFusion.interpretation}</Text>
         </View>
 
         {/* 8. SELF-CORRECTION FEED */}

@@ -550,6 +550,148 @@ Based on this data, give me:
     }
   });
 
+  app.get("/api/market/session", (_req, res) => {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istDate = new Date(utc + 5.5 * 60 * 60000);
+    const uaeDate = new Date(utc + 4 * 60 * 60000);
+
+    const fmt2 = (n: number) => n.toString().padStart(2, "0");
+    const fmtTime = (d: Date) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}:${fmt2(d.getSeconds())}`;
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const fmtDate = (d: Date) => `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+
+    const dayOfWeek = istDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const currentMins = istDate.getHours() * 60 + istDate.getMinutes();
+    const openMins = 9 * 60 + 15;
+    const closeMins = 15 * 60 + 30;
+
+    let sessionStatus = "MARKET_CLOSED";
+    let sessionLabel = "Market Closed";
+    if (isWeekend) { sessionLabel = "Weekend - Market Closed"; }
+    else if (currentMins >= openMins && currentMins < closeMins) { sessionStatus = "MARKET_OPEN"; sessionLabel = "Market Open - Live Trading"; }
+    else if (currentMins >= 9 * 60 && currentMins < openMins) { sessionStatus = "PRE_MARKET"; sessionLabel = "Pre-Market Session"; }
+    else if (currentMins >= closeMins) { sessionStatus = "AFTER_HOURS"; sessionLabel = "After Hours"; }
+
+    const progressPercent = sessionStatus === "MARKET_OPEN"
+      ? Math.round(((currentMins - openMins) / (closeMins - openMins)) * 100)
+      : 0;
+
+    res.json({
+      istTime: fmtTime(istDate), uaeTime: fmtTime(uaeDate),
+      istDate: fmtDate(istDate), uaeDate: fmtDate(uaeDate),
+      sessionStatus, sessionLabel, isWeekend, progressPercent,
+      marketOpenIST: "09:15", marketCloseIST: "15:30",
+      marketOpenUAE: "07:45", marketCloseUAE: "14:00",
+    });
+  });
+
+  app.post("/api/telegram/alert", async (req, res) => {
+    try {
+      const { alertType, customMessage, signalData } = req.body;
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      if (!botToken || !chatId) return res.status(400).json({ error: "Telegram not configured" });
+
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const ist = new Date(utc + 5.5 * 60 * 60000);
+      const uae = new Date(utc + 4 * 60 * 60000);
+      const fmt2 = (n: number) => n.toString().padStart(2, "0");
+      const istStr = `${fmt2(ist.getHours())}:${fmt2(ist.getMinutes())}`;
+      const uaeStr = `${fmt2(uae.getHours())}:${fmt2(uae.getMinutes())}`;
+
+      let message = "";
+      switch (alertType) {
+        case "MARKET_OPEN":
+          message = `*JARVIS - Market Open*\n\nNSE is NOW OPEN\nIST: ${istStr} | UAE: ${uaeStr}\nSession: 09:15-15:30 IST / 07:45-14:00 UAE\n\nAll 20 neural formulas active, sir.`;
+          break;
+        case "MARKET_CLOSE":
+          message = `*JARVIS - Market Closed*\n\nNSE session ended\nIST: ${istStr} | UAE: ${uaeStr}\n\nNext session: Tomorrow 09:15 IST / 07:45 UAE`;
+          break;
+        case "PRE_MARKET":
+          message = `*JARVIS - Pre-Market*\n\nPre-market session active\nIST: ${istStr} | UAE: ${uaeStr}\nMarket opens at 09:15 IST / 07:45 UAE\n\nWarming up neural engine...`;
+          break;
+        case "SIGNAL":
+          if (signalData) {
+            message = `*JARVIS Trading Signal*\n\n*${signalData.action}* | Confidence: ${signalData.confidence}%\nStrike: ${signalData.strike} | Premium: Rs.${signalData.premium}\nTarget: Rs.${signalData.target} | SL: Rs.${signalData.stopLoss}\n\nEngine: ${signalData.engineVersion || "v8.0"}\n${signalData.rocketThrust ? `Rocket: ${signalData.rocketThrust}` : ""}\n${signalData.neuroWisdom ? `Brain: ${signalData.neuroWisdom}` : ""}\n\nIST: ${istStr} | UAE: ${uaeStr}`;
+          }
+          break;
+        case "SESSION_UPDATE":
+          const currentMins = ist.getHours() * 60 + ist.getMinutes();
+          const progress = Math.max(0, Math.round(((currentMins - 555) / (930 - 555)) * 100));
+          message = `*JARVIS Status*\n\nIST: ${istStr} | UAE: ${uaeStr}\nSession Progress: ${Math.min(100, progress)}%`;
+          break;
+        case "CUSTOM":
+          message = customMessage || "JARVIS alert";
+          break;
+        default:
+          message = customMessage || `JARVIS Alert\nIST: ${istStr} | UAE: ${uaeStr}`;
+      }
+
+      const telegramRes = await globalThis.fetch(
+        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "Markdown" }),
+        }
+      );
+      const data = await telegramRes.json();
+      res.json({ success: data.ok });
+    } catch (error) {
+      console.error("Telegram alert error:", error);
+      res.status(500).json({ error: "Failed to send alert" });
+    }
+  });
+
+  let lastAlertedSession = "";
+  setInterval(async () => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const ist = new Date(utc + 5.5 * 60 * 60000);
+    const currentMins = ist.getHours() * 60 + ist.getMinutes();
+    const dayOfWeek = ist.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) return;
+
+    const dateKey = `${ist.getFullYear()}-${ist.getMonth()}-${ist.getDate()}`;
+    let alertType = "";
+
+    if (currentMins === 9 * 60 && lastAlertedSession !== `${dateKey}-PRE`) {
+      alertType = "PRE_MARKET"; lastAlertedSession = `${dateKey}-PRE`;
+    } else if (currentMins === 9 * 60 + 15 && lastAlertedSession !== `${dateKey}-OPEN`) {
+      alertType = "MARKET_OPEN"; lastAlertedSession = `${dateKey}-OPEN`;
+    } else if (currentMins === 15 * 60 + 30 && lastAlertedSession !== `${dateKey}-CLOSE`) {
+      alertType = "MARKET_CLOSE"; lastAlertedSession = `${dateKey}-CLOSE`;
+    }
+
+    if (alertType) {
+      try {
+        const fmt2 = (n: number) => n.toString().padStart(2, "0");
+        const uae = new Date(utc + 4 * 60 * 60000);
+        const istStr = `${fmt2(ist.getHours())}:${fmt2(ist.getMinutes())}`;
+        const uaeStr = `${fmt2(uae.getHours())}:${fmt2(uae.getMinutes())}`;
+        let msg = "";
+        if (alertType === "PRE_MARKET") msg = `*JARVIS - Pre-Market*\n\nPre-market started\nIST: ${istStr} | UAE: ${uaeStr}\nMarket opens at 09:15 IST / 07:45 UAE`;
+        else if (alertType === "MARKET_OPEN") msg = `*JARVIS - Market OPEN*\n\nNSE trading started\nIST: ${istStr} | UAE: ${uaeStr}\nSession: 09:15-15:30 IST`;
+        else if (alertType === "MARKET_CLOSE") msg = `*JARVIS - Market CLOSED*\n\nNSE session ended\nIST: ${istStr} | UAE: ${uaeStr}\nNext: Tomorrow 09:15 IST / 07:45 UAE`;
+
+        await globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "Markdown" }),
+        });
+        console.log(`[JARVIS] Auto-alert sent: ${alertType}`);
+      } catch (e) { console.error("[JARVIS] Auto-alert failed:", e); }
+    }
+  }, 60000);
+
   const httpServer = createServer(app);
   return httpServer;
 }
