@@ -369,6 +369,52 @@ Based on this data, give me:
     }
   });
 
+  app.post("/api/jarvis/voice", async (req, res) => {
+    try {
+      const { audio, jarvisContext } = req.body;
+      if (!audio) return res.status(400).json({ error: "Audio is required" });
+
+      // 1. Transcribe audio using OpenAI Whisper
+      const transcription = await openai.audio.transcriptions.create({
+        file: await toFile(Buffer.from(audio, "base64"), "input.wav"),
+        model: "whisper-1",
+      });
+
+      const userText = transcription.text;
+
+      // 2. Get AI response
+      const chatResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: OPTIONS_SYSTEM_PROMPT },
+          { role: "user", content: `CONTEXT:\n${jarvisContext}\n\nUSER VOICE INPUT: ${userText}` }
+        ],
+      });
+
+      const aiText = chatResponse.choices[0].message.content || "I'm sorry, I couldn't process that.";
+
+      // 3. Convert AI response to Speech using OpenAI TTS
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "alloy",
+        input: aiText,
+      });
+
+      const audioBuffer = Buffer.from(await mp3.arrayBuffer());
+      const audioBase64 = audioBuffer.toString("base64");
+
+      res.json({
+        userText,
+        aiText,
+        audioBase64,
+        language: "en"
+      });
+    } catch (error) {
+      console.error("Jarvis voice error:", error);
+      res.status(500).json({ error: "Voice processing failed" });
+    }
+  });
+
   app.post("/api/options/bot/reset", (_req, res) => {
     optionsBotHistory.length = 0;
     res.json({ success: true });
