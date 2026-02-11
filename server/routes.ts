@@ -452,8 +452,8 @@ Based on this data, give me:
   });
 
   app.get("/api/telegram/status", (_req, res) => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     res.json({ configured: !!(botToken && chatId) });
   });
 
@@ -614,8 +614,8 @@ Based on this data, give me:
   });
 
   app.post("/api/telegram/test", async (_req, res) => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (!botToken || !chatId) return res.status(400).json({ error: "Not configured", configured: false });
     try {
       const telegramRes = await globalThis.fetch(
@@ -732,8 +732,8 @@ Based on this data, give me:
 
   let lastAlertedSession = "";
   setInterval(async () => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (!botToken || !chatId) return;
 
     const now = new Date();
@@ -874,8 +874,8 @@ Based on this data, give me:
   }
 
   async function sendTelegramApprovalRequest(proposal: TradeProposal) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (!botToken || !chatId) return;
 
     const zeroLossIcon = proposal.zeroLossReady ? "READY" : "NOT MET";
@@ -917,8 +917,8 @@ Based on this data, give me:
   }
 
   async function sendTelegramTradeResult(proposal: TradeProposal, action: string) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (!botToken || !chatId) return;
 
     const { istStr, uaeStr } = getTimeStrings();
@@ -1003,8 +1003,8 @@ Based on this data, give me:
     scanCycleCount = 0;
     console.log("[JARVIS] Auto-scan STARTED");
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (botToken && chatId) {
       const { istStr, uaeStr } = getTimeStrings();
       globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -1042,8 +1042,8 @@ Based on this data, give me:
     if (autoScanInterval) { clearInterval(autoScanInterval); autoScanInterval = null; }
     console.log("[JARVIS] Auto-scan STOPPED");
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (botToken && chatId) {
       const { istStr, uaeStr } = getTimeStrings();
       globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
