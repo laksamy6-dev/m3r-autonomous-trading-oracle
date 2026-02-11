@@ -1117,7 +1117,7 @@ Based on this data, give me:
     if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
       try {
         const telegramMsg = `🚀 *JARVIS Signal*\n\n` +
-          `💰 *NIFTY:* ${marketStatus?.price || strike}\n` +
+          `💰 *NIFTY:* ${proposal.strike}\n` +
           `📈 *Action:* ${action}\n` +
           `🎯 *Strike:* ${strike}\n` +
           `💵 *Entry:* ₹${premium}\n` +
