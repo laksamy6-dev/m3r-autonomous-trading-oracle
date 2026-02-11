@@ -78,6 +78,7 @@ function buildJarvisContext(output: NeuralEngineOutput): string {
     `Growth Brain: Level=${cog.growthBrain.adaptationLevel} | LearningRate=${cog.growthBrain.learningRate} | Improvement=${cog.growthBrain.improvementRate}%`,
     `Experience: ${exp.totalExperiences} trades | WinRate=${exp.recentWinRate}% | BestSetup=${exp.bestSetup}`,
     `Global: ${gl.globalSentiment} | Impact=${gl.netImpactOnNifty}% | VIX=${gl.vixLevel} | DXY=${gl.dollarIndex}`,
+    `ZeroLoss: Brokerage=Rs.${output.zeroLoss.brokerageCost} | MinProfit=Rs.${output.zeroLoss.minProfitTarget} | GreenCandles=${output.zeroLoss.greenCandlesDetected}/${output.zeroLoss.greenCandlesRequired} | Entry=${output.zeroLoss.entryConfirmed} | Safety=${output.zeroLoss.safetyStatus}`,
     `Interpretations:`,
     `  Hurst: ${hpi.interpretation}`,
     `  Entropy: ${ent.interpretation}`,
@@ -217,13 +218,17 @@ export default function BotScreen() {
   return (
     <View style={styles.container} testID="bot-screen">
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 12 }]}>
+        <View style={styles.creatorRow}>
+          <Ionicons name="shield-checkmark" size={10} color={CYAN} />
+          <Text style={styles.creatorLabel}>Created by MANIKANDAN RAJENDRAN</Text>
+        </View>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>JARVIS</Text>
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
               <Text style={styles.statusText}>
-                {engineOutput ? `v5.0 | Tick #${engineOutput.engineTick}` : "Initializing..."}
+                {engineOutput ? `v6.0 | Tick #${engineOutput.engineTick}` : "Initializing..."}
               </Text>
             </View>
           </View>
@@ -356,6 +361,20 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_700Bold",
     color: CYAN,
     letterSpacing: 2,
+  },
+  creatorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  creatorLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   statusRow: {
     flexDirection: "row",

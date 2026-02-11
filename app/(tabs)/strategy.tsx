@@ -26,6 +26,7 @@ import {
   HilbertCycleResult,
   ExperienceReplayState,
   CognitiveAlphaState,
+  ZeroLossStrategy,
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
 import Colors from "@/constants/colors";
@@ -130,6 +131,7 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Hilbert Cycle: ${output.hilbertData.cyclePosition}, period ${output.hilbertData.dominantPeriod}, strength ${output.hilbertData.cycleStrength}%`,
     `Cognitive Alpha: Fast=${output.cognitiveAlpha.fastBrain.signal} Slow=${output.cognitiveAlpha.slowBrain.verdict} Fusion=${output.cognitiveAlpha.fusionAction} (${output.cognitiveAlpha.overallConfidence}%)`,
     `Growth Brain: ${output.experienceReplay.totalExperiences} experiences, win rate ${output.experienceReplay.recentWinRate}%, adaptation ${output.experienceReplay.adaptiveLearningRate}`,
+    `Zero-Loss: ${output.zeroLoss.greenCandlesDetected}/${output.zeroLoss.greenCandlesRequired} green candles | Safety: ${output.zeroLoss.safetyStatus.replace(/_/g, " ")} | Target: Rs.${output.zeroLoss.minTotalTarget}`,
   ];
 
   const count = 2 + Math.floor(Math.random() * 2);
@@ -280,6 +282,7 @@ export default function StrategyScreen() {
   const hilb = output.hilbertData;
   const expReplay = output.experienceReplay;
   const cogAlpha = output.cognitiveAlpha;
+  const zl = output.zeroLoss;
 
   const usMarkets = gl.markets.filter((m) => m.region === "US");
   const euroMarkets = gl.markets.filter((m) => m.region === "EUROPE");
@@ -308,6 +311,12 @@ export default function StrategyScreen() {
           />
         }
       >
+        {/* CREATOR BANNER */}
+        <View style={styles.creatorBanner}>
+          <Ionicons name="shield-checkmark" size={12} color={CYAN} />
+          <Text style={styles.creatorText}>Created by MANIKANDAN RAJENDRAN</Text>
+        </View>
+
         {/* 1. JARVIS HEADER */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -428,6 +437,66 @@ export default function StrategyScreen() {
               <Text style={[styles.scoreVal, { color: d.timingScore > 60 ? C.green : C.textSecondary }]}>{d.timingScore}</Text>
             </View>
           </View>
+        </View>
+
+        {/* 3A. ZERO-LOSS STRATEGY */}
+        <View style={[styles.card, { borderWidth: 1, borderColor: zl.safetyStatus === "SAFE_ENTRY" ? C.green + "44" : zl.safetyStatus === "DANGER_ZONE" ? C.red + "44" : zl.safetyStatus === "PROFIT_ZONE" ? NEON_GREEN + "44" : C.gold + "44" }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="shield-checkmark" size={16} color={zl.safetyStatus === "SAFE_ENTRY" ? C.green : zl.safetyStatus === "DANGER_ZONE" ? C.red : C.gold} />
+            <Text style={styles.cardTitle}>ZERO-LOSS STRATEGY</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: zl.safetyStatus === "SAFE_ENTRY" ? C.greenBg : zl.safetyStatus === "DANGER_ZONE" ? C.redBg : C.goldBg }]}>
+              <Text style={[styles.fusionActionText, { color: zl.safetyStatus === "SAFE_ENTRY" ? C.green : zl.safetyStatus === "DANGER_ZONE" ? C.red : C.gold }]}>
+                {zl.safetyStatus.replace(/_/g, " ")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.zlCandleRow}>
+            <Text style={styles.zlCandleLabel}>Green Candles</Text>
+            <View style={styles.zlCandleDots}>
+              {Array.from({ length: zl.greenCandlesRequired }).map((_, i) => (
+                <View key={i} style={[styles.zlCandleDot, i < zl.greenCandlesDetected && styles.zlCandleDotFilled]} />
+              ))}
+            </View>
+            <Text style={[styles.zlCandleCount, { color: zl.entryConfirmed ? C.green : C.gold }]}>
+              {zl.greenCandlesDetected}/{zl.greenCandlesRequired}
+            </Text>
+          </View>
+
+          <View style={styles.decisionGrid}>
+            <View style={styles.decisionItem}>
+              <Text style={styles.decisionItemLabel}>Brokerage</Text>
+              <Text style={[styles.decisionItemVal, { color: C.red }]}>Rs.{zl.brokerageCost}</Text>
+            </View>
+            <View style={styles.decisionItem}>
+              <Text style={styles.decisionItemLabel}>Min Profit</Text>
+              <Text style={[styles.decisionItemVal, { color: C.green }]}>Rs.{zl.minProfitTarget}</Text>
+            </View>
+            <View style={styles.decisionItem}>
+              <Text style={styles.decisionItemLabel}>Min Target</Text>
+              <Text style={[styles.decisionItemVal, { color: CYAN }]}>Rs.{zl.minTotalTarget}</Text>
+            </View>
+            <View style={styles.decisionItem}>
+              <Text style={styles.decisionItemLabel}>R:R Ratio</Text>
+              <Text style={styles.decisionItemVal}>1:{zl.riskRewardRatio.toFixed(1)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.zlEntryBox}>
+            <Text style={[styles.zlEntryLabel, { color: zl.entryConfirmed && !ent.isTrapZone ? C.green : C.gold }]}>
+              {zl.entryConfirmed && !ent.isTrapZone ? "ENTRY SIGNAL" : "WAITING"}
+            </Text>
+            <Text style={styles.zlEntryText}>{zl.entryLogic}</Text>
+          </View>
+
+          <View style={styles.zlExitBox}>
+            <Text style={[styles.zlEntryLabel, { color: CYAN }]}>EXIT PLAN</Text>
+            <Text style={styles.zlEntryText}>{zl.exitLogic}</Text>
+          </View>
+
+          {zl.reasoning.slice(0, 3).map((r, i) => (
+            <Text key={i} style={styles.reasoningText}>{r}</Text>
+          ))}
         </View>
 
         {/* 3B. COGNITIVE ALPHA - 3-LAYER BRAIN */}
@@ -1097,6 +1166,20 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
+  creatorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+    opacity: 0.8,
+  },
+  creatorText: {
+    fontSize: 10,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1789,6 +1872,73 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     color: C.red,
     flex: 1,
+  },
+  zlCandleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(0, 212, 255, 0.06)",
+    borderRadius: 8,
+  },
+  zlCandleLabel: {
+    fontSize: 12,
+    fontFamily: "DMSans_600SemiBold",
+    color: C.textSecondary,
+  },
+  zlCandleDots: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  zlCandleDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: C.textMuted,
+    backgroundColor: "transparent",
+  },
+  zlCandleDotFilled: {
+    backgroundColor: NEON_GREEN,
+    borderColor: NEON_GREEN,
+  },
+  zlCandleCount: {
+    fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    marginLeft: "auto",
+  },
+  zlEntryBox: {
+    backgroundColor: "rgba(0, 212, 255, 0.06)",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  zlExitBox: {
+    backgroundColor: "rgba(0, 212, 255, 0.04)",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  zlEntryLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  zlEntryText: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: C.textSecondary,
+    lineHeight: 18,
+  },
+  reasoningText: {
+    fontSize: 11,
+    fontFamily: "DMSans_400Regular",
+    color: C.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
   },
   brainSection: {
     borderLeftWidth: 3,

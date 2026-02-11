@@ -7,6 +7,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { StatusBar } from "expo-status-bar";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LockScreen from "@/components/LockScreen";
 import {
   useFonts,
   DMSans_400Regular,
@@ -14,6 +16,7 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,6 +31,33 @@ function RootLayoutNav() {
     </Stack>
   );
 }
+
+function AuthGate() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={gateStyles.loading}>
+        <ActivityIndicator size="large" color="#00D4FF" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LockScreen />;
+  }
+
+  return <RootLayoutNav />;
+}
+
+const gateStyles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: "#0A0E1A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -51,7 +81,9 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <StatusBar style="light" />
-            <RootLayoutNav />
+            <AuthProvider>
+              <AuthGate />
+            </AuthProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

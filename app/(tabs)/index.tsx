@@ -115,6 +115,10 @@ export default function MarketScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingTop: insets.top + webTopInset + 16, paddingHorizontal: 20 }}>
+          <View style={styles.creatorRow}>
+            <Ionicons name="shield-checkmark" size={10} color="#00D4FF" />
+            <Text style={styles.creatorLabel}>Created by MANIKANDAN RAJENDRAN</Text>
+          </View>
           <Text style={styles.greeting}>Indian Markets</Text>
           <Text style={styles.subtitle}>Live Overview</Text>
         </View>
@@ -158,6 +162,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.background,
+  },
+  creatorRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 5,
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  creatorLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#00D4FF",
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   greeting: {
     fontSize: 28,
