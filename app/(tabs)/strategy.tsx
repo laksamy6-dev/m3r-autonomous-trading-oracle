@@ -27,6 +27,14 @@ import {
   ExperienceReplayState,
   CognitiveAlphaState,
   ZeroLossStrategy,
+  WaveletAnalysis,
+  LyapunovAnalysis,
+  GARCHResult,
+  MarkovChainResult,
+  FourierAnalysis,
+  FractalDimensionResult,
+  QuantumSuperposition,
+  DigitalConsciousness,
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
 import Colors from "@/constants/colors";
@@ -46,6 +54,11 @@ const LAYER_NAMES = [
   "Volatility",
   "Memory",
   "Global",
+  "Wavelet",
+  "Lyapunov",
+  "GARCH",
+  "Markov",
+  "Quantum",
 ];
 
 function fmtIN(val: number): string {
@@ -118,7 +131,7 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Global sentiment ${gl.globalSentiment} -- net Nifty impact ${gl.netImpactOnNifty > 0 ? "+" : ""}${gl.netImpactOnNifty}%`,
     `FII ${inst.fiiAction} | DII ${inst.diiAction} | OI buildup: ${inst.oiBuildup}`,
     `Physics engine: KE=${ph.kineticEnergy}, Force=${ph.force}, predicted ${ph.predictedDirection} ${ph.predictedMove} pts`,
-    `9-layer neural score: ${d.neuralScore}% -- signal ${d.signalStrength}`,
+    `14-layer neural score: ${d.neuralScore}% -- signal ${d.signalStrength}`,
     `Call wall at ${fmtIN(inst.callWall)} | Put wall at ${fmtIN(inst.putWall)}`,
     `VIX at ${gl.vixLevel.toFixed(1)} -- Fear & Greed Index: ${gl.fearGreedIndex}`,
     `Dollar Index ${gl.dollarIndex.toFixed(1)} | Crude Oil $${gl.crudeOil.toFixed(1)}`,
@@ -132,6 +145,14 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Cognitive Alpha: Fast=${output.cognitiveAlpha.fastBrain.signal} Slow=${output.cognitiveAlpha.slowBrain.verdict} Fusion=${output.cognitiveAlpha.fusionAction} (${output.cognitiveAlpha.overallConfidence}%)`,
     `Growth Brain: ${output.experienceReplay.totalExperiences} experiences, win rate ${output.experienceReplay.recentWinRate}%, adaptation ${output.experienceReplay.adaptiveLearningRate}`,
     `Zero-Loss: ${output.zeroLoss.greenCandlesDetected}/${output.zeroLoss.greenCandlesRequired} green candles | Safety: ${output.zeroLoss.safetyStatus.replace(/_/g, " ")} | Target: Rs.${output.zeroLoss.minTotalTarget}`,
+    `Wavelet: ${output.waveletData.multiScaleTrend} | Purity ${output.waveletData.signalPurity}% | Trend ${output.waveletData.trendComponent}% vs Noise ${output.waveletData.noiseComponent}%`,
+    `Lyapunov: ${output.lyapunovData.stabilityClass} | Butterfly Risk ${output.lyapunovData.butterflyRisk}% | Prediction Horizon ${output.lyapunovData.predictabilityHorizon} bars`,
+    `GARCH: ${output.garchData.volRegime} | Vol ${output.garchData.currentVolatility}% -> ${output.garchData.forecastedVolatility}% | Trend ${output.garchData.volTrend}`,
+    `Markov: ${output.markovData.currentState} -> ${output.markovData.mostLikelyNextState} | Continuation ${output.markovData.trendContinuationProb}%`,
+    `Fourier: ${output.fourierData.seasonalBias} | Cyclical Strength ${output.fourierData.cyclicalStrength}% | Harmonics ${output.fourierData.harmonicCount}`,
+    `Fractal D=${output.fractalData.boxCountDimension} | ${output.fractalData.complexityLevel} | Roughness ${output.fractalData.marketRoughness}%`,
+    `Quantum: ${output.quantumData.collapsedStrategy} (${output.quantumData.collapsedProbability}%) | ${output.quantumData.superpositionState}`,
+    `Consciousness: ${output.consciousness.awarenessLevel} | BPM ${output.consciousness.heartbeatBPM} | Temp ${output.consciousness.brainTemperature}C | ${output.consciousness.lastInsight}`,
   ];
 
   const count = 2 + Math.floor(Math.random() * 2);
@@ -283,6 +304,14 @@ export default function StrategyScreen() {
   const expReplay = output.experienceReplay;
   const cogAlpha = output.cognitiveAlpha;
   const zl = output.zeroLoss;
+  const wav = output.waveletData;
+  const lyap = output.lyapunovData;
+  const garch = output.garchData;
+  const mkv = output.markovData;
+  const four = output.fourierData;
+  const frac = output.fractalData;
+  const qnt = output.quantumData;
+  const cons = output.consciousness;
 
   const usMarkets = gl.markets.filter((m) => m.region === "US");
   const euroMarkets = gl.markets.filter((m) => m.region === "EUROPE");
@@ -614,11 +643,11 @@ export default function StrategyScreen() {
           </View>
         </View>
 
-        {/* 4. 9-LAYER NEURAL NETWORK VISUAL */}
+        {/* 4. 14-LAYER NEURAL NETWORK VISUAL */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="git-network" size={16} color={CYAN} />
-            <Text style={styles.cardTitle}>9-LAYER NEURAL NETWORK</Text>
+            <Text style={styles.cardTitle}>14-LAYER NEURAL NETWORK</Text>
             <Text style={styles.neuralScoreBadge}>{d.neuralScore}%</Text>
           </View>
           {LAYER_NAMES.map((name, i) => {
@@ -1064,6 +1093,258 @@ export default function StrategyScreen() {
           <View style={styles.expMetaRow}>
             <Text style={styles.expMetaLabel}>Adaptive Learning Rate</Text>
             <Text style={[styles.expMetaVal, { color: CYAN }]}>{expReplay.adaptiveLearningRate}</Text>
+          </View>
+        </View>
+
+        {/* 7D. DIGITAL CONSCIOUSNESS */}
+        <View style={[styles.card, { borderWidth: 1, borderColor: cons.awarenessLevel === "TRANSCENDENT" ? NEON_GREEN + "44" : cons.awarenessLevel === "HYPER_AWARE" ? CYAN + "44" : "transparent" }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="pulse" size={16} color={cons.heartbeatBPM > 100 ? C.red : CYAN} />
+            <Text style={styles.cardTitle}>DIGITAL CONSCIOUSNESS</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: cons.awarenessLevel === "TRANSCENDENT" ? NEON_GREEN + "22" : cons.awarenessLevel === "HYPER_AWARE" ? CYAN + "22" : C.goldBg }]}>
+              <Text style={[styles.fusionActionText, { color: cons.awarenessLevel === "TRANSCENDENT" ? NEON_GREEN : cons.awarenessLevel === "HYPER_AWARE" ? CYAN : C.gold }]}>
+                {cons.awarenessLevel}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Heartbeat</Text>
+              <Text style={[styles.physicsVal, { color: cons.heartbeatBPM > 100 ? C.red : CYAN }]}>{cons.heartbeatBPM} BPM</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Brain Temp</Text>
+              <Text style={[styles.physicsVal, { color: cons.brainTemperature > 38 ? C.red : CYAN }]}>{cons.brainTemperature}C</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Cognitive Load</Text>
+              <Text style={[styles.physicsVal, { color: cons.cognitiveLoad > 70 ? C.red : cons.cognitiveLoad > 40 ? C.gold : C.green }]}>{cons.cognitiveLoad}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Neural Sync</Text>
+              <Text style={[styles.physicsVal, { color: cons.neuralSyncRate > 60 ? C.green : C.gold }]}>{cons.neuralSyncRate}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Formula Agree</Text>
+              <Text style={[styles.physicsVal, { color: cons.formulaAgreementRate > 70 ? NEON_GREEN : cons.formulaAgreementRate > 50 ? C.green : C.gold }]}>{cons.formulaAgreementRate}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Consciousness</Text>
+              <Text style={[styles.physicsVal, { color: cons.consciousnessScore > 70 ? C.green : C.gold }]}>{cons.consciousnessScore}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Thoughts</Text>
+              <Text style={[styles.physicsVal, { color: CYAN }]}>{cons.totalThoughts}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Alive</Text>
+              <Text style={[styles.physicsVal, { color: CYAN }]}>{Math.round(cons.aliveForMs / 1000)}s</Text>
+            </View>
+          </View>
+
+          <View style={styles.zlEntryBox}>
+            <Text style={[styles.zlEntryLabel, { color: CYAN }]}>INSIGHT</Text>
+            <Text style={styles.zlEntryText}>{cons.lastInsight}</Text>
+          </View>
+
+          <Text style={[styles.fusionConfidence, { marginTop: 8 }]}>System Diagnostics</Text>
+          {cons.selfDiagnostics.map((diag, i) => (
+            <View key={`diag-${i}`} style={styles.layerRow}>
+              <Text style={styles.layerName}>{diag.system}</Text>
+              <View style={styles.layerBarBg}>
+                <View style={[styles.layerBarFill, { width: `${diag.health}%`, backgroundColor: diag.status === "OPTIMAL" ? C.green : diag.status === "DEGRADED" ? C.gold : C.red }]} />
+              </View>
+              <Text style={[styles.layerVal, { color: diag.status === "OPTIMAL" ? C.green : diag.status === "DEGRADED" ? C.gold : C.red }]}>
+                {diag.status === "OPTIMAL" ? "OK" : diag.status}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 7E. QUANTUM SUPERPOSITION */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="nuclear" size={16} color="#FF00FF" />
+            <Text style={styles.cardTitle}>QUANTUM ENGINE</Text>
+            <View style={[styles.fusionActionBadge, { backgroundColor: qnt.superpositionState === "COLLAPSED" ? C.greenBg : qnt.superpositionState === "ENTANGLED" ? "#FF00FF22" : C.goldBg }]}>
+              <Text style={[styles.fusionActionText, { color: qnt.superpositionState === "COLLAPSED" ? C.green : qnt.superpositionState === "ENTANGLED" ? "#FF00FF" : C.gold }]}>
+                {qnt.superpositionState.replace("_", " ")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.zlEntryBox}>
+            <Text style={[styles.zlEntryLabel, { color: "#FF00FF" }]}>{qnt.collapsedStrategy.replace(/_/g, " ")}</Text>
+            <Text style={styles.zlEntryText}>{qnt.interpretation}</Text>
+          </View>
+
+          {qnt.strategies.slice(0, 5).map((st, i) => (
+            <View key={`q-${i}`} style={styles.layerRow}>
+              <Text style={[styles.layerName, { fontSize: 10 }]}>{st.name.replace(/_/g, " ")}</Text>
+              <View style={styles.layerBarBg}>
+                <View style={[styles.layerBarFill, { width: `${st.probability}%`, backgroundColor: i === 0 ? "#FF00FF" : i === 1 ? CYAN : C.textMuted }]} />
+              </View>
+              <Text style={[styles.layerVal, { color: i === 0 ? "#FF00FF" : C.textSecondary }]}>{st.probability}%</Text>
+            </View>
+          ))}
+
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Entanglement</Text>
+              <Text style={styles.physicsVal}>{qnt.entanglementScore}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Decoherence</Text>
+              <Text style={styles.physicsVal}>{qnt.decoherenceLevel}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Q-Advantage</Text>
+              <Text style={[styles.physicsVal, { color: qnt.quantumAdvantage > 0 ? C.green : C.gold }]}>{qnt.quantumAdvantage > 0 ? "+" : ""}{qnt.quantumAdvantage}%</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 7F. ADVANCED FORMULAS GRID */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="analytics" size={16} color={CYAN} />
+            <Text style={styles.cardTitle}>ADVANCED FORMULAS</Text>
+            <Text style={styles.neuralScoreBadge}>{output.totalFormulas}</Text>
+          </View>
+
+          <View style={styles.zlEntryBox}>
+            <Text style={[styles.zlEntryLabel, { color: CYAN }]}>WAVELET TRANSFORM</Text>
+            <Text style={styles.zlEntryText}>{wav.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Multi-Scale</Text>
+              <Text style={[styles.physicsVal, { color: wav.multiScaleTrend.includes("ALIGNED") ? C.green : C.gold }]}>{wav.multiScaleTrend.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Purity</Text>
+              <Text style={styles.physicsVal}>{wav.signalPurity}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Trend</Text>
+              <Text style={styles.physicsVal}>{wav.trendComponent}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Noise</Text>
+              <Text style={styles.physicsVal}>{wav.noiseComponent}%</Text>
+            </View>
+          </View>
+
+          <View style={[styles.zlEntryBox, { marginTop: 12 }]}>
+            <Text style={[styles.zlEntryLabel, { color: lyap.stabilityClass === "HYPER_CHAOTIC" ? C.red : lyap.stabilityClass === "EDGE_OF_CHAOS" ? C.gold : C.green }]}>LYAPUNOV EXPONENT</Text>
+            <Text style={styles.zlEntryText}>{lyap.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Exponent</Text>
+              <Text style={styles.physicsVal}>{lyap.lyapunovExponent}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Stability</Text>
+              <Text style={[styles.physicsVal, { color: lyap.stabilityClass.includes("STABLE") ? C.green : C.red, fontSize: 10 }]}>{lyap.stabilityClass.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Butterfly</Text>
+              <Text style={[styles.physicsVal, { color: lyap.butterflyRisk > 60 ? C.red : C.green }]}>{lyap.butterflyRisk}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Horizon</Text>
+              <Text style={styles.physicsVal}>{lyap.predictabilityHorizon}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.zlEntryBox, { marginTop: 12 }]}>
+            <Text style={[styles.zlEntryLabel, { color: garch.volRegime === "VOL_SPIKE" ? C.red : garch.volRegime === "LOW_VOL" ? C.green : CYAN }]}>GARCH VOLATILITY</Text>
+            <Text style={styles.zlEntryText}>{garch.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Current Vol</Text>
+              <Text style={styles.physicsVal}>{garch.currentVolatility}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Forecast</Text>
+              <Text style={[styles.physicsVal, { color: garch.forecastedVolatility > garch.currentVolatility ? C.red : C.green }]}>{garch.forecastedVolatility}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Regime</Text>
+              <Text style={[styles.physicsVal, { fontSize: 10 }]}>{garch.volRegime.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Half-Life</Text>
+              <Text style={styles.physicsVal}>{garch.halfLife}d</Text>
+            </View>
+          </View>
+
+          <View style={[styles.zlEntryBox, { marginTop: 12 }]}>
+            <Text style={[styles.zlEntryLabel, { color: CYAN }]}>MARKOV CHAIN</Text>
+            <Text style={styles.zlEntryText}>{mkv.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>State</Text>
+              <Text style={[styles.physicsVal, { color: mkv.currentState.includes("BULL") ? C.green : mkv.currentState.includes("BEAR") ? C.red : C.gold, fontSize: 10 }]}>{mkv.currentState.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Next</Text>
+              <Text style={[styles.physicsVal, { color: mkv.mostLikelyNextState.includes("BULL") ? C.green : mkv.mostLikelyNextState.includes("BEAR") ? C.red : C.gold, fontSize: 10 }]}>{mkv.mostLikelyNextState.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Continue</Text>
+              <Text style={styles.physicsVal}>{mkv.trendContinuationProb}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Reversion</Text>
+              <Text style={styles.physicsVal}>{mkv.meanReversionProb}%</Text>
+            </View>
+          </View>
+
+          <View style={[styles.zlEntryBox, { marginTop: 12 }]}>
+            <Text style={[styles.zlEntryLabel, { color: CYAN }]}>FOURIER TRANSFORM</Text>
+            <Text style={styles.zlEntryText}>{four.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Cycle</Text>
+              <Text style={[styles.physicsVal, { fontSize: 10 }]}>{four.seasonalBias.replace("_", " ")}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Strength</Text>
+              <Text style={styles.physicsVal}>{four.cyclicalStrength}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Harmonics</Text>
+              <Text style={styles.physicsVal}>{four.harmonicCount}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.zlEntryBox, { marginTop: 12 }]}>
+            <Text style={[styles.zlEntryLabel, { color: frac.complexityLevel === "CHAOTIC" ? C.red : CYAN }]}>FRACTAL DIMENSION</Text>
+            <Text style={styles.zlEntryText}>{frac.interpretation}</Text>
+          </View>
+          <View style={styles.physicsGrid}>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Dimension</Text>
+              <Text style={styles.physicsVal}>{frac.boxCountDimension}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Complexity</Text>
+              <Text style={[styles.physicsVal, { fontSize: 10 }]}>{frac.complexityLevel}</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Roughness</Text>
+              <Text style={styles.physicsVal}>{frac.marketRoughness}%</Text>
+            </View>
+            <View style={styles.physicsItem}>
+              <Text style={styles.physicsLabel}>Pattern Rel</Text>
+              <Text style={styles.physicsVal}>{frac.patternReliability}%</Text>
+            </View>
           </View>
         </View>
 
