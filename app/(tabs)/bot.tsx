@@ -30,6 +30,7 @@ import {
   NeuralEngineOutput,
 } from "@/lib/neural-trading-engine";
 import Colors from "@/constants/colors";
+import VisitorGate from "@/components/VisitorGate";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
@@ -300,6 +301,14 @@ function WaveformBar({ index, active }: { index: number; active: boolean }) {
 }
 
 export default function BotScreen() {
+  return (
+    <VisitorGate tabName="JARVIS Bot">
+      <BotScreenInner />
+    </VisitorGate>
+  );
+}
+
+function BotScreenInner() {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");

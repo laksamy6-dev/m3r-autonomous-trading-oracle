@@ -1,3 +1,4 @@
+import VisitorGate from "@/components/VisitorGate";
 import React, { useState, useRef } from "react";
 import {
   StyleSheet,
@@ -38,6 +39,14 @@ const QUICK_QUESTIONS = [
 ];
 
 export default function AIScreen() {
+  return (
+    <VisitorGate tabName="AI Analysis">
+      <AIScreenInner />
+    </VisitorGate>
+  );
+}
+
+function AIScreenInner() {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");

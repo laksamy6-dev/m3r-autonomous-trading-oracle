@@ -1,3 +1,4 @@
+import VisitorGate from "@/components/VisitorGate";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
@@ -229,6 +230,14 @@ function CorrectionItem({ event }: { event: CorrectionEvent }) {
 }
 
 export default function StrategyScreen() {
+  return (
+    <VisitorGate tabName="Strategy Engine">
+      <StrategyScreenInner />
+    </VisitorGate>
+  );
+}
+
+function StrategyScreenInner() {
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
