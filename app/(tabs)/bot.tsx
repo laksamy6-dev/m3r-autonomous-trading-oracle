@@ -29,6 +29,7 @@ import {
   runNeuralEngine,
   NeuralEngineOutput,
 } from "@/lib/neural-trading-engine";
+import { speak, stopSpeech } from "@/lib/speech";
 import Colors from "@/constants/colors";
 import VisitorGate from "@/components/VisitorGate";
 
@@ -336,35 +337,22 @@ function BotScreenInner() {
   const [profitPosition, setProfitPosition] = useState<ActivePosition | null>(null);
   const [countdown, setCountdown] = useState(30);
 
+  const [marketCommentary, setMarketCommentary] = useState(false);
+
   const alertedPositionsRef = useRef<Set<string>>(new Set());
   const positionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoTradePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoTradeEntryRef = useRef(false);
+  const commentaryRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const commentaryIndexRef = useRef(0);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
-  async function jarvisSpeak(text: string) {
-    try {
-      const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/jarvis/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.audioBase64) {
-        if (Platform.OS === "web") {
-          playAudioWeb(data.audioBase64);
-        } else {
-          await playAudioNative(data.audioBase64);
-        }
-      }
-    } catch (err) {
-      console.error("JARVIS TTS error:", err);
-    }
+  function jarvisSpeak(text: string) {
+    const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+    speak(cleanText, "en");
   }
 
   async function handleAutoExit(position: ActivePosition, reason: string) {
@@ -570,8 +558,50 @@ function BotScreenInner() {
         webAudioRef.current.pause();
         webAudioRef.current = null;
       }
+      if (commentaryRef.current) clearInterval(commentaryRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!marketCommentary || !engineOutput || !marketContext) {
+      if (commentaryRef.current) {
+        clearInterval(commentaryRef.current);
+        commentaryRef.current = null;
+      }
+      return;
+    }
+
+    function generateCommentary() {
+      if (!engineOutput || !marketContext) return;
+      const d = engineOutput.decision;
+      const spot = marketContext.spotPrice.toFixed(0);
+      const commentaries = [
+        `Sir, Nifty at ${spot}. Market bias is ${marketContext.bias}. PCR is ${marketContext.pcr.toFixed(2)}.`,
+        `Signal update: ${d.action} with ${d.confidence}% confidence. Neural score ${d.neuralScore}%.`,
+        `Volatility regime is ${engineOutput.garchData.volRegime}. Current vol at ${engineOutput.garchData.currentVolatility}% sir.`,
+        `Monte Carlo shows CE win probability ${engineOutput.monteCarlo.ceWinProb}%, PE win ${engineOutput.monteCarlo.peWinProb}%.`,
+        `Market momentum is ${engineOutput.physics.momentum}. Direction predicts ${engineOutput.physics.predictedDirection} by ${engineOutput.physics.predictedMove} points.`,
+        `Entropy level: ${engineOutput.entropyData.chaosLevel}. Trap zone: ${engineOutput.entropyData.isTrapZone ? "Yes, careful sir" : "No, we are safe"}.`,
+        `Hurst exponent at ${engineOutput.hpiData.hurstExponent}. Market is ${engineOutput.hpiData.trendType}. Reliability ${engineOutput.hpiData.trendReliability}%.`,
+        `Global sentiment: ${engineOutput.global.globalSentiment}. VIX at ${engineOutput.global.vixLevel}. Impact on Nifty ${engineOutput.global.netImpactOnNifty}%.`,
+        `Cognitive Alpha: Fast brain says ${engineOutput.cognitiveAlpha.fastBrain.signal}. Slow brain verdict: ${engineOutput.cognitiveAlpha.slowBrain.verdict}. Fusion: ${engineOutput.cognitiveAlpha.fusionAction}.`,
+        `Consciousness level: ${engineOutput.consciousness.awarenessLevel}. Brain temperature ${engineOutput.consciousness.brainTemperature} degrees. Formula agreement ${engineOutput.consciousness.formulaAgreementRate}%.`,
+      ];
+      const idx = commentaryIndexRef.current % commentaries.length;
+      commentaryIndexRef.current++;
+      const line = commentaries[idx];
+      setMessages((prev) => [...prev, { id: genId(), role: "assistant" as const, content: line }]);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      jarvisSpeak(line);
+    }
+
+    generateCommentary();
+    commentaryRef.current = setInterval(generateCommentary, 15000);
+    return () => {
+      if (commentaryRef.current) clearInterval(commentaryRef.current);
+      commentaryRef.current = null;
+    };
+  }, [marketCommentary, engineOutput, marketContext]);
 
   async function startRecordingNative() {
     try {
@@ -961,19 +991,39 @@ function BotScreenInner() {
               </Text>
             </View>
           </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.resetBtn,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={resetChat}
-          >
-            <Ionicons
-              name="trash-outline"
-              size={20}
-              color={Colors.dark.textMuted}
-            />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.resetBtn,
+                marketCommentary && { backgroundColor: "rgba(0,212,255,0.2)" },
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => {
+                setMarketCommentary(!marketCommentary);
+                if (marketCommentary) stopSpeech();
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons
+                name={marketCommentary ? "radio" : "radio-outline"}
+                size={20}
+                color={marketCommentary ? CYAN : Colors.dark.textMuted}
+              />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.resetBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={resetChat}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={Colors.dark.textMuted}
+              />
+            </Pressable>
+          </View>
         </View>
       </View>
 
