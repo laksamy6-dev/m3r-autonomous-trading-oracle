@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/contexts/AuthContext";
-import { getApiUrl } from "@/lib/query-client";
+import { speak, stopSpeech } from "@/lib/speech";
 import { getIndices } from "@/lib/stocks";
 import { getMarketSession } from "@/lib/market-timing";
 import { generateOptionChain } from "@/lib/options";
@@ -31,41 +30,6 @@ const FIRE_YELLOW = "#FFD700";
 const FIRE_ORANGE = "#FF8C00";
 const APP_VERSION = "v3.0";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-function playAudioWeb(audioBase64: string): Promise<void> {
-  return new Promise((resolve) => {
-    const byteChars = atob(audioBase64);
-    const byteNumbers = new Uint8Array(byteChars.length);
-    for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
-    const blob = new Blob([byteNumbers], { type: "audio/mp3" });
-    const url = URL.createObjectURL(blob);
-    const audio = new window.Audio(url);
-    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.play().catch(() => resolve());
-  });
-}
-
-async function playAudioNative(audioBase64: string): Promise<void> {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
-    shouldDuckAndroid: true,
-  });
-  const { sound } = await Audio.Sound.createAsync(
-    { uri: `data:audio/mp3;base64,${audioBase64}` },
-    { shouldPlay: true, volume: 1.0 }
-  );
-  return new Promise((resolve) => {
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-        resolve();
-      }
-    });
-  });
-}
 
 function getVisitorIntro(lang: "en" | "ta"): string {
   if (lang === "ta") {
@@ -296,8 +260,6 @@ export default function WelcomeScreen() {
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const charIndexRef = useRef(0);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const webAudioRef = useRef<any>(null);
   const mountedRef = useRef(true);
 
   const pulseScale = useSharedValue(1);
@@ -332,11 +294,7 @@ export default function WelcomeScreen() {
     return () => {
       mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (soundRef.current) soundRef.current.unloadAsync().catch(() => {});
-      if (Platform.OS === "web" && webAudioRef.current) {
-        webAudioRef.current.pause();
-        webAudioRef.current = null;
-      }
+      stopSpeech();
     };
   }, []);
 
@@ -381,43 +339,24 @@ export default function WelcomeScreen() {
     typeNext();
   }
 
-  async function speakText(text: string) {
+  function speakText(text: string) {
+    const lang = isVisitor ? selectedLanguage : "en";
     setIsSpeaking(true);
-    try {
-      const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/jarvis/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) {
-        setIsSpeaking(false);
-        return;
+    speak(
+      text,
+      lang,
+      () => {
+        if (mountedRef.current) setIsSpeaking(false);
+      },
+      () => {
+        if (mountedRef.current) setIsSpeaking(true);
       }
-      const data = await res.json();
-      if (data.audioBase64 && mountedRef.current) {
-        if (Platform.OS === "web") {
-          await playAudioWeb(data.audioBase64);
-        } else {
-          await playAudioNative(data.audioBase64);
-        }
-      }
-    } catch (err) {
-      console.error("TTS error:", err);
-    }
-    if (mountedRef.current) setIsSpeaking(false);
+    );
   }
 
   function handleSkip() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (soundRef.current) {
-      soundRef.current.stopAsync().catch(() => {});
-      soundRef.current.unloadAsync().catch(() => {});
-    }
-    if (Platform.OS === "web" && webAudioRef.current) {
-      webAudioRef.current.pause();
-      webAudioRef.current = null;
-    }
+    stopSpeech();
     setIsSpeaking(false);
     dismissWelcome();
   }
