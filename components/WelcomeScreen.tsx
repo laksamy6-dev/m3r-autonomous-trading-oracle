@@ -26,6 +26,10 @@ import { getMarketSession } from "@/lib/market-timing";
 import { generateOptionChain } from "@/lib/options";
 
 const CYAN = "#00D4FF";
+const FIRE_RED = "#FF4500";
+const FIRE_YELLOW = "#FFD700";
+const FIRE_ORANGE = "#FF8C00";
+const APP_VERSION = "v3.0";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function playAudioWeb(audioBase64: string): Promise<void> {
@@ -146,6 +150,138 @@ function WaveBar({ index, active }: { index: number; active: boolean }) {
     />
   );
 }
+
+function FireNameText() {
+  const fireGlow1 = useSharedValue(0);
+  const fireGlow2 = useSharedValue(0);
+
+  useEffect(() => {
+    fireGlow1.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+    fireGlow2.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, [fireGlow1, fireGlow2]);
+
+  const glow1Style = useAnimatedStyle(() => ({
+    opacity: 0.3 + fireGlow1.value * 0.5,
+    textShadowRadius: 8 + fireGlow1.value * 12,
+  }));
+
+  const glow2Style = useAnimatedStyle(() => ({
+    opacity: 0.2 + fireGlow2.value * 0.6,
+    textShadowRadius: 6 + fireGlow2.value * 10,
+  }));
+
+  return (
+    <View style={fireStyles.container}>
+      <View style={fireStyles.nameRow}>
+        <Animated.Text
+          style={[
+            fireStyles.fireShadow1,
+            glow1Style,
+          ]}
+        >
+          MANIKANDAN RAJENDRAN
+        </Animated.Text>
+        <Animated.Text
+          style={[
+            fireStyles.fireShadow2,
+            glow2Style,
+          ]}
+        >
+          MANIKANDAN RAJENDRAN
+        </Animated.Text>
+        <Text style={fireStyles.nameText}>MANIKANDAN RAJENDRAN</Text>
+      </View>
+      <View style={fireStyles.brandRow}>
+        <Text style={fireStyles.brandName}>M3R-ALGO-MATAI</Text>
+        <View style={fireStyles.versionBadge}>
+          <Text style={fireStyles.versionText}>{APP_VERSION}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const fireStyles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  nameRow: {
+    position: "relative" as const,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 28,
+    marginBottom: 6,
+  },
+  fireShadow1: {
+    position: "absolute" as const,
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: FIRE_RED,
+    letterSpacing: 3,
+    textShadowColor: FIRE_RED,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  fireShadow2: {
+    position: "absolute" as const,
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: FIRE_YELLOW,
+    letterSpacing: 3,
+    textShadowColor: FIRE_ORANGE,
+    textShadowOffset: { width: 0, height: -2 },
+    textShadowRadius: 8,
+  },
+  nameText: {
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: FIRE_YELLOW,
+    letterSpacing: 3,
+    textShadowColor: FIRE_RED,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  brandRow: {
+    flexDirection: "row" as const,
+    alignItems: "center",
+    gap: 8,
+  },
+  brandName: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#94A3B8",
+    letterSpacing: 2,
+  },
+  versionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: CYAN + "44",
+    backgroundColor: CYAN + "11",
+  },
+  versionText: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
+    letterSpacing: 1,
+  },
+});
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
@@ -294,6 +430,8 @@ export default function WelcomeScreen() {
           style={StyleSheet.absoluteFill}
         />
 
+        <FireNameText />
+
         <View style={styles.arcReactorWrap}>
           <Animated.View style={[styles.arcGlow, pulseStyle]} />
           <View style={styles.arcReactorOuter}>
@@ -339,6 +477,8 @@ export default function WelcomeScreen() {
       <Pressable style={styles.skipBtn} onPress={handleSkip}>
         <Ionicons name="close-circle" size={32} color="#94A3B8" />
       </Pressable>
+
+      <FireNameText />
 
       <View style={styles.arcReactorWrap}>
         <Animated.View style={[styles.arcGlow, pulseStyle]} />
@@ -399,9 +539,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   arcReactorWrap: {
-    marginTop: 32,
-    width: 120,
-    height: 120,
+    marginTop: 12,
+    width: 100,
+    height: 100,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
