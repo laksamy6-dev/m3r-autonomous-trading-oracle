@@ -93,10 +93,12 @@ function StrikeDetailModal({
   visible,
   option,
   onClose,
+  onBuy,
 }: {
   visible: boolean;
   option: OptionData | null;
   onClose: () => void;
+  onBuy: (option: OptionData, type: "CE" | "PE") => void;
 }) {
   const insets = useSafeAreaInsets();
   if (!option) return null;
@@ -127,6 +129,24 @@ function StrikeDetailModal({
               <Ionicons name="close" size={22} color={Colors.dark.text} />
             </Pressable>
           </View>
+
+          <View style={styles.quickBuyRow}>
+            <Pressable
+              style={({ pressed }) => [styles.quickBuyCE, pressed && { opacity: 0.8 }]}
+              onPress={() => { onClose(); onBuy(option, "CE"); }}
+            >
+              <Ionicons name="flash" size={16} color="#fff" />
+              <Text style={styles.quickBuyText}>BUY CE {formatPremium(option.cePrice)}</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.quickBuyPE, pressed && { opacity: 0.8 }]}
+              onPress={() => { onClose(); onBuy(option, "PE"); }}
+            >
+              <Ionicons name="flash" size={16} color="#fff" />
+              <Text style={styles.quickBuyText}>BUY PE {formatPremium(option.pePrice)}</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.detailTableHeader}>
             <Text style={[styles.detailHeaderText, styles.detailHeaderCE]}>CE</Text>
             <Text style={styles.detailHeaderLabel}>Greek</Text>
@@ -730,6 +750,7 @@ export default function OptionsScreen() {
         visible={showDetail}
         option={selectedOption}
         onClose={() => setShowDetail(false)}
+        onBuy={(opt, type) => openOrderModal(opt, type)}
       />
 
       <Modal
@@ -1435,6 +1456,36 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  quickBuyRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+  },
+  quickBuyCE: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.green,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  quickBuyPE: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.red,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  quickBuyText: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
   },
   fabComprehensive: {
     position: "absolute",

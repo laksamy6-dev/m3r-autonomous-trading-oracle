@@ -138,6 +138,14 @@ function TradingChart({
         <View style={[styles.badge, { backgroundColor: consensusColor + '20' }]}>
           <Text style={[styles.badgeText, { color: consensusColor }]}>{consensus}</Text>
         </View>
+        <View style={[styles.badge, { backgroundColor: 'rgba(0,212,255,0.15)' }]}>
+          <View style={styles.legendDot} />
+          <Text style={[styles.badgeText, { color: CYAN }]}>LTP</Text>
+        </View>
+        <View style={[styles.badge, { backgroundColor: 'rgba(255,0,255,0.15)' }]}>
+          <View style={[styles.legendDot, { backgroundColor: MAGENTA }]} />
+          <Text style={[styles.badgeText, { color: MAGENTA }]}>AI</Text>
+        </View>
       </View>
 
       <View style={styles.chartRow}>
@@ -319,9 +327,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  legendDot: {
+    width: 6,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: CYAN,
   },
   badgeText: {
     fontSize: 9,
@@ -375,9 +392,9 @@ const styles = StyleSheet.create({
   },
   stDot: {
     position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   dashedRow: {
     position: 'absolute',
