@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -49,6 +50,24 @@ interface MarketContext {
   spotPrice: number;
   pcr: number;
   bias: "BULLISH" | "BEARISH" | "SIDEWAYS";
+}
+
+interface ActivePosition {
+  id: string;
+  type: "CE" | "PE";
+  strike: number;
+  lots: number;
+  entryPremium: number;
+  currentPremium: number;
+  target: number;
+  stopLoss: number;
+  pnl: number;
+  pnlPercent: number;
+  entryTime: string;
+  status: string;
+  exitPremium: number | null;
+  exitTime: string | null;
+  exitReason: string | null;
 }
 
 type VoiceStatus = "ready" | "listening" | "processing" | "speaking";
@@ -299,8 +318,218 @@ export default function BotScreen() {
   const chunksRef = useRef<Blob[]>([]);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [activePositions, setActivePositions] = useState<ActivePosition[]>([]);
+  const [autoTradeMode, setAutoTradeMode] = useState(false);
+  const [positionPanelOpen, setPositionPanelOpen] = useState(true);
+  const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
+  const [profitModalVisible, setProfitModalVisible] = useState(false);
+  const [emergencyPosition, setEmergencyPosition] = useState<ActivePosition | null>(null);
+  const [profitPosition, setProfitPosition] = useState<ActivePosition | null>(null);
+  const [countdown, setCountdown] = useState(30);
+
+  const alertedPositionsRef = useRef<Set<string>>(new Set());
+  const positionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoTradePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoTradeEntryRef = useRef(false);
+
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
+
+  async function jarvisSpeak(text: string) {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/jarvis/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.audioBase64) {
+        if (Platform.OS === "web") {
+          playAudioWeb(data.audioBase64);
+        } else {
+          await playAudioNative(data.audioBase64);
+        }
+      }
+    } catch (err) {
+      console.error("JARVIS TTS error:", err);
+    }
+  }
+
+  async function handleAutoExit(position: ActivePosition, reason: string) {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/positions/exit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positionId: position.id, reason }),
+      });
+      if (!res.ok) return;
+      alertedPositionsRef.current.delete(position.id);
+
+      if (reason === "AUTO_STOP_LOSS") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: genId(),
+            role: "assistant" as const,
+            content: `AUTO EXIT EXECUTED\n\nI've exited your ${position.type} ${position.strike} position.\nStop loss triggered at Rs.${position.currentPremium.toFixed(2)}\nP&L: Rs.${position.pnl.toFixed(2)} (${position.pnlPercent.toFixed(1)}%)\n\nYour capital is protected, sir.`,
+          },
+        ]);
+        jarvisSpeak("Sir, I'm exiting your position. Stop loss hit.");
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: genId(),
+            role: "assistant" as const,
+            content: `PROFIT BOOKED\n\nI've booked profit on your ${position.type} ${position.strike} position.\nExit at Rs.${position.currentPremium.toFixed(2)}\nP&L: Rs.${position.pnl.toFixed(2)} (+${position.pnlPercent.toFixed(1)}%)\n\nWell done, sir!`,
+          },
+        ]);
+        jarvisSpeak("Sir, profit booked at 80 percent. Well done.");
+      }
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (err) {
+      console.error("Auto exit error:", err);
+    }
+  }
+
+  function startCountdown(position: ActivePosition, reason: string) {
+    setCountdown(30);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    let remaining = 30;
+    countdownRef.current = setInterval(() => {
+      remaining -= 1;
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        countdownRef.current = null;
+        setEmergencyModalVisible(false);
+        setProfitModalVisible(false);
+        handleAutoExit(position, reason);
+      }
+    }, 1000);
+  }
+
+  function dismissEmergencyModal(hold: boolean) {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = null;
+    setEmergencyModalVisible(false);
+    if (!hold && emergencyPosition) {
+      handleAutoExit(emergencyPosition, "AUTO_STOP_LOSS");
+    }
+    setEmergencyPosition(null);
+  }
+
+  function dismissProfitModal(letItRun: boolean) {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = null;
+    setProfitModalVisible(false);
+    if (!letItRun && profitPosition) {
+      handleAutoExit(profitPosition, "AUTO_PROFIT_BOOK");
+    }
+    setProfitPosition(null);
+  }
+
+  useEffect(() => {
+    const pollPositions = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/positions/active`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setActivePositions(data.positions || []);
+
+        if (!emergencyModalVisible && !profitModalVisible) {
+          for (const pos of (data.positions || []) as ActivePosition[]) {
+            if (alertedPositionsRef.current.has(pos.id)) continue;
+            if (pos.pnlPercent <= -15) {
+              alertedPositionsRef.current.add(pos.id);
+              setEmergencyPosition(pos);
+              setEmergencyModalVisible(true);
+              startCountdown(pos, "AUTO_STOP_LOSS");
+              break;
+            }
+            if (pos.pnlPercent >= 80) {
+              alertedPositionsRef.current.add(pos.id);
+              setProfitPosition(pos);
+              setProfitModalVisible(true);
+              startCountdown(pos, "AUTO_PROFIT_BOOK");
+              break;
+            }
+          }
+        }
+      } catch {}
+    };
+    pollPositions();
+    positionPollRef.current = setInterval(pollPositions, 3000);
+    return () => {
+      if (positionPollRef.current) clearInterval(positionPollRef.current);
+    };
+  }, [emergencyModalVisible, profitModalVisible]);
+
+  useEffect(() => {
+    const pollAutoTrade = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/auto-trade/mode`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setAutoTradeMode(data.autoTradeMode || false);
+      } catch {}
+    };
+    pollAutoTrade();
+    autoTradePollRef.current = setInterval(pollAutoTrade, 5000);
+    return () => {
+      if (autoTradePollRef.current) clearInterval(autoTradePollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoTradeMode || !engineOutput) return;
+    if (activePositions.length > 0) return;
+    if (autoTradeEntryRef.current) return;
+    const action = engineOutput.decision.action;
+    const confidence = engineOutput.decision.confidence;
+    if ((action === "BUY_CE" || action === "BUY_PE") && confidence > 75) {
+      autoTradeEntryRef.current = true;
+      const type = action === "BUY_CE" ? "CE" : "PE";
+      const strike = engineOutput.decision.strike;
+      const premium = engineOutput.decision.premium;
+      const target = engineOutput.decision.target;
+      const stopLoss = engineOutput.decision.stopLoss;
+
+      (async () => {
+        try {
+          const baseUrl = getApiUrl();
+          const res = await globalThis.fetch(`${baseUrl}api/positions/open`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type, strike, lots: 1, premium, target, stopLoss }),
+          });
+          if (!res.ok) {
+            autoTradeEntryRef.current = false;
+            return;
+          }
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: genId(),
+              role: "assistant" as const,
+              content: `AUTO TRADE ENTRY\n\nBUY ${type} ${strike}\nPremium: Rs.${premium}\nTarget: Rs.${target} | SL: Rs.${stopLoss}\nConfidence: ${confidence}%\n\nAuto-trade mode executed this entry.`,
+            },
+          ]);
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+          jarvisSpeak(`Sir, entering a trade. Buy ${type} at ${strike}.`);
+          setTimeout(() => { autoTradeEntryRef.current = false; }, 30000);
+        } catch {
+          autoTradeEntryRef.current = false;
+        }
+      })();
+    }
+  }, [autoTradeMode, engineOutput, activePositions.length]);
 
   const updateMarketContext = useCallback(() => {
     const chain = generateOptionChain();
@@ -754,6 +983,55 @@ export default function BotScreen() {
           </View>
         )}
 
+        {activePositions.length > 0 && (
+          <View style={autoStyles.positionPanel}>
+            <Pressable
+              style={autoStyles.positionPanelHeader}
+              onPress={() => setPositionPanelOpen(!positionPanelOpen)}
+            >
+              <View style={autoStyles.positionPanelTitleRow}>
+                <Ionicons name="pulse" size={14} color={NEON_GREEN} />
+                <Text style={autoStyles.positionPanelTitle}>
+                  LIVE POSITIONS ({activePositions.length})
+                </Text>
+                {autoTradeMode && (
+                  <View style={autoStyles.autoModeBadge}>
+                    <Text style={autoStyles.autoModeBadgeText}>AUTO</Text>
+                  </View>
+                )}
+              </View>
+              <Ionicons
+                name={positionPanelOpen ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={Colors.dark.textMuted}
+              />
+            </Pressable>
+            {positionPanelOpen && activePositions.map((pos) => {
+              const pnlColor = pos.pnl >= 0 ? NEON_GREEN : Colors.dark.red;
+              return (
+                <View key={pos.id} style={autoStyles.positionRow}>
+                  <View style={autoStyles.positionLeft}>
+                    <Text style={[autoStyles.positionType, { color: pos.type === "CE" ? NEON_GREEN : Colors.dark.red }]}>
+                      {pos.type} {pos.strike}
+                    </Text>
+                    <Text style={autoStyles.positionPremiums}>
+                      Entry: Rs.{pos.entryPremium.toFixed(2)} | Current: Rs.{pos.currentPremium.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={autoStyles.positionRight}>
+                    <Text style={[autoStyles.positionPnl, { color: pnlColor }]}>
+                      {pos.pnl >= 0 ? "+" : ""}Rs.{pos.pnl.toFixed(2)}
+                    </Text>
+                    <Text style={[autoStyles.positionPnlPct, { color: pnlColor }]}>
+                      {pos.pnlPercent >= 0 ? "+" : ""}{pos.pnlPercent.toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         <ScrollView
           ref={scrollRef}
           style={styles.chatArea}
@@ -898,9 +1176,287 @@ export default function BotScreen() {
           </Pressable>
         </View>
       </View>
+
+      <Modal
+        visible={emergencyModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissEmergencyModal(true)}
+      >
+        <View style={autoStyles.modalOverlay}>
+          <View style={autoStyles.modalContainer}>
+            <View style={[autoStyles.modalHeader, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+              <Ionicons name="warning" size={28} color={Colors.dark.red} />
+              <Text style={[autoStyles.modalHeaderText, { color: Colors.dark.red }]}>
+                EMERGENCY EXIT
+              </Text>
+            </View>
+            {emergencyPosition && (
+              <View style={autoStyles.modalBody}>
+                <Text style={autoStyles.modalPositionInfo}>
+                  {emergencyPosition.type} {emergencyPosition.strike}
+                </Text>
+                <Text style={[autoStyles.modalPnl, { color: Colors.dark.red }]}>
+                  Rs.{emergencyPosition.pnl.toFixed(2)} ({emergencyPosition.pnlPercent.toFixed(1)}%)
+                </Text>
+                <Text style={autoStyles.modalJarvisMsg}>
+                  Sir, your position is in loss. Shall I exit?
+                </Text>
+                <View style={autoStyles.countdownCircle}>
+                  <Text style={autoStyles.countdownNumber}>{countdown}</Text>
+                  <Text style={autoStyles.countdownLabel}>seconds</Text>
+                </View>
+                <View style={autoStyles.modalButtons}>
+                  <Pressable
+                    style={[autoStyles.modalBtn, { backgroundColor: Colors.dark.red }]}
+                    onPress={() => dismissEmergencyModal(false)}
+                  >
+                    <Text style={autoStyles.modalBtnText}>EXIT NOW</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[autoStyles.modalBtn, autoStyles.modalBtnOutline]}
+                    onPress={() => dismissEmergencyModal(true)}
+                  >
+                    <Text style={[autoStyles.modalBtnText, { color: Colors.dark.textSecondary }]}>
+                      HOLD
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={profitModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissProfitModal(true)}
+      >
+        <View style={autoStyles.modalOverlay}>
+          <View style={autoStyles.modalContainer}>
+            <View style={[autoStyles.modalHeader, { backgroundColor: "rgba(57,255,20,0.1)" }]}>
+              <Ionicons name="checkmark-circle" size={28} color={NEON_GREEN} />
+              <Text style={[autoStyles.modalHeaderText, { color: NEON_GREEN }]}>
+                PROFIT TARGET HIT
+              </Text>
+            </View>
+            {profitPosition && (
+              <View style={autoStyles.modalBody}>
+                <Text style={autoStyles.modalPositionInfo}>
+                  {profitPosition.type} {profitPosition.strike}
+                </Text>
+                <Text style={[autoStyles.modalPnl, { color: NEON_GREEN }]}>
+                  +Rs.{profitPosition.pnl.toFixed(2)} (+{profitPosition.pnlPercent.toFixed(1)}%)
+                </Text>
+                <Text style={autoStyles.modalJarvisMsg}>
+                  Sir, 80% profit reached! Shall I book?
+                </Text>
+                <View style={[autoStyles.countdownCircle, { borderColor: NEON_GREEN }]}>
+                  <Text style={[autoStyles.countdownNumber, { color: NEON_GREEN }]}>{countdown}</Text>
+                  <Text style={autoStyles.countdownLabel}>seconds</Text>
+                </View>
+                <View style={autoStyles.modalButtons}>
+                  <Pressable
+                    style={[autoStyles.modalBtn, { backgroundColor: NEON_GREEN }]}
+                    onPress={() => dismissProfitModal(false)}
+                  >
+                    <Text style={[autoStyles.modalBtnText, { color: "#000" }]}>BOOK PROFIT</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[autoStyles.modalBtn, autoStyles.modalBtnOutline]}
+                    onPress={() => dismissProfitModal(true)}
+                  >
+                    <Text style={[autoStyles.modalBtnText, { color: Colors.dark.textSecondary }]}>
+                      LET IT RUN
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const autoStyles = StyleSheet.create({
+  positionPanel: {
+    marginHorizontal: 16,
+    marginTop: 44,
+    marginBottom: 4,
+    backgroundColor: "rgba(17, 24, 39, 0.95)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: "hidden",
+    zIndex: 9,
+  },
+  positionPanelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  positionPanelTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  positionPanelTitle: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    color: NEON_GREEN,
+    letterSpacing: 1,
+  },
+  autoModeBadge: {
+    backgroundColor: "rgba(245,158,11,0.2)",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  autoModeBadgeText: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.gold,
+    letterSpacing: 1,
+  },
+  positionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  positionLeft: {
+    flex: 1,
+  },
+  positionType: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  positionPremiums: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  positionRight: {
+    alignItems: "flex-end",
+  },
+  positionPnl: {
+    fontSize: 13,
+    fontFamily: "DMSans_700Bold",
+  },
+  positionPnlPct: {
+    fontSize: 10,
+    fontFamily: "DMSans_600SemiBold",
+    marginTop: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContainer: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  modalHeaderText: {
+    fontSize: 18,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 2,
+  },
+  modalBody: {
+    padding: 24,
+    alignItems: "center",
+  },
+  modalPositionInfo: {
+    fontSize: 20,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.text,
+    letterSpacing: 1,
+  },
+  modalPnl: {
+    fontSize: 24,
+    fontFamily: "DMSans_700Bold",
+    marginTop: 8,
+  },
+  modalJarvisMsg: {
+    fontSize: 14,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginTop: 16,
+    lineHeight: 20,
+  },
+  countdownCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: Colors.dark.red,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+  countdownNumber: {
+    fontSize: 32,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.red,
+  },
+  countdownLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginTop: -2,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+    width: "100%",
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnOutline: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  modalBtnText: {
+    fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
+    letterSpacing: 1,
+  },
+});
 
 const voiceStyles = StyleSheet.create({
   micContainer: {

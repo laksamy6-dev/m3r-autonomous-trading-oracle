@@ -2043,6 +2043,26 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     res.json({ success: true });
   });
 
+  app.post("/api/jarvis/tts", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "onyx",
+        input: text,
+      });
+      const arrayBuffer = await mp3.arrayBuffer();
+      const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+      res.json({ audioBase64 });
+    } catch (error) {
+      console.error("TTS error:", error);
+      res.status(500).json({ error: "TTS generation failed" });
+    }
+  });
+
   app.post("/api/jarvis/training/notify", async (req, res) => {
     try {
       const { phase, progress, brain, complete } = req.body;
