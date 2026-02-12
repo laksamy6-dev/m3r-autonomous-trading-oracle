@@ -3,13 +3,41 @@ import { StyleSheet, Text, View, Platform } from "react-native";
 
 const CYAN = "#00F3FF";
 const NEON_GREEN = "#39FF14";
-const FIRE_RED = "#FF4500";
-const FIRE_ORANGE = "#FF8C00";
-const FIRE_YELLOW = "#FFD700";
-const DEEP_BLACK = "#050508";
 const JARVIS_VERSION = "v8.0.1";
 
+const NAME_FIRST = "MANIKANDAN";
+const NAME_LAST = "RAJENDRAN";
+const FULL_NAME = NAME_FIRST + NAME_LAST;
+const TOTAL_LETTERS = FULL_NAME.length;
+
+function getFireColor(index: number, total: number): { color: string; glow: string } {
+  const t = total <= 1 ? 0 : index / (total - 1);
+  const r = 255;
+  const g = Math.round(20 + t * 220);
+  const b = 0;
+  const color = `rgb(${r}, ${g}, ${b})`;
+  const glow = `0 0 12px rgba(${r}, ${g}, ${b}, 0.9), 0 0 25px rgba(${r}, ${g}, ${b}, 0.5)`;
+  return { color, glow };
+}
+
+function FireLetter({ char, index, total }: { char: string; index: number; total: number }) {
+  const { color, glow } = getFireColor(index, total);
+  return (
+    <Text
+      style={[
+        s.fireLetter,
+        { color },
+        Platform.OS === "web" ? { textShadow: glow } as any : {},
+      ]}
+    >
+      {char}
+    </Text>
+  );
+}
+
 export default function BrandHeader() {
+  let letterIndex = 0;
+
   return (
     <View style={s.container}>
       <View style={s.topLine}>
@@ -34,28 +62,20 @@ export default function BrandHeader() {
 
       <View style={s.creatorRow}>
         <Text style={s.creatorLabel}>ARCHITECT & DEVELOPER</Text>
-        <Text style={s.creatorName}>
-          <Text style={s.nameFire1}>M</Text>
-          <Text style={s.nameFire2}>A</Text>
-          <Text style={s.nameFire3}>N</Text>
-          <Text style={s.nameFire1}>I</Text>
-          <Text style={s.nameFire2}>K</Text>
-          <Text style={s.nameFire3}>A</Text>
-          <Text style={s.nameFire1}>N</Text>
-          <Text style={s.nameFire2}>D</Text>
-          <Text style={s.nameFire3}>A</Text>
-          <Text style={s.nameFire1}>N</Text>
-          <Text style={s.nameSpace}> </Text>
-          <Text style={s.nameFire2}>R</Text>
-          <Text style={s.nameFire3}>A</Text>
-          <Text style={s.nameFire1}>J</Text>
-          <Text style={s.nameFire2}>E</Text>
-          <Text style={s.nameFire3}>N</Text>
-          <Text style={s.nameFire1}>D</Text>
-          <Text style={s.nameFire2}>R</Text>
-          <Text style={s.nameFire3}>A</Text>
-          <Text style={s.nameFire1}>N</Text>
-        </Text>
+        <View style={s.nameContainer}>
+          <View style={s.nameRow}>
+            {NAME_FIRST.split("").map((ch, i) => {
+              const idx = letterIndex++;
+              return <FireLetter key={`f-${i}`} char={ch} index={idx} total={TOTAL_LETTERS} />;
+            })}
+          </View>
+          <View style={s.nameRow}>
+            {NAME_LAST.split("").map((ch, i) => {
+              const idx = letterIndex++;
+              return <FireLetter key={`l-${i}`} char={ch} index={idx} total={TOTAL_LETTERS} />;
+            })}
+          </View>
+        </View>
       </View>
 
       <View style={s.copyrightRow}>
@@ -159,36 +179,24 @@ const s = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     color: "rgba(255, 255, 255, 0.5)",
     letterSpacing: 2.5,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  creatorName: {
-    fontSize: 11,
+  nameContainer: {
+    alignItems: "center",
+    gap: 2,
+  },
+  nameRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  fireLetter: {
+    fontSize: 16,
     fontFamily: "DMSans_700Bold",
     letterSpacing: 3,
   },
-  nameSpace: {
-    fontSize: 11,
-  },
-  nameFire1: {
-    color: FIRE_RED,
-    ...Platform.select({
-      web: { textShadow: "0 0 8px rgba(255, 69, 0, 0.7)" },
-    }),
-  },
-  nameFire2: {
-    color: FIRE_ORANGE,
-    ...Platform.select({
-      web: { textShadow: "0 0 8px rgba(255, 140, 0, 0.7)" },
-    }),
-  },
-  nameFire3: {
-    color: FIRE_YELLOW,
-    ...Platform.select({
-      web: { textShadow: "0 0 8px rgba(255, 215, 0, 0.7)" },
-    }),
-  },
   copyrightRow: {
     alignItems: "center",
+    marginTop: 2,
   },
   copyright: {
     fontSize: 6,
