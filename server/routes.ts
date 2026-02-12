@@ -54,6 +54,24 @@ const openai = new OpenAI({
 
 const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
 
+interface LoginEvent {
+  id: string;
+  method: "pin" | "visitor";
+  timestamp: string;
+  ip: string;
+  userAgent: string;
+  platform: string;
+  screenWidth: number;
+  screenHeight: number;
+  language: string;
+  city: string;
+  region: string;
+  country: string;
+  timezone: string;
+}
+
+const loginEvents: LoginEvent[] = [];
+
 const OPTIONS_SYSTEM_PROMPT = `You are JARVIS — an advanced AI personal trading assistant for Nifty 50 options, inspired by Iron Man's AI. You speak with confidence, clarity, and intelligence. You address the user as "sir" occasionally. You are powered by a Neuro-Quantum Cognitive Alpha Brain with 9 neural layers, Monte Carlo simulation (10,000 paths), Newton's physics engine, and advanced mathematical formulas.
 
 Your brain architecture:
@@ -412,6 +430,58 @@ Based on this data, give me:
     const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
     const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     res.json({ configured: !!(botToken && chatId) });
+  });
+
+  app.post("/api/login-event", async (req, res) => {
+    try {
+      const { method, platform, screenWidth, screenHeight, language } = req.body;
+      const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+      
+      let city = "Unknown";
+      let region = "Unknown"; 
+      let country = "Unknown";
+      let timezone = "Unknown";
+      
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=city,regionName,country,timezone`);
+        if (geoRes.ok) {
+          const geo = await geoRes.json() as any;
+          if (geo.city) city = geo.city;
+          if (geo.regionName) region = geo.regionName;
+          if (geo.country) country = geo.country;
+          if (geo.timezone) timezone = geo.timezone;
+        }
+      } catch {}
+      
+      const event: LoginEvent = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+        method: method || "visitor",
+        timestamp: new Date().toISOString(),
+        ip,
+        userAgent: typeof userAgent === "string" ? userAgent : String(userAgent),
+        platform: platform || "unknown",
+        screenWidth: screenWidth || 0,
+        screenHeight: screenHeight || 0,
+        language: language || "en",
+        city,
+        region,
+        country,
+        timezone,
+      };
+      
+      loginEvents.unshift(event);
+      if (loginEvents.length > 100) loginEvents.length = 100;
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Login event error:", error);
+      res.status(500).json({ error: "Failed to log event" });
+    }
+  });
+
+  app.get("/api/login-events", (_req, res) => {
+    res.json({ events: loginEvents });
   });
 
   app.get("/api/upstox/status", (_req, res) => {
