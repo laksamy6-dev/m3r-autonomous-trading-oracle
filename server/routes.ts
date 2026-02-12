@@ -6,8 +6,8 @@ import { Buffer } from "node:buffer";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const upstoxApiKey = process.env.UPSTOX_API_KEY;
-const upstoxApiSecret = process.env.UPSTOX_API_SECRET;
-let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || null;
+const upstoxApiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
 
 interface TradeProposal {
   id: string;
@@ -463,7 +463,7 @@ Based on this data, give me:
 
   app.get("/api/upstox/status", (_req, res) => {
     const apiKey = process.env.UPSTOX_API_KEY;
-    const apiSecret = process.env.UPSTOX_API_SECRET;
+    const apiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
     res.json({ configured: !!(apiKey && apiSecret), connected: !!upstoxAccessToken });
   });
 
