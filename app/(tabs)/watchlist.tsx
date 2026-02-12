@@ -18,6 +18,7 @@ import Colors from "@/constants/colors";
 import { WatchlistItem, Stock } from "@/lib/types";
 import { getWatchlist, addToWatchlist, removeFromWatchlist } from "@/lib/storage";
 import { getStockBySymbol, searchStocks } from "@/lib/stocks";
+import BrandHeader from "@/components/BrandHeader";
 
 interface WatchlistStockData extends WatchlistItem {
   stock: Stock | undefined;
@@ -131,7 +132,10 @@ export default function WatchlistScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 12 }]}>
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Watchlist</Text>
           <Pressable

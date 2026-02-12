@@ -25,6 +25,7 @@ import {
   OptionData,
 } from "@/lib/options";
 import Colors from "@/constants/colors";
+import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
 
@@ -544,7 +545,10 @@ export default function OptionsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerTopRow}>
           <View>
             <View style={styles.titleRow}>

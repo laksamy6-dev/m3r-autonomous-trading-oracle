@@ -25,6 +25,7 @@ import { calculateAllIndicators, AllIndicators } from "@/lib/indicators";
 import { generateOptionChain } from "@/lib/options";
 import { runNeuralEngine } from "@/lib/neural-trading-engine";
 import { getApiUrl } from "@/lib/query-client";
+import BrandHeader from "@/components/BrandHeader";
 
 interface TradeProposal {
   id: string;
@@ -334,6 +335,9 @@ export default function MarketScreen() {
 
   return (
     <View style={styles.container} testID="market-screen">
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
@@ -341,11 +345,7 @@ export default function MarketScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingTop: insets.top + webTopInset + 16, paddingHorizontal: 20 }}>
-          <View style={styles.creatorRow}>
-            <Ionicons name="shield-checkmark" size={10} color={CYAN} />
-            <Text style={styles.creatorLabel}>Created by MANIKANDAN RAJENDRAN</Text>
-          </View>
+        <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
           <Text style={styles.greeting}>Indian Markets</Text>
           <Text style={styles.subtitle}>Live Overview</Text>
         </View>

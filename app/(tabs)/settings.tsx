@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
+import BrandHeader from "@/components/BrandHeader";
 
 interface LoginEvent {
   id: string;
@@ -304,10 +305,13 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: insets.top + webTopInset + 12,
+          paddingTop: 12,
           paddingBottom: insets.bottom + webBottomInset + 100,
           paddingHorizontal: 16,
         }}

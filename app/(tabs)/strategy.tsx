@@ -56,6 +56,7 @@ import {
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
 import Colors from "@/constants/colors";
+import BrandHeader from "@/components/BrandHeader";
 
 const C = Colors.dark;
 const CYAN = "#00D4FF";
@@ -452,10 +453,13 @@ function StrategyScreenInner() {
 
   return (
     <View style={styles.container} testID="strategy-screen">
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingTop: insets.top + webTopInset + 8,
+          paddingTop: 8,
           paddingBottom: insets.bottom + webBottomInset + 100,
           paddingHorizontal: 16,
         }}

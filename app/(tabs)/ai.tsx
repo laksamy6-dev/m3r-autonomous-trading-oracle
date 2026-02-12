@@ -27,6 +27,7 @@ import Animated, {
 import { getApiUrl } from "@/lib/query-client";
 import { speak, stopSpeech } from "@/lib/speech";
 import Colors from "@/constants/colors";
+import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00F3FF";
 const DEEP_BLACK = "#050508";
@@ -477,6 +478,7 @@ export default function AIScreen() {
 
   return (
     <View style={[s.container, { paddingTop: insets.top + webTopInset }]}>
+      <BrandHeader />
       <View style={s.header}>
         <View style={s.headerLeft}>
           <View style={s.headerDot} />

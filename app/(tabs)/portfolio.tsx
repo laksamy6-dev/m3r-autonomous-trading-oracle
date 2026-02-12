@@ -41,6 +41,7 @@ import {
   TradeRecord,
 } from "@/lib/paper-trading";
 import { generateOptionChain } from "@/lib/options";
+import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
@@ -597,11 +598,10 @@ export default function PortfolioScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
-        <View style={styles.creatorBadge}>
-          <Ionicons name="diamond" size={10} color={CYAN} />
-          <Text style={styles.creatorText}>MANIKANDAN RAJENDRAN</Text>
-        </View>
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>PORTFOLIO</Text>
           {fundAccount && (

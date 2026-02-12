@@ -32,6 +32,7 @@ import {
 import { speak, stopSpeech } from "@/lib/speech";
 import Colors from "@/constants/colors";
 import VisitorGate from "@/components/VisitorGate";
+import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
@@ -972,13 +973,10 @@ function BotScreenInner() {
 
   return (
     <View style={styles.container} testID="bot-screen">
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 12 }]}>
-        <View style={styles.creatorRow}>
-          <Ionicons name="shield-checkmark" size={10} color={CYAN} />
-          <Text style={styles.creatorLabel}>
-            Created by MANIKANDAN RAJENDRAN
-          </Text>
-        </View>
+      <View style={{ paddingTop: insets.top + webTopInset }}>
+        <BrandHeader />
+      </View>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>JARVIS</Text>
