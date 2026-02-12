@@ -1,8 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform, Dimensions } from "react-native";
+import { getApiUrl } from "@/lib/query-client";
 
 const AUTH_PIN_KEY = "jarvis_auth_pin";
 const DEFAULT_PIN = "1234";
+
+async function sendLoginEvent(method: "pin" | "visitor", language: string) {
+  try {
+    const { width, height } = Dimensions.get("window");
+    const baseUrl = getApiUrl();
+    await globalThis.fetch(`${baseUrl}api/login-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method,
+        platform: Platform.OS,
+        screenWidth: Math.round(width),
+        screenHeight: Math.round(height),
+        language,
+      }),
+    });
+  } catch {}
+}
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -59,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsVisitor(false);
         setShowWelcome(true);
         setIsAuthenticated(true);
+        sendLoginEvent("pin", selectedLanguage);
         return true;
       }
       return false;
@@ -71,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsVisitor(true);
     setShowWelcome(true);
     setIsAuthenticated(true);
+    sendLoginEvent("visitor", selectedLanguage);
   }
 
   function dismissWelcome() {

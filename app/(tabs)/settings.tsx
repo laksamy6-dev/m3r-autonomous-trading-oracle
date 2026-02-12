@@ -10,6 +10,7 @@ import {
   Switch,
   Alert,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,22 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
+
+interface LoginEvent {
+  id: string;
+  method: "pin" | "visitor";
+  timestamp: string;
+  ip: string;
+  userAgent: string;
+  platform: string;
+  screenWidth: number;
+  screenHeight: number;
+  language: string;
+  city: string;
+  region: string;
+  country: string;
+  timezone: string;
+}
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
@@ -65,6 +82,9 @@ export default function SettingsScreen() {
   const [savedPin, setSavedPin] = useState(CORRECT_PIN);
   const [autoTradePinModal, setAutoTradePinModal] = useState(false);
   const [autoTradePin, setAutoTradePin] = useState("");
+  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
+  const [loginEventsLoading, setLoginEventsLoading] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<LoginEvent | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -101,11 +121,24 @@ export default function SettingsScreen() {
     } catch {}
   }
 
+  async function fetchLoginEvents() {
+    setLoginEventsLoading(true);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/login-events`);
+      const data = await res.json();
+      setLoginEvents(data.events || []);
+    } catch {} finally {
+      setLoginEventsLoading(false);
+    }
+  }
+
   function verifyPin() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (pinInput === savedPin) {
       setPinVerified(true);
       setPinError(false);
+      fetchLoginEvents();
     } else {
       setPinError(true);
       setPinInput("");
@@ -442,6 +475,78 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={styles.sectionTitle}>Login Activity</Text>
+            <Pressable onPress={fetchLoginEvents} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+              <Ionicons name="refresh" size={18} color={CYAN} />
+            </Pressable>
+          </View>
+
+          {loginEventsLoading ? (
+            <View style={styles.loginLoadingContainer}>
+              <ActivityIndicator size="small" color={CYAN} />
+              <Text style={styles.loginLoadingText}>Loading activity...</Text>
+            </View>
+          ) : loginEvents.length === 0 ? (
+            <View style={styles.loginEmptyContainer}>
+              <Ionicons name="shield-checkmark-outline" size={32} color={Colors.dark.textMuted} />
+              <Text style={styles.loginEmptyText}>No login events recorded yet</Text>
+            </View>
+          ) : (
+            loginEvents.slice(0, 20).map((event) => (
+              <Pressable
+                key={event.id}
+                onPress={() => setSelectedEvent(event)}
+                style={({ pressed }) => [
+                  styles.loginEventCard,
+                  event.method === "pin" && styles.loginEventOwner,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View style={styles.loginEventHeader}>
+                  <View style={[styles.loginMethodBadge, event.method === "pin" ? styles.loginMethodPin : styles.loginMethodVisitor]}>
+                    <Ionicons
+                      name={event.method === "pin" ? "key" : "person-outline"}
+                      size={12}
+                      color={event.method === "pin" ? "#000" : "#fff"}
+                    />
+                    <Text style={[styles.loginMethodText, event.method === "pin" && { color: "#000" }]}>
+                      {event.method === "pin" ? "OWNER" : "VISITOR"}
+                    </Text>
+                  </View>
+                  <Text style={styles.loginTimeText}>
+                    {formatLoginTime(event.timestamp)}
+                  </Text>
+                </View>
+                <View style={styles.loginEventDetails}>
+                  <View style={styles.loginDetailRow}>
+                    <Ionicons name="location-outline" size={13} color={Colors.dark.textMuted} />
+                    <Text style={styles.loginDetailText} numberOfLines={1}>
+                      {event.city !== "Unknown" ? `${event.city}, ${event.region}, ${event.country}` : "Location unavailable"}
+                    </Text>
+                  </View>
+                  <View style={styles.loginDetailRow}>
+                    <Ionicons name="phone-portrait-outline" size={13} color={Colors.dark.textMuted} />
+                    <Text style={styles.loginDetailText} numberOfLines={1}>
+                      {event.platform.toUpperCase()} ({event.screenWidth}x{event.screenHeight})
+                    </Text>
+                  </View>
+                  <View style={styles.loginDetailRow}>
+                    <Ionicons name="globe-outline" size={13} color={Colors.dark.textMuted} />
+                    <Text style={styles.loginDetailText} numberOfLines={1}>
+                      IP: {event.ip}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.loginTapHint}>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+                </View>
+              </Pressable>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutTitle}>JARVIS Trading AI</Text>
@@ -453,6 +558,46 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={!!selectedEvent} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedEvent(null)}>
+          <Pressable style={[styles.modalContent, { maxWidth: 400 }]} onPress={() => {}}>
+            {selectedEvent && (
+              <>
+                <View style={{ alignItems: "center", marginBottom: 16 }}>
+                  <View style={[styles.loginMethodBadge, { paddingHorizontal: 16, paddingVertical: 8 }, selectedEvent.method === "pin" ? styles.loginMethodPin : styles.loginMethodVisitor]}>
+                    <Ionicons
+                      name={selectedEvent.method === "pin" ? "key" : "person-outline"}
+                      size={16}
+                      color={selectedEvent.method === "pin" ? "#000" : "#fff"}
+                    />
+                    <Text style={[styles.loginMethodText, { fontSize: 14 }, selectedEvent.method === "pin" && { color: "#000" }]}>
+                      {selectedEvent.method === "pin" ? "OWNER LOGIN" : "VISITOR LOGIN"}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.modalTitle}>Login Details</Text>
+
+                <LoginDetailField icon="time-outline" label="Time" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" })} />
+                <LoginDetailField icon="location-outline" label="Location" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
+                <LoginDetailField icon="flag-outline" label="Country" value={selectedEvent.country} />
+                <LoginDetailField icon="globe-outline" label="IP Address" value={selectedEvent.ip} />
+                <LoginDetailField icon="phone-portrait-outline" label="Device" value={`${selectedEvent.platform.toUpperCase()} (${selectedEvent.screenWidth}x${selectedEvent.screenHeight})`} />
+                <LoginDetailField icon="browsers-outline" label="Browser" value={parseBrowser(selectedEvent.userAgent)} />
+                <LoginDetailField icon="language-outline" label="Language" value={selectedEvent.language === "ta" ? "Tamil" : "English"} />
+                <LoginDetailField icon="earth-outline" label="Timezone" value={selectedEvent.timezone} />
+
+                <Pressable
+                  onPress={() => setSelectedEvent(null)}
+                  style={[styles.modalConfirm, { marginTop: 16 }]}
+                >
+                  <Text style={styles.modalConfirmText}>Close</Text>
+                </Pressable>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={changePinModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setChangePinModal(false)}>
@@ -524,6 +669,70 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+function formatLoginTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+function parseBrowser(ua: string): string {
+  if (!ua || ua === "unknown") return "Unknown";
+  if (ua.includes("Expo")) return "Expo Go";
+  if (ua.includes("Chrome") && !ua.includes("Edge")) return "Chrome";
+  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+  if (ua.includes("Firefox")) return "Firefox";
+  if (ua.includes("Edge")) return "Edge";
+  if (ua.includes("okhttp")) return "Android App";
+  return ua.substring(0, 30) + "...";
+}
+
+function LoginDetailField({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={loginDetailFieldStyles.row}>
+      <Ionicons name={icon as any} size={16} color={Colors.dark.textMuted} />
+      <View style={loginDetailFieldStyles.content}>
+        <Text style={loginDetailFieldStyles.label}>{label}</Text>
+        <Text style={loginDetailFieldStyles.value} numberOfLines={2}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+const loginDetailFieldStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  content: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  value: {
+    fontSize: 14,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.text,
+    marginTop: 2,
+  },
+});
 
 function SettingNumberRow({ label, desc, value, prefix, suffix, onChange }: {
   label: string;
@@ -866,6 +1075,91 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "DMSans_400Regular",
     color: Colors.dark.textSecondary,
+  },
+  loginLoadingContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 8,
+  },
+  loginLoadingText: {
+    fontSize: 13,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+  },
+  loginEmptyContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 8,
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  loginEmptyText: {
+    fontSize: 13,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+  },
+  loginEventCard: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    padding: 12,
+    marginBottom: 8,
+  },
+  loginEventOwner: {
+    borderColor: "rgba(0,212,255,0.3)",
+  },
+  loginEventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  loginMethodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  loginMethodPin: {
+    backgroundColor: CYAN,
+  },
+  loginMethodVisitor: {
+    backgroundColor: "rgba(245,158,11,0.25)",
+  },
+  loginMethodText: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  loginTimeText: {
+    fontSize: 11,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+  },
+  loginEventDetails: {
+    gap: 4,
+  },
+  loginDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  loginDetailText: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  loginTapHint: {
+    position: "absolute" as const,
+    right: 12,
+    top: "50%" as any,
   },
   modalOverlay: {
     flex: 1,
