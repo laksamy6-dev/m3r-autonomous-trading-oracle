@@ -21,6 +21,12 @@ Preferred communication style: Simple, everyday language.
 - **Stock Data**: Mock data generated client-side in `lib/stocks.ts` with hardcoded Indian stocks and random price variations. Not connected to real market data APIs.
 - **Options Data**: Simulated option chain generation in `lib/options.ts` with mock OI, IV, Greeks, and PCR calculations.
 - **Key Libraries**: expo-haptics, expo-image, expo-blur, expo-linear-gradient, react-native-reanimated, react-native-gesture-handler, react-native-keyboard-controller.
+- **Authentication**: PIN-based lock screen with dual-mode access:
+  - **Owner Mode**: PIN entry (default 1234) → WelcomeScreen with personal greeting for Mr. Manikandan Rajendran + auto market analysis briefing with JARVIS voice
+  - **Visitor Mode**: "Enter as Visitor" button → Language selection (English/Tamil) → Grand JARVIS intro speech praising creator → Limited access
+  - Auth state managed in `contexts/AuthContext.tsx` (isVisitor, isOwner, showWelcome, selectedLanguage)
+  - Welcome/intro screen in `components/WelcomeScreen.tsx` with typing animation, TTS voice, arc reactor animation
+- **Auto Trading**: Bot page (`app/(tabs)/bot.tsx`) includes position monitoring (3s polling), emergency exit modal (-15% P&L, 30s countdown), auto profit booking modal (+80% P&L, 30s countdown), JARVIS voice narration for all auto-actions
 
 ### Backend (Express.js)
 
