@@ -523,10 +523,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logo: {
-    width: 80,
-    height: 80,
-  },
   jarvisTitle: {
     fontSize: 36,
     fontFamily: "DMSans_700Bold",
