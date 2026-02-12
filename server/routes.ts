@@ -56,7 +56,7 @@ const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content:
 
 interface LoginEvent {
   id: string;
-  method: "pin" | "visitor";
+  method: "pin" | "visitor" | "failed";
   timestamp: string;
   ip: string;
   userAgent: string;
@@ -68,9 +68,21 @@ interface LoginEvent {
   region: string;
   country: string;
   timezone: string;
+  lat: number;
+  lon: number;
+  isp: string;
+  deviceModel: string;
+  osVersion: string;
+  pixelRatio: number;
+  networkType: string;
+  batteryLevel: number;
+  isCharging: boolean;
+  appVersion: string;
+  sessionId: string;
 }
 
 const loginEvents: LoginEvent[] = [];
+let failedAttempts: { ip: string; timestamp: string; count: number }[] = [];
 
 const OPTIONS_SYSTEM_PROMPT = `You are JARVIS — an advanced AI personal trading assistant for Nifty 50 options, inspired by Iron Man's AI. You speak with confidence, clarity, and intelligence. You address the user as "sir" occasionally. You are powered by a Neuro-Quantum Cognitive Alpha Brain with 9 neural layers, Monte Carlo simulation (10,000 paths), Newton's physics engine, and advanced mathematical formulas.
 
@@ -434,26 +446,40 @@ Based on this data, give me:
 
   app.post("/api/login-event", async (req, res) => {
     try {
-      const { method, platform, screenWidth, screenHeight, language } = req.body;
+      const { method, platform, screenWidth, screenHeight, language, deviceModel, osVersion, pixelRatio, networkType, batteryLevel, isCharging, appVersion, sessionId } = req.body;
       const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
-      
-      let city = "Unknown";
-      let region = "Unknown"; 
-      let country = "Unknown";
-      let timezone = "Unknown";
-      
+
+      let city = "Unknown", region = "Unknown", country = "Unknown", timezone = "Unknown";
+      let lat = 0, lon = 0, isp = "Unknown";
+
       try {
-        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=city,regionName,country,timezone`);
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=city,regionName,country,timezone,lat,lon,isp,status`);
         if (geoRes.ok) {
           const geo = await geoRes.json() as any;
-          if (geo.city) city = geo.city;
-          if (geo.regionName) region = geo.regionName;
-          if (geo.country) country = geo.country;
-          if (geo.timezone) timezone = geo.timezone;
+          if (geo.status === "success") {
+            city = geo.city || "Unknown";
+            region = geo.regionName || "Unknown";
+            country = geo.country || "Unknown";
+            timezone = geo.timezone || "Unknown";
+            lat = geo.lat || 0;
+            lon = geo.lon || 0;
+            isp = geo.isp || "Unknown";
+          }
         }
       } catch {}
-      
+
+      if (method === "failed") {
+        const existing = failedAttempts.find(f => f.ip === ip);
+        if (existing) {
+          existing.count++;
+          existing.timestamp = new Date().toISOString();
+        } else {
+          failedAttempts.unshift({ ip, timestamp: new Date().toISOString(), count: 1 });
+        }
+        if (failedAttempts.length > 50) failedAttempts.length = 50;
+      }
+
       const event: LoginEvent = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
         method: method || "visitor",
@@ -464,15 +490,21 @@ Based on this data, give me:
         screenWidth: screenWidth || 0,
         screenHeight: screenHeight || 0,
         language: language || "en",
-        city,
-        region,
-        country,
-        timezone,
+        city, region, country, timezone,
+        lat, lon, isp,
+        deviceModel: deviceModel || "Unknown",
+        osVersion: osVersion || "Unknown",
+        pixelRatio: pixelRatio || 1,
+        networkType: networkType || "Unknown",
+        batteryLevel: batteryLevel ?? -1,
+        isCharging: isCharging ?? false,
+        appVersion: appVersion || "3.0",
+        sessionId: sessionId || "",
       };
-      
+
       loginEvents.unshift(event);
-      if (loginEvents.length > 100) loginEvents.length = 100;
-      
+      if (loginEvents.length > 200) loginEvents.length = 200;
+
       res.json({ success: true });
     } catch (error) {
       console.error("Login event error:", error);
@@ -481,7 +513,27 @@ Based on this data, give me:
   });
 
   app.get("/api/login-events", (_req, res) => {
-    res.json({ events: loginEvents });
+    const totalLogins = loginEvents.length;
+    const ownerLogins = loginEvents.filter(e => e.method === "pin").length;
+    const visitorLogins = loginEvents.filter(e => e.method === "visitor").length;
+    const failedLogins = loginEvents.filter(e => e.method === "failed").length;
+    const uniqueIPs = new Set(loginEvents.map(e => e.ip)).size;
+    const uniqueDevices = new Set(loginEvents.map(e => `${e.platform}-${e.deviceModel}-${e.screenWidth}x${e.screenHeight}`)).size;
+    const countries = [...new Set(loginEvents.filter(e => e.country !== "Unknown").map(e => e.country))];
+
+    res.json({
+      events: loginEvents,
+      stats: {
+        totalLogins,
+        ownerLogins,
+        visitorLogins,
+        failedLogins,
+        uniqueIPs,
+        uniqueDevices,
+        countries,
+      },
+      failedAttempts,
+    });
   });
 
   app.get("/api/upstox/status", (_req, res) => {

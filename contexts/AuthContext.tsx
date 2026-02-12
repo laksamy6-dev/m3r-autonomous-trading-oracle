@@ -1,24 +1,73 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform, Dimensions } from "react-native";
+import { Platform, Dimensions, PixelRatio } from "react-native";
 import { getApiUrl } from "@/lib/query-client";
+import * as Device from "expo-device";
+import * as Battery from "expo-battery";
+import * as Network from "expo-network";
 
 const AUTH_PIN_KEY = "jarvis_auth_pin";
 const DEFAULT_PIN = "1234";
 
-async function sendLoginEvent(method: "pin" | "visitor", language: string) {
+async function getDeviceDetails() {
+  const { width, height } = Dimensions.get("window");
+  let batteryLevel = -1;
+  let isCharging = false;
+  let networkType = "Unknown";
+  let deviceModel = "Unknown";
+  let osVersion = "Unknown";
+
   try {
-    const { width, height } = Dimensions.get("window");
+    if (Platform.OS !== "web") {
+      const bLevel = await Battery.getBatteryLevelAsync();
+      batteryLevel = Math.round(bLevel * 100);
+      const bState = await Battery.getBatteryStateAsync();
+      isCharging = bState === Battery.BatteryState.CHARGING || bState === Battery.BatteryState.FULL;
+    }
+  } catch {}
+
+  try {
+    if (Platform.OS !== "web") {
+      const netState = await Network.getNetworkStateAsync();
+      networkType = netState?.type || "Unknown";
+    } else {
+      networkType = "WiFi";
+    }
+  } catch {}
+
+  try {
+    deviceModel = Device.modelName || Device.deviceName || "Unknown";
+    osVersion = `${Device.osName || Platform.OS} ${Device.osVersion || ""}`.trim();
+  } catch {
+    osVersion = Platform.OS;
+  }
+
+  return {
+    platform: Platform.OS,
+    screenWidth: Math.round(width),
+    screenHeight: Math.round(height),
+    pixelRatio: PixelRatio.get(),
+    deviceModel,
+    osVersion,
+    batteryLevel,
+    isCharging,
+    networkType: String(networkType),
+    appVersion: "3.0",
+    sessionId: Date.now().toString(36) + Math.random().toString(36).substr(2, 6),
+  };
+}
+
+async function sendLoginEvent(method: "pin" | "visitor" | "failed", language: string) {
+  try {
+    const deviceInfo = await getDeviceDetails();
     const baseUrl = getApiUrl();
     await globalThis.fetch(`${baseUrl}api/login-event`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         method,
-        platform: Platform.OS,
-        screenWidth: Math.round(width),
-        screenHeight: Math.round(height),
         language,
+        ...deviceInfo,
       }),
     });
   } catch {}
@@ -82,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendLoginEvent("pin", selectedLanguage);
         return true;
       }
+      sendLoginEvent("failed", selectedLanguage);
       return false;
     } catch {
       return false;

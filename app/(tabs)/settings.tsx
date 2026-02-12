@@ -21,7 +21,7 @@ import Colors from "@/constants/colors";
 
 interface LoginEvent {
   id: string;
-  method: "pin" | "visitor";
+  method: "pin" | "visitor" | "failed";
   timestamp: string;
   ip: string;
   userAgent: string;
@@ -33,7 +33,31 @@ interface LoginEvent {
   region: string;
   country: string;
   timezone: string;
+  lat: number;
+  lon: number;
+  isp: string;
+  deviceModel: string;
+  osVersion: string;
+  pixelRatio: number;
+  networkType: string;
+  batteryLevel: number;
+  isCharging: boolean;
+  appVersion: string;
+  sessionId: string;
 }
+
+interface LoginStats {
+  totalLogins: number;
+  ownerLogins: number;
+  visitorLogins: number;
+  failedLogins: number;
+  uniqueIPs: number;
+  uniqueDevices: number;
+  countries: string[];
+}
+
+const RED_ALERT = "#FF3B30";
+const AMBER = "#F5A623";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
@@ -85,6 +109,8 @@ export default function SettingsScreen() {
   const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
   const [loginEventsLoading, setLoginEventsLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<LoginEvent | null>(null);
+  const [loginStats, setLoginStats] = useState<LoginStats | null>(null);
+  const [loginFilter, setLoginFilter] = useState<"all" | "pin" | "visitor" | "failed">("all");
 
   useEffect(() => {
     loadSettings();
@@ -128,6 +154,7 @@ export default function SettingsScreen() {
       const res = await globalThis.fetch(`${baseUrl}api/login-events`);
       const data = await res.json();
       setLoginEvents(data.events || []);
+      setLoginStats(data.stats || null);
     } catch {} finally {
       setLoginEventsLoading(false);
     }
@@ -476,10 +503,70 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <Text style={styles.sectionTitle}>Login Activity</Text>
-            <Pressable onPress={fetchLoginEvents} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-              <Ionicons name="refresh" size={18} color={CYAN} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="shield-checkmark" size={16} color={CYAN} />
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>FIREWALL & TRACKING</Text>
+            </View>
+            <Pressable onPress={fetchLoginEvents} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, flexDirection: "row", alignItems: "center", gap: 4 }]}>
+              <Ionicons name="refresh" size={16} color={CYAN} />
             </Pressable>
+          </View>
+
+          {loginStats && (
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                <View style={styles.statBox}>
+                  <Text style={[styles.statNumber, { color: CYAN }]}>{loginStats.totalLogins}</Text>
+                  <Text style={styles.statLabel}>Total</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={[styles.statNumber, { color: NEON_GREEN }]}>{loginStats.ownerLogins}</Text>
+                  <Text style={styles.statLabel}>Owner</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={[styles.statNumber, { color: AMBER }]}>{loginStats.visitorLogins}</Text>
+                  <Text style={styles.statLabel}>Visitor</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={[styles.statNumber, { color: loginStats.failedLogins > 0 ? RED_ALERT : Colors.dark.textMuted }]}>{loginStats.failedLogins}</Text>
+                  <Text style={styles.statLabel}>Failed</Text>
+                </View>
+              </View>
+              <View style={styles.statsRow}>
+                <View style={[styles.statBox, { flex: 1 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="globe-outline" size={12} color={Colors.dark.textMuted} />
+                    <Text style={styles.statMini}>{loginStats.uniqueIPs} IPs</Text>
+                  </View>
+                </View>
+                <View style={[styles.statBox, { flex: 1 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="phone-portrait-outline" size={12} color={Colors.dark.textMuted} />
+                    <Text style={styles.statMini}>{loginStats.uniqueDevices} Devices</Text>
+                  </View>
+                </View>
+                <View style={[styles.statBox, { flex: 2 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="flag-outline" size={12} color={Colors.dark.textMuted} />
+                    <Text style={styles.statMini} numberOfLines={1}>{loginStats.countries.length > 0 ? loginStats.countries.join(", ") : "N/A"}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.filterRow}>
+            {(["all", "pin", "visitor", "failed"] as const).map((f) => (
+              <Pressable
+                key={f}
+                onPress={() => setLoginFilter(f)}
+                style={[styles.filterChip, loginFilter === f && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, loginFilter === f && styles.filterChipTextActive]}>
+                  {f === "all" ? "All" : f === "pin" ? "Owner" : f === "visitor" ? "Visitor" : "Failed"}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
           {loginEventsLoading ? (
@@ -487,31 +574,35 @@ export default function SettingsScreen() {
               <ActivityIndicator size="small" color={CYAN} />
               <Text style={styles.loginLoadingText}>Loading activity...</Text>
             </View>
-          ) : loginEvents.length === 0 ? (
+          ) : loginEvents.filter(e => loginFilter === "all" || e.method === loginFilter).length === 0 ? (
             <View style={styles.loginEmptyContainer}>
               <Ionicons name="shield-checkmark-outline" size={32} color={Colors.dark.textMuted} />
-              <Text style={styles.loginEmptyText}>No login events recorded yet</Text>
+              <Text style={styles.loginEmptyText}>No login events recorded</Text>
             </View>
           ) : (
-            loginEvents.slice(0, 20).map((event) => (
+            loginEvents
+              .filter(e => loginFilter === "all" || e.method === loginFilter)
+              .slice(0, 30)
+              .map((event) => (
               <Pressable
                 key={event.id}
                 onPress={() => setSelectedEvent(event)}
                 style={({ pressed }) => [
                   styles.loginEventCard,
                   event.method === "pin" && styles.loginEventOwner,
+                  event.method === "failed" && styles.loginEventFailed,
                   pressed && { opacity: 0.8 },
                 ]}
               >
                 <View style={styles.loginEventHeader}>
-                  <View style={[styles.loginMethodBadge, event.method === "pin" ? styles.loginMethodPin : styles.loginMethodVisitor]}>
+                  <View style={[styles.loginMethodBadge, event.method === "pin" ? styles.loginMethodPin : event.method === "failed" ? styles.loginMethodFailed : styles.loginMethodVisitor]}>
                     <Ionicons
-                      name={event.method === "pin" ? "key" : "person-outline"}
+                      name={event.method === "pin" ? "key" : event.method === "failed" ? "warning" : "person-outline"}
                       size={12}
-                      color={event.method === "pin" ? "#000" : "#fff"}
+                      color={event.method === "pin" ? "#000" : event.method === "failed" ? "#fff" : "#fff"}
                     />
                     <Text style={[styles.loginMethodText, event.method === "pin" && { color: "#000" }]}>
-                      {event.method === "pin" ? "OWNER" : "VISITOR"}
+                      {event.method === "pin" ? "OWNER" : event.method === "failed" ? "FAILED" : "VISITOR"}
                     </Text>
                   </View>
                   <Text style={styles.loginTimeText}>
@@ -528,13 +619,14 @@ export default function SettingsScreen() {
                   <View style={styles.loginDetailRow}>
                     <Ionicons name="phone-portrait-outline" size={13} color={Colors.dark.textMuted} />
                     <Text style={styles.loginDetailText} numberOfLines={1}>
-                      {event.platform.toUpperCase()} ({event.screenWidth}x{event.screenHeight})
+                      {event.deviceModel !== "Unknown" ? event.deviceModel : event.platform.toUpperCase()} | {event.osVersion !== "Unknown" ? event.osVersion : event.platform} | {event.screenWidth}x{event.screenHeight}
                     </Text>
                   </View>
                   <View style={styles.loginDetailRow}>
-                    <Ionicons name="globe-outline" size={13} color={Colors.dark.textMuted} />
+                    <Ionicons name="wifi-outline" size={13} color={Colors.dark.textMuted} />
                     <Text style={styles.loginDetailText} numberOfLines={1}>
-                      IP: {event.ip}
+                      {event.isp !== "Unknown" ? event.isp : event.ip} | {event.networkType !== "Unknown" ? event.networkType : "N/A"}
+                      {event.batteryLevel >= 0 ? ` | ${event.batteryLevel}%${event.isCharging ? " Charging" : ""}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -563,29 +655,37 @@ export default function SettingsScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setSelectedEvent(null)}>
           <Pressable style={[styles.modalContent, { maxWidth: 400 }]} onPress={() => {}}>
             {selectedEvent && (
-              <>
-                <View style={{ alignItems: "center", marginBottom: 16 }}>
-                  <View style={[styles.loginMethodBadge, { paddingHorizontal: 16, paddingVertical: 8 }, selectedEvent.method === "pin" ? styles.loginMethodPin : styles.loginMethodVisitor]}>
+              <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
+                <View style={{ alignItems: "center", marginBottom: 12 }}>
+                  <View style={[styles.loginMethodBadge, { paddingHorizontal: 16, paddingVertical: 8 }, selectedEvent.method === "pin" ? styles.loginMethodPin : selectedEvent.method === "failed" ? styles.loginMethodFailed : styles.loginMethodVisitor]}>
                     <Ionicons
-                      name={selectedEvent.method === "pin" ? "key" : "person-outline"}
+                      name={selectedEvent.method === "pin" ? "key" : selectedEvent.method === "failed" ? "warning" : "person-outline"}
                       size={16}
                       color={selectedEvent.method === "pin" ? "#000" : "#fff"}
                     />
                     <Text style={[styles.loginMethodText, { fontSize: 14 }, selectedEvent.method === "pin" && { color: "#000" }]}>
-                      {selectedEvent.method === "pin" ? "OWNER LOGIN" : "VISITOR LOGIN"}
+                      {selectedEvent.method === "pin" ? "OWNER LOGIN" : selectedEvent.method === "failed" ? "FAILED ATTEMPT" : "VISITOR LOGIN"}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.modalTitle}>Login Details</Text>
+                <Text style={styles.modalTitle}>Full Device Report</Text>
 
-                <LoginDetailField icon="time-outline" label="Time" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" })} />
-                <LoginDetailField icon="location-outline" label="Location" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
+                <LoginDetailField icon="time-outline" label="Login Time (IST)" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" })} />
+                <LoginDetailField icon="location-outline" label="City / Region" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
                 <LoginDetailField icon="flag-outline" label="Country" value={selectedEvent.country} />
+                <LoginDetailField icon="navigate-outline" label="Coordinates" value={selectedEvent.lat ? `${selectedEvent.lat.toFixed(4)}, ${selectedEvent.lon.toFixed(4)}` : "N/A"} />
                 <LoginDetailField icon="globe-outline" label="IP Address" value={selectedEvent.ip} />
-                <LoginDetailField icon="phone-portrait-outline" label="Device" value={`${selectedEvent.platform.toUpperCase()} (${selectedEvent.screenWidth}x${selectedEvent.screenHeight})`} />
-                <LoginDetailField icon="browsers-outline" label="Browser" value={parseBrowser(selectedEvent.userAgent)} />
+                <LoginDetailField icon="business-outline" label="ISP / Network" value={selectedEvent.isp || "Unknown"} />
+                <LoginDetailField icon="phone-portrait-outline" label="Device Model" value={selectedEvent.deviceModel || "Unknown"} />
+                <LoginDetailField icon="logo-android" label="OS Version" value={selectedEvent.osVersion || "Unknown"} />
+                <LoginDetailField icon="resize-outline" label="Screen" value={`${selectedEvent.screenWidth}x${selectedEvent.screenHeight} @${selectedEvent.pixelRatio?.toFixed(1) || "1"}x`} />
+                <LoginDetailField icon="browsers-outline" label="Browser / Client" value={parseBrowser(selectedEvent.userAgent)} />
+                <LoginDetailField icon="wifi-outline" label="Network Type" value={selectedEvent.networkType || "Unknown"} />
+                <LoginDetailField icon="battery-half-outline" label="Battery" value={selectedEvent.batteryLevel >= 0 ? `${selectedEvent.batteryLevel}%${selectedEvent.isCharging ? " (Charging)" : ""}` : "N/A"} />
                 <LoginDetailField icon="language-outline" label="Language" value={selectedEvent.language === "ta" ? "Tamil" : "English"} />
                 <LoginDetailField icon="earth-outline" label="Timezone" value={selectedEvent.timezone} />
+                <LoginDetailField icon="code-slash-outline" label="App Version" value={selectedEvent.appVersion || "3.0"} />
+                <LoginDetailField icon="finger-print-outline" label="Session ID" value={selectedEvent.sessionId || "N/A"} />
 
                 <Pressable
                   onPress={() => setSelectedEvent(null)}
@@ -593,7 +693,7 @@ export default function SettingsScreen() {
                 >
                   <Text style={styles.modalConfirmText}>Close</Text>
                 </Pressable>
-              </>
+              </ScrollView>
             )}
           </Pressable>
         </Pressable>
@@ -1160,6 +1260,72 @@ const styles = StyleSheet.create({
     position: "absolute" as const,
     right: 12,
     top: "50%" as any,
+  },
+  loginEventFailed: {
+    borderColor: "rgba(255,59,48,0.4)",
+  },
+  loginMethodFailed: {
+    backgroundColor: "rgba(255,59,48,0.8)",
+  },
+  statsContainer: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    padding: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+  statsRow: {
+    flexDirection: "row" as const,
+    gap: 8,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center" as const,
+    paddingVertical: 4,
+  },
+  statNumber: {
+    fontSize: 22,
+    fontFamily: "DMSans_700Bold",
+  },
+  statLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  statMini: {
+    fontSize: 11,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textSecondary,
+  },
+  filterRow: {
+    flexDirection: "row" as const,
+    gap: 6,
+    marginBottom: 12,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.surface,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterChipActive: {
+    backgroundColor: "rgba(0,212,255,0.15)",
+    borderColor: CYAN,
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+  },
+  filterChipTextActive: {
+    color: CYAN,
   },
   modalOverlay: {
     flex: 1,
