@@ -25,7 +25,7 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
 
 export default function LockScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, loginAsVisitor } = useAuth();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -135,6 +135,14 @@ export default function LockScreen() {
           </Pressable>
         ))}
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.visitorBtn, pressed && styles.visitorBtnPressed]}
+        onPress={loginAsVisitor}
+      >
+        <Ionicons name="person-outline" size={18} color={CYAN} />
+        <Text style={styles.visitorBtnText}>Enter as Visitor</Text>
+      </Pressable>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
         <Text style={styles.footerText}>Default PIN: 1234</Text>
@@ -263,6 +271,27 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: "DMSans_600SemiBold",
     color: C.text,
+  },
+  visitorBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: CYAN,
+    backgroundColor: "transparent",
+  },
+  visitorBtnPressed: {
+    backgroundColor: CYAN + "22",
+  },
+  visitorBtnText: {
+    fontSize: 15,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
   },
   footer: {
     marginTop: "auto",

@@ -9,6 +9,7 @@ import { queryClient } from "@/lib/query-client";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LockScreen from "@/components/LockScreen";
+import WelcomeScreen from "@/components/WelcomeScreen";
 import {
   useFonts,
   DMSans_400Regular,
@@ -33,7 +34,7 @@ function RootLayoutNav() {
 }
 
 function AuthGate() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, showWelcome } = useAuth();
 
   if (isLoading) {
     return (
@@ -45,6 +46,10 @@ function AuthGate() {
 
   if (!isAuthenticated) {
     return <LockScreen />;
+  }
+
+  if (showWelcome) {
+    return <WelcomeScreen />;
   }
 
   return <RootLayoutNav />;

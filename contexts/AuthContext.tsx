@@ -8,7 +8,14 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   hasPin: boolean;
+  isVisitor: boolean;
+  isOwner: boolean;
+  selectedLanguage: "en" | "ta";
+  setSelectedLanguage: (lang: "en" | "ta") => void;
+  showWelcome: boolean;
+  dismissWelcome: () => void;
   login: (pin: string) => Promise<boolean>;
+  loginAsVisitor: () => void;
   logout: () => void;
   changePin: (oldPin: string, newPin: string) => Promise<boolean>;
   setupPin: (pin: string) => Promise<void>;
@@ -20,6 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasPin, setHasPin] = useState(false);
+  const [isVisitor, setIsVisitor] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<"en" | "ta">("en");
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     checkPin();
@@ -46,6 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const stored = await AsyncStorage.getItem(AUTH_PIN_KEY);
       const correctPin = stored || DEFAULT_PIN;
       if (pin === correctPin) {
+        setIsVisitor(false);
+        setShowWelcome(true);
         setIsAuthenticated(true);
         return true;
       }
@@ -55,8 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function loginAsVisitor() {
+    setIsVisitor(true);
+    setShowWelcome(true);
+    setIsAuthenticated(true);
+  }
+
+  function dismissWelcome() {
+    setShowWelcome(false);
+  }
+
   function logout() {
     setIsAuthenticated(false);
+    setIsVisitor(false);
+    setShowWelcome(false);
   }
 
   async function changePin(oldPin: string, newPin: string): Promise<boolean> {
@@ -79,9 +103,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true);
   }
 
+  const isOwner = isAuthenticated && !isVisitor;
+
   const value = useMemo(
-    () => ({ isAuthenticated, isLoading, hasPin, login, logout, changePin, setupPin }),
-    [isAuthenticated, isLoading, hasPin]
+    () => ({
+      isAuthenticated,
+      isLoading,
+      hasPin,
+      isVisitor,
+      isOwner,
+      selectedLanguage,
+      setSelectedLanguage,
+      showWelcome,
+      dismissWelcome,
+      login,
+      loginAsVisitor,
+      logout,
+      changePin,
+      setupPin,
+    }),
+    [isAuthenticated, isLoading, hasPin, isVisitor, isOwner, selectedLanguage, showWelcome]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
