@@ -617,6 +617,139 @@ Based on this data, give me:
     }
   });
 
+  const STOCK_ISIN_MAP: Record<string, string> = {
+    "RELIANCE": "NSE_EQ|INE002A01018",
+    "TCS": "NSE_EQ|INE467B01029",
+    "HDFCBANK": "NSE_EQ|INE040A01034",
+    "INFY": "NSE_EQ|INE009A01021",
+    "ICICIBANK": "NSE_EQ|INE090A01021",
+    "BHARTIARTL": "NSE_EQ|INE397D01024",
+    "SBIN": "NSE_EQ|INE062A01020",
+    "ITC": "NSE_EQ|INE154A01025",
+    "WIPRO": "NSE_EQ|INE075A01022",
+    "HCLTECH": "NSE_EQ|INE860A01027",
+    "TATAMOTORS": "NSE_EQ|INE155A01022",
+    "AXISBANK": "NSE_EQ|INE238A01034",
+    "SUNPHARMA": "NSE_EQ|INE044A01036",
+    "BAJFINANCE": "NSE_EQ|INE296A01024",
+    "MARUTI": "NSE_EQ|INE585B01010",
+    "TATASTEEL": "NSE_EQ|INE081A01020",
+    "LTIM": "NSE_EQ|INE214T01019",
+    "ADANIENT": "NSE_EQ|INE423A01024",
+    "POWERGRID": "NSE_EQ|INE752E01010",
+    "NESTLEIND": "NSE_EQ|INE239A01016",
+  };
+
+  const INDEX_KEY_MAP: Record<string, string> = {
+    "NIFTY 50": "NSE_INDEX|Nifty 50",
+    "SENSEX": "BSE_INDEX|SENSEX",
+    "NIFTY BANK": "NSE_INDEX|Nifty Bank",
+    "NIFTY IT": "NSE_INDEX|Nifty IT",
+  };
+
+  const STOCK_META: Record<string, { name: string; sector: string; pe: number; weekHigh52: number; weekLow52: number }> = {
+    "RELIANCE": { name: "Reliance Industries", sector: "Oil & Gas", pe: 28.4, weekHigh52: 3024.90, weekLow52: 2220.30 },
+    "TCS": { name: "Tata Consultancy Services", sector: "IT", pe: 32.1, weekHigh52: 4592.25, weekLow52: 3311.80 },
+    "HDFCBANK": { name: "HDFC Bank", sector: "Banking", pe: 19.8, weekHigh52: 1880.00, weekLow52: 1363.55 },
+    "INFY": { name: "Infosys", sector: "IT", pe: 29.6, weekHigh52: 1997.80, weekLow52: 1358.35 },
+    "ICICIBANK": { name: "ICICI Bank", sector: "Banking", pe: 18.2, weekHigh52: 1361.00, weekLow52: 970.00 },
+    "BHARTIARTL": { name: "Bharti Airtel", sector: "Telecom", pe: 76.3, weekHigh52: 1779.00, weekLow52: 1200.00 },
+    "SBIN": { name: "State Bank of India", sector: "Banking", pe: 11.2, weekHigh52: 912.10, weekLow52: 600.20 },
+    "ITC": { name: "ITC Limited", sector: "FMCG", pe: 28.9, weekHigh52: 528.55, weekLow52: 398.00 },
+    "WIPRO": { name: "Wipro", sector: "IT", pe: 24.5, weekHigh52: 612.50, weekLow52: 385.00 },
+    "HCLTECH": { name: "HCL Technologies", sector: "IT", pe: 27.8, weekHigh52: 1960.00, weekLow52: 1276.80 },
+    "TATAMOTORS": { name: "Tata Motors", sector: "Auto", pe: 8.5, weekHigh52: 1080.00, weekLow52: 620.55 },
+    "AXISBANK": { name: "Axis Bank", sector: "Banking", pe: 14.6, weekHigh52: 1340.00, weekLow52: 995.00 },
+    "SUNPHARMA": { name: "Sun Pharmaceutical", sector: "Pharma", pe: 38.2, weekHigh52: 1960.35, weekLow52: 1208.00 },
+    "BAJFINANCE": { name: "Bajaj Finance", sector: "NBFC", pe: 33.4, weekHigh52: 8192.00, weekLow52: 5875.60 },
+    "MARUTI": { name: "Maruti Suzuki", sector: "Auto", pe: 29.1, weekHigh52: 13680.00, weekLow52: 10150.00 },
+    "TATASTEEL": { name: "Tata Steel", sector: "Metals", pe: 58.2, weekHigh52: 184.60, weekLow52: 118.45 },
+    "LTIM": { name: "LTIMindtree", sector: "IT", pe: 35.8, weekHigh52: 6245.00, weekLow52: 4520.00 },
+    "ADANIENT": { name: "Adani Enterprises", sector: "Conglomerate", pe: 85.4, weekHigh52: 3743.90, weekLow52: 2142.00 },
+    "POWERGRID": { name: "Power Grid Corp", sector: "Power", pe: 17.8, weekHigh52: 366.25, weekLow52: 246.30 },
+    "NESTLEIND": { name: "Nestle India", sector: "FMCG", pe: 72.5, weekHigh52: 2778.00, weekLow52: 2110.00 },
+  };
+
+  app.get("/api/market/live-stocks", async (_req, res) => {
+    if (!upstoxAccessToken) {
+      return res.json({ source: "mock", stocks: [], indices: [] });
+    }
+    try {
+      const stockKeys = Object.values(STOCK_ISIN_MAP).join(",");
+      const indexKeys = Object.values(INDEX_KEY_MAP).join(",");
+
+      const [stocksRes, indicesRes] = await Promise.all([
+        globalThis.fetch(
+          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(stockKeys)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        ),
+        globalThis.fetch(
+          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(indexKeys)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        ),
+      ]);
+
+      const stocksData = await stocksRes.json();
+      const indicesData = await indicesRes.json();
+
+      const stocks: any[] = [];
+      if (stocksData?.status === "success" && stocksData?.data) {
+        for (const [symbol, isin] of Object.entries(STOCK_ISIN_MAP)) {
+          const key = Object.keys(stocksData.data).find(k => k.includes(symbol) || stocksData.data[k]?.instrument_token === isin);
+          const quoteKey = key || `NSE_EQ:${symbol}`;
+          const quote = stocksData.data[quoteKey];
+          if (quote) {
+            const meta = STOCK_META[symbol] || { name: symbol, sector: "Unknown", pe: 0, weekHigh52: 0, weekLow52: 0 };
+            const lastPrice = quote.last_price || 0;
+            const prevClose = quote.ohlc?.close || lastPrice;
+            const change = lastPrice - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+            stocks.push({
+              symbol,
+              name: meta.name,
+              price: lastPrice,
+              change: Math.round(change * 100) / 100,
+              changePercent: Math.round(changePercent * 100) / 100,
+              high: quote.ohlc?.high || lastPrice,
+              low: quote.ohlc?.low || lastPrice,
+              volume: quote.volume ? (quote.volume >= 1000000 ? `${(quote.volume / 1000000).toFixed(1)}M` : `${(quote.volume / 1000).toFixed(0)}K`) : "0",
+              marketCap: meta.pe > 50 ? "N/A" : "N/A",
+              sector: meta.sector,
+              pe: meta.pe,
+              weekHigh52: quote.week_52_high || meta.weekHigh52,
+              weekLow52: quote.week_52_low || meta.weekLow52,
+            });
+          }
+        }
+      }
+
+      const indices: any[] = [];
+      if (indicesData?.status === "success" && indicesData?.data) {
+        for (const [name, iKey] of Object.entries(INDEX_KEY_MAP)) {
+          const quoteKey = Object.keys(indicesData.data).find(k => k.includes(name.replace(" ", "_")) || k.includes(name));
+          const quote = quoteKey ? indicesData.data[quoteKey] : null;
+          if (quote) {
+            const lastPrice = quote.last_price || 0;
+            const prevClose = quote.ohlc?.close || lastPrice;
+            const change = lastPrice - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+            indices.push({
+              name,
+              value: lastPrice,
+              change: Math.round(change * 100) / 100,
+              changePercent: Math.round(changePercent * 100) / 100,
+            });
+          }
+        }
+      }
+
+      res.json({ source: "upstox", stocks, indices });
+    } catch (error) {
+      console.error("Error fetching live market data:", error);
+      res.json({ source: "mock", stocks: [], indices: [], error: "Failed to fetch live data" });
+    }
+  });
+
   app.post("/api/telegram/test", async (_req, res) => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
     const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
