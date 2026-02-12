@@ -32,6 +32,7 @@ interface SettingsState {
   stopLossPercent: number;
   targetPercent: number;
   brokerageCost: number;
+  autoTradeMode: boolean;
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
@@ -44,6 +45,7 @@ const DEFAULT_SETTINGS: SettingsState = {
   stopLossPercent: 2,
   targetPercent: 3,
   brokerageCost: 200,
+  autoTradeMode: false,
 };
 
 export default function SettingsScreen() {
@@ -61,6 +63,8 @@ export default function SettingsScreen() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [savedPin, setSavedPin] = useState(CORRECT_PIN);
+  const [autoTradePinModal, setAutoTradePinModal] = useState(false);
+  const [autoTradePin, setAutoTradePin] = useState("");
 
   useEffect(() => {
     loadSettings();
@@ -124,6 +128,53 @@ export default function SettingsScreen() {
     setNewPin("");
     setConfirmPin("");
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  async function toggleAutoTradeMode(enable: boolean) {
+    if (enable) {
+      setAutoTradePinModal(true);
+      return;
+    }
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/auto-trade/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        saveSettings({ ...settings, autoTradeMode: false });
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      Alert.alert("Error", "Failed to update auto-trade mode");
+    }
+  }
+
+  async function confirmAutoTradeEnable() {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/auto-trade/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: true, pin: autoTradePin }),
+      });
+      if (!res.ok) {
+        Alert.alert("Error", "Invalid PIN");
+        setAutoTradePin("");
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        saveSettings({ ...settings, autoTradeMode: true });
+        setAutoTradePinModal(false);
+        setAutoTradePin("");
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      Alert.alert("Error", "Failed to enable auto-trade mode");
+    }
   }
 
   async function sendTestTelegram() {
@@ -276,6 +327,47 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Auto Pilot</Text>
+          <View style={[styles.statusCard, settings.autoTradeMode && { borderColor: NEON_GREEN, borderWidth: 1.5 }]}>
+            <View style={styles.statusRow}>
+              <Ionicons name="rocket" size={20} color={settings.autoTradeMode ? NEON_GREEN : Colors.dark.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statusLabel}>Auto Trade Mode</Text>
+                <Text style={styles.settingDesc}>
+                  {settings.autoTradeMode
+                    ? "ACTIVE - JARVIS trades automatically"
+                    : "OFF - Manual approval required"}
+                </Text>
+              </View>
+              <Switch
+                value={settings.autoTradeMode}
+                onValueChange={toggleAutoTradeMode}
+                trackColor={{ false: Colors.dark.border, true: "rgba(57,255,20,0.3)" }}
+                thumbColor={settings.autoTradeMode ? NEON_GREEN : Colors.dark.textMuted}
+              />
+            </View>
+          </View>
+          <View style={styles.autoTradeInfoCard}>
+            <View style={styles.autoTradeInfoRow}>
+              <Ionicons name="shield-checkmark" size={14} color={CYAN} />
+              <Text style={styles.autoTradeInfoText}>Auto-exit on stop loss (30s countdown)</Text>
+            </View>
+            <View style={styles.autoTradeInfoRow}>
+              <Ionicons name="trending-up" size={14} color={NEON_GREEN} />
+              <Text style={styles.autoTradeInfoText}>Auto-book at 80%+ profit</Text>
+            </View>
+            <View style={styles.autoTradeInfoRow}>
+              <Ionicons name="volume-high" size={14} color={Colors.dark.gold} />
+              <Text style={styles.autoTradeInfoText}>JARVIS voice narration for all actions</Text>
+            </View>
+            <View style={styles.autoTradeInfoRow}>
+              <Ionicons name="flash" size={14} color={Colors.dark.red} />
+              <Text style={styles.autoTradeInfoText}>No PIN needed when autopilot is ON</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Voice Settings</Text>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
@@ -392,6 +484,38 @@ export default function SettingsScreen() {
               </Pressable>
               <Pressable onPress={handleChangePin} style={styles.modalConfirm}>
                 <Text style={styles.modalConfirmText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={autoTradePinModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => { setAutoTradePinModal(false); setAutoTradePin(""); }}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <Ionicons name="rocket" size={36} color={NEON_GREEN} style={{ alignSelf: "center", marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>Enable Auto Pilot</Text>
+            <Text style={[styles.settingDesc, { textAlign: "center", marginBottom: 16 }]}>
+              JARVIS will trade automatically without your approval. Enter PIN to authorize.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={autoTradePin}
+              onChangeText={(t) => setAutoTradePin(t.replace(/[^0-9]/g, ""))}
+              placeholder="Enter PIN"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="number-pad"
+              secureTextEntry
+              maxLength={6}
+              onSubmitEditing={confirmAutoTradeEnable}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => { setAutoTradePinModal(false); setAutoTradePin(""); }} style={styles.modalCancel}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={confirmAutoTradeEnable} style={[styles.modalConfirm, { backgroundColor: NEON_GREEN }]}>
+                <Text style={styles.modalConfirmText}>Activate</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -725,6 +849,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+  },
+  autoTradeInfoCard: {
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
+    gap: 8,
+  },
+  autoTradeInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  autoTradeInfoText: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textSecondary,
   },
   modalOverlay: {
     flex: 1,
