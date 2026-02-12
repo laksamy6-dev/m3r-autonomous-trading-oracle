@@ -406,7 +406,7 @@ export default function OptionsScreen() {
 
   async function placeOrder() {
     if (!orderPin || !orderStrike || !orderPremium) {
-      Alert.alert("Error", "Please fill all required fields and enter PIN");
+      Alert.alert("Missing Details", "Strike, premium, and PIN are required.");
       return;
     }
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -414,30 +414,54 @@ export default function OptionsScreen() {
 
     try {
       const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/order/place`, {
+      const url = `${baseUrl}api/order/place`;
+      const payload = {
+        type: orderType,
+        strike: orderStrike,
+        lots: orderLots,
+        premium: orderPremium,
+        action: "BUY",
+        target: orderTarget || "0",
+        stopLoss: orderSL || "0",
+        pin: orderPin,
+      };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: orderType,
-          strike: orderStrike,
-          lots: orderLots,
-          premium: orderPremium,
-          action: "BUY",
-          target: orderTarget,
-          stopLoss: orderSL,
-          pin: orderPin,
-        }),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-      if (data.success) {
-        Alert.alert("Order Executed", `${orderType} ${orderStrike} x${orderLots} lots placed successfully!\nOrder ID: ${data.order.id}`);
-        setShowOrderModal(false);
-      } else {
-        Alert.alert("Error", data.error || "Order failed");
+      clearTimeout(timeout);
+
+      const text = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        Alert.alert("Error", "Server returned invalid response");
+        return;
       }
-    } catch {
-      Alert.alert("Error", "Network error. Please try again.");
+
+      if (res.ok && data.success) {
+        Alert.alert(
+          "Order Executed",
+          `${orderType} ${orderStrike} x${orderLots} lot(s)\nPremium: ${orderPremium}\nOrder ID: ${data.order?.id || "N/A"}`
+        );
+        setShowOrderModal(false);
+        setOrderPin("");
+      } else {
+        Alert.alert("Order Failed", data.error || `Server error (${res.status})`);
+      }
+    } catch (err: any) {
+      const msg = err?.name === "AbortError"
+        ? "Request timed out. Check your connection."
+        : `Network error: ${err?.message || "Unknown error"}`;
+      Alert.alert("Connection Error", msg);
     } finally {
       setIsPlacingOrder(false);
     }

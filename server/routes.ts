@@ -1661,6 +1661,8 @@ Provide the full 10-section comprehensive analysis now.`;
     }
   });
 
+  let currentPin = "1234";
+
   const orderBook: Array<{
     id: string;
     type: "CE" | "PE";
@@ -1676,10 +1678,28 @@ Provide the full 10-section comprehensive analysis now.`;
     pnl: number | null;
   }> = [];
 
+  app.post("/api/settings/pin", (req, res) => {
+    const { currentPin: oldPin, newPin } = req.body;
+    if (!oldPin || oldPin !== currentPin) {
+      return res.status(403).json({ error: "Current PIN is incorrect" });
+    }
+    if (!newPin || newPin.length < 4) {
+      return res.status(400).json({ error: "New PIN must be at least 4 digits" });
+    }
+    currentPin = newPin;
+    res.json({ success: true, message: "PIN updated successfully" });
+  });
+
+  app.get("/api/settings/verify-pin/:pin", (req, res) => {
+    res.json({ valid: req.params.pin === currentPin });
+  });
+
   app.post("/api/order/place", (req, res) => {
     const { type, strike, lots, premium, action, target, stopLoss, pin } = req.body;
+    console.log("[ORDER] Received order request:", { type, strike, lots, premium, action, pin: pin ? "****" : "missing" });
 
-    if (!pin || pin !== "1234") {
+    if (!pin || pin !== currentPin) {
+      console.log("[ORDER] PIN rejected");
       return res.status(403).json({ error: "Invalid PIN", requirePin: true });
     }
 
@@ -1732,7 +1752,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
   app.post("/api/order/cancel", (req, res) => {
     const { orderId, pin } = req.body;
-    if (pin !== "1234") return res.status(403).json({ error: "Invalid PIN" });
+    if (pin !== currentPin) return res.status(403).json({ error: "Invalid PIN" });
     const order = orderBook.find(o => o.id === orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
     order.status = "CANCELLED";
