@@ -8,7 +8,6 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -134,9 +133,11 @@ function buildJarvisContext(output: NeuralEngineOutput): string {
 function PulsingMicButton({
   status,
   onPress,
+  small,
 }: {
   status: VoiceStatus;
   onPress: () => void;
+  small?: boolean;
 }) {
   const pulseScale = useSharedValue(1);
   const ringScale = useSharedValue(1);
@@ -209,12 +210,17 @@ function PulsingMicButton({
           ? "volume-high"
           : "mic-outline";
 
+  const containerSize = small ? 40 : 160;
+  const ringSize = small ? 38 : 150;
+  const buttonSize = small ? 36 : 120;
+  const iconSize = small ? 20 : 48;
+
   return (
-    <View style={voiceStyles.micContainer}>
+    <View style={[voiceStyles.micContainer, { width: containerSize, height: containerSize }]}>
       <Animated.View
         style={[
           voiceStyles.micRing,
-          { borderColor: micColor },
+          { width: ringSize, height: ringSize, borderRadius: ringSize / 2, borderColor: micColor },
           ringAnimStyle,
         ]}
       />
@@ -223,14 +229,14 @@ function PulsingMicButton({
           onPress={onPress}
           style={({ pressed }) => [
             voiceStyles.micButton,
-            { borderColor: micColor },
+            { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, borderColor: micColor },
             status === "listening" && { backgroundColor: "rgba(239,68,68,0.15)" },
             status === "speaking" && { backgroundColor: "rgba(57,255,20,0.08)" },
             pressed && { opacity: 0.8 },
           ]}
           disabled={status === "processing" || status === "speaking"}
         >
-          <Ionicons name={iconName as any} size={48} color={micColor} />
+          <Ionicons name={iconName as any} size={iconSize} color={micColor} />
         </Pressable>
       </Animated.View>
     </View>
@@ -276,7 +282,6 @@ function WaveformBar({ index, active }: { index: number; active: boolean }) {
 
 export default function BotScreen() {
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<"text" | "voice">("text");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -287,24 +292,15 @@ export default function BotScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("ready");
-  const [handsFree, setHandsFree] = useState(false);
-  const [detectedLanguage, setDetectedLanguage] = useState<string>("en");
-  const [lastUserText, setLastUserText] = useState("");
-  const [lastAiText, setLastAiText] = useState("");
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const handsFreeRef = useRef(false);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
-
-  useEffect(() => {
-    handsFreeRef.current = handsFree;
-  }, [handsFree]);
 
   const updateMarketContext = useCallback(() => {
     const chain = generateOptionChain();
@@ -439,9 +435,6 @@ export default function BotScreen() {
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           setVoiceStatus("ready");
-          if (handsFreeRef.current) {
-            setTimeout(() => startRecording(), 500);
-          }
         }
       });
       setVoiceStatus("speaking");
@@ -469,9 +462,6 @@ export default function BotScreen() {
         URL.revokeObjectURL(url);
         webAudioRef.current = null;
         setVoiceStatus("ready");
-        if (handsFreeRef.current) {
-          setTimeout(() => startRecording(), 500);
-        }
       };
       audio.onerror = () => {
         URL.revokeObjectURL(url);
@@ -541,11 +531,23 @@ export default function BotScreen() {
       }
 
       const data = await response.json();
-      const { userText, aiText, audioBase64, language } = data;
+      const { userText, aiText, audioBase64 } = data;
 
-      if (userText) setLastUserText(userText);
-      if (aiText) setLastAiText(aiText);
-      if (language) setDetectedLanguage(language);
+      if (userText) {
+        setMessages((prev) => [
+          ...prev,
+          { id: genId(), role: "user" as const, content: userText },
+        ]);
+      }
+
+      if (aiText) {
+        setMessages((prev) => [
+          ...prev,
+          { id: genId(), role: "assistant" as const, content: aiText },
+        ]);
+      }
+
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
       if (audioBase64) {
         if (Platform.OS === "web") {
@@ -555,13 +557,17 @@ export default function BotScreen() {
         }
       } else {
         setVoiceStatus("ready");
-        if (handsFreeRef.current) {
-          setTimeout(() => startRecording(), 500);
-        }
       }
     } catch (err) {
       console.error("Voice request error:", err);
-      setLastAiText("Sorry, I encountered an error processing your voice. Please try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          role: "assistant" as const,
+          content: "Sorry, I encountered an error processing your voice. Please try again.",
+        },
+      ]);
       setVoiceStatus("ready");
     }
   }
@@ -674,8 +680,6 @@ export default function BotScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMessages([]);
     setInput("");
-    setLastUserText("");
-    setLastAiText("");
     try {
       const baseUrl = getApiUrl();
       await fetch(`${baseUrl}api/options/bot/reset`, { method: "POST" });
@@ -689,25 +693,7 @@ export default function BotScreen() {
         ? Colors.dark.red
         : Colors.dark.gold;
 
-  const statusLabel =
-    voiceStatus === "listening"
-      ? "Listening..."
-      : voiceStatus === "processing"
-        ? "Processing..."
-        : voiceStatus === "speaking"
-          ? "Speaking..."
-          : "Ready";
-
-  const statusColor =
-    voiceStatus === "listening"
-      ? Colors.dark.red
-      : voiceStatus === "processing"
-        ? Colors.dark.gold
-        : voiceStatus === "speaking"
-          ? NEON_GREEN
-          : CYAN;
-
-  const langLabel = detectedLanguage === "ta" ? "\u0BA4\u0BAE\u0BBF\u0BB4\u0BCD" : "EN";
+  const isRecordingOrProcessing = voiceStatus === "listening" || voiceStatus === "processing";
 
   return (
     <View style={styles.container} testID="bot-screen">
@@ -728,377 +714,213 @@ export default function BotScreen() {
                   ? `v8.0 | Tick #${engineOutput.engineTick}`
                   : "Initializing..."}
               </Text>
-              <View style={{ width: 8 }} />
-              <Pressable 
-                onPress={() => setMode(mode === 'text' ? 'voice' : 'text')}
-                style={({ pressed }) => [
-                  { 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    gap: 4, 
-                    backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 10,
-                  }, 
-                  pressed && { opacity: 0.7 }
-                ]}
-              >
-                <Ionicons name="sparkles" size={10} color={CYAN} />
-                <Text style={{ color: CYAN, fontSize: 10, fontFamily: 'DMSans_600SemiBold' }}>GPT AI</Text>
-              </Pressable>
             </View>
           </View>
-          <View style={styles.headerActions}>
-            <View style={styles.modeToggleContainer}>
-              <Pressable
-                onPress={() => setMode("text")}
-                style={[
-                  styles.modeTab,
-                  mode === "text" && styles.modeTabActive,
-                ]}
-              >
-                <Ionicons
-                  name="chatbubble-ellipses"
-                  size={14}
-                  color={mode === "text" ? CYAN : Colors.dark.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.modeTabLabel,
-                    mode === "text" && styles.modeTabLabelActive,
-                  ]}
-                >
-                  Text
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setMode("voice")}
-                style={[
-                  styles.modeTab,
-                  mode === "voice" && styles.modeTabActive,
-                ]}
-              >
-                <Ionicons
-                  name="mic"
-                  size={14}
-                  color={mode === "voice" ? CYAN : Colors.dark.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.modeTabLabel,
-                    mode === "voice" && styles.modeTabLabelActive,
-                  ]}
-                >
-                  Voice
-                </Text>
-              </Pressable>
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.resetBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={resetChat}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={20}
-                color={Colors.dark.textMuted}
-              />
-            </Pressable>
-          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.resetBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={resetChat}
+          >
+            <Ionicons
+              name="trash-outline"
+              size={20}
+              color={Colors.dark.textMuted}
+            />
+          </Pressable>
         </View>
       </View>
 
-      {mode === "voice" ? (
-        <View style={styles.voiceContainer}>
-          {marketContext && engineOutput && (
-            <View style={styles.marketBadge}>
-              <Text style={styles.marketBadgeText}>
-                NIFTY {marketContext.spotPrice.toFixed(0)} |{" "}
-                {engineOutput.cognitiveAlpha.fusionAction.replace("_", " ")} |{" "}
-                <Text style={{ color: biasColor }}>{marketContext.bias}</Text>
-                {" | "}
-                <Text
-                  style={{
-                    color: engineOutput.entropyData.isTrapZone
-                      ? Colors.dark.red
-                      : Colors.dark.green,
-                  }}
-                >
-                  {engineOutput.entropyData.isTrapZone ? "TRAP" : "CLEAR"}
-                </Text>
+      <View style={styles.chatWrapper}>
+        {marketContext && engineOutput && (
+          <View style={styles.marketBadge}>
+            <Text style={styles.marketBadgeText}>
+              NIFTY {marketContext.spotPrice.toFixed(0)} |{" "}
+              {engineOutput.cognitiveAlpha.fusionAction.replace("_", " ")}{" "}
+              |{" "}
+              <Text style={{ color: biasColor }}>{marketContext.bias}</Text>
+              {" | "}
+              <Text
+                style={{
+                  color: engineOutput.entropyData.isTrapZone
+                    ? Colors.dark.red
+                    : Colors.dark.green,
+                }}
+              >
+                {engineOutput.entropyData.isTrapZone ? "TRAP" : "CLEAR"}
               </Text>
+            </Text>
+          </View>
+        )}
+
+        <ScrollView
+          ref={scrollRef}
+          style={styles.chatArea}
+          contentContainerStyle={styles.chatContent}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() =>
+            scrollRef.current?.scrollToEnd({ animated: true })
+          }
+        >
+          {messages.length === 0 && (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="hardware-chip" size={36} color={CYAN} />
+              </View>
+              <Text style={styles.emptyTitle}>JARVIS AI Assistant</Text>
+              <Text style={styles.emptySubtitle}>
+                Your personal AI trading assistant. I analyze markets using 9
+                neural layers, Monte Carlo simulation, Cognitive Alpha brain,
+                and advanced formulas. Ask me anything and I'll explain my
+                thinking in detail.
+              </Text>
+              <View style={styles.quickActions}>
+                {QUICK_ACTIONS.map((q) => (
+                  <Pressable
+                    key={q}
+                    style={({ pressed }) => [
+                      styles.quickChip,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => sendMessage(q)}
+                  >
+                    <Text style={styles.quickChipText}>{q}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           )}
 
-          <View style={styles.voiceCenterArea}>
-            <Text style={[styles.voiceStatusLabel, { color: statusColor }]}>
-              {statusLabel}
-            </Text>
-
-            <View style={styles.waveformRow}>
-              {Array.from({ length: 12 }).map((_, i) => (
-                <WaveformBar
-                  key={i}
-                  index={i}
-                  active={voiceStatus === "listening" || voiceStatus === "speaking"}
-                />
-              ))}
-            </View>
-
-            <PulsingMicButton status={voiceStatus} onPress={handleMicPress} />
-
-            <Text style={styles.voiceHint}>
-              {voiceStatus === "ready"
-                ? "Tap to speak"
-                : voiceStatus === "listening"
-                  ? "Tap to stop"
-                  : ""}
-            </Text>
-          </View>
-
-          <ScrollView
-            style={styles.transcriptArea}
-            contentContainerStyle={styles.transcriptContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {lastUserText ? (
-              <View style={styles.transcriptBlock}>
-                <View style={styles.transcriptLabelRow}>
-                  <Ionicons name="person" size={12} color={Colors.dark.accent} />
-                  <Text style={styles.transcriptLabel}>You</Text>
-                </View>
-                <Text style={styles.transcriptText}>{lastUserText}</Text>
-              </View>
-            ) : null}
-            {lastAiText ? (
-              <View style={styles.transcriptBlock}>
-                <View style={styles.transcriptLabelRow}>
-                  <Ionicons name="hardware-chip" size={12} color={CYAN} />
-                  <Text style={[styles.transcriptLabel, { color: CYAN }]}>
-                    JARVIS
-                  </Text>
-                </View>
-                <Text style={styles.transcriptText}>{lastAiText}</Text>
-              </View>
-            ) : null}
-            {!lastUserText && !lastAiText && (
-              <Text style={styles.transcriptPlaceholder}>
-                Speak to JARVIS. Your conversation will appear here.
-              </Text>
-            )}
-          </ScrollView>
-
-          <View
-            style={[
-              styles.voiceBottomBar,
-              {
-                paddingBottom:
-                  Platform.OS === "web" ? webBottomInset : insets.bottom + 8,
-              },
-            ]}
-          >
-            <View style={styles.voiceBottomRow}>
-              <View style={styles.langBadge}>
-                <Ionicons name="language" size={14} color={CYAN} />
-                <Text style={styles.langBadgeText}>{langLabel}</Text>
-              </View>
-              <View style={styles.handsFreeRow}>
-                <Text style={styles.handsFreeLabel}>Hands-free</Text>
-                <Switch
-                  value={handsFree}
-                  onValueChange={setHandsFree}
-                  trackColor={{
-                    false: Colors.dark.surfaceElevated,
-                    true: "rgba(0,212,255,0.3)",
-                  }}
-                  thumbColor={handsFree ? CYAN : Colors.dark.textMuted}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <>
-          <View style={styles.chatWrapper}>
-            {marketContext && engineOutput && (
-              <View style={styles.marketBadge}>
-                <Text style={styles.marketBadgeText}>
-                  NIFTY {marketContext.spotPrice.toFixed(0)} |{" "}
-                  {engineOutput.cognitiveAlpha.fusionAction.replace("_", " ")}{" "}
-                  |{" "}
-                  <Text style={{ color: biasColor }}>{marketContext.bias}</Text>
-                  {" | "}
-                  <Text
-                    style={{
-                      color: engineOutput.entropyData.isTrapZone
-                        ? Colors.dark.red
-                        : Colors.dark.green,
-                    }}
-                  >
-                    {engineOutput.entropyData.isTrapZone ? "TRAP" : "CLEAR"}
-                  </Text>
-                </Text>
-              </View>
-            )}
-
-            <ScrollView
-              ref={scrollRef}
-              style={styles.chatArea}
-              contentContainerStyle={styles.chatContent}
-              showsVerticalScrollIndicator={false}
-              onContentSizeChange={() =>
-                scrollRef.current?.scrollToEnd({ animated: true })
-              }
+          {messages.map((msg) => (
+            <View
+              key={msg.id}
+              style={[
+                styles.messageBubble,
+                msg.role === "user"
+                  ? styles.userBubble
+                  : styles.assistantBubble,
+              ]}
             >
-              {messages.length === 0 && (
-                <View style={styles.emptyState}>
-                  <View style={styles.emptyIconContainer}>
-                    <Ionicons name="hardware-chip" size={36} color={CYAN} />
-                  </View>
-                  <Text style={styles.emptyTitle}>JARVIS AI Assistant</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Your personal AI trading assistant. I analyze markets using 9
-                    neural layers, Monte Carlo simulation, Cognitive Alpha brain,
-                    and advanced formulas. Ask me anything and I'll explain my
-                    thinking in detail.
-                  </Text>
-                  <View style={styles.quickActions}>
-                    {QUICK_ACTIONS.map((q) => (
-                      <Pressable
-                        key={q}
-                        style={({ pressed }) => [
-                          styles.quickChip,
-                          pressed && { opacity: 0.7 },
-                        ]}
-                        onPress={() => sendMessage(q)}
-                      >
-                        <Text style={styles.quickChipText}>{q}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+              {msg.role === "assistant" && (
+                <View style={styles.assistantHeader}>
+                  <Ionicons name="hardware-chip" size={14} color={CYAN} />
+                  <Text style={styles.assistantLabel}>JARVIS</Text>
                 </View>
               )}
-
-              {messages.map((msg) => (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.messageBubble,
-                    msg.role === "user"
-                      ? styles.userBubble
-                      : styles.assistantBubble,
-                  ]}
-                >
-                  {msg.role === "assistant" && (
-                    <View style={styles.assistantHeader}>
-                      <Ionicons name="hardware-chip" size={14} color={CYAN} />
-                      <Text style={styles.assistantLabel}>JARVIS</Text>
-                    </View>
-                  )}
-                  <Text
-                    style={[
-                      styles.messageText,
-                      msg.role === "user" && styles.userText,
-                    ]}
-                  >
-                    {msg.content}
-                  </Text>
-                </View>
-              ))}
-
-              {isStreaming &&
-                !messages.some(
-                  (m) =>
-                    m.role === "assistant" && m === messages[messages.length - 1]
-                ) && (
-                  <View style={[styles.messageBubble, styles.assistantBubble]}>
-                    <ActivityIndicator
-                      size="small"
-                      color={Colors.dark.accent}
-                    />
-                  </View>
-                )}
-            </ScrollView>
-          </View>
-
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                paddingBottom:
-                  Platform.OS === "web" ? webBottomInset : insets.bottom + 8,
-              },
-            ]}
-          >
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Ask JARVIS anything..."
-                placeholderTextColor={Colors.dark.textMuted}
-                value={input}
-                onChangeText={setInput}
-                multiline
-                maxLength={500}
-                editable={!isStreaming}
-              />
-              <Pressable
-                style={({ pressed }) => [
-                  styles.sendBtn,
-                  (!input.trim() || isStreaming) && styles.sendBtnDisabled,
-                  pressed && { opacity: 0.7 },
+              <Text
+                style={[
+                  styles.messageText,
+                  msg.role === "user" && styles.userText,
                 ]}
-                onPress={() => sendMessage(input)}
-                disabled={!input.trim() || isStreaming}
               >
-                <Ionicons
-                  name="send"
-                  size={18}
-                  color={
-                    input.trim() && !isStreaming
-                      ? "#fff"
-                      : Colors.dark.textMuted
-                  }
-                />
-              </Pressable>
+                {msg.content}
+              </Text>
             </View>
-          </View>
-        </>
-      )}
+          ))}
+
+          {isStreaming &&
+            !messages.some(
+              (m) =>
+                m.role === "assistant" && m === messages[messages.length - 1]
+            ) && (
+              <View style={[styles.messageBubble, styles.assistantBubble]}>
+                <ActivityIndicator
+                  size="small"
+                  color={Colors.dark.accent}
+                />
+              </View>
+            )}
+        </ScrollView>
+      </View>
+
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            paddingBottom:
+              Platform.OS === "web" ? webBottomInset : insets.bottom + 8,
+          },
+        ]}
+      >
+        <View style={styles.inputRow}>
+          <PulsingMicButton status={voiceStatus} onPress={handleMicPress} small />
+
+          {isRecordingOrProcessing ? (
+            <View style={styles.recordingArea}>
+              {voiceStatus === "listening" ? (
+                <>
+                  <View style={styles.inlineWaveformRow}>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <WaveformBar key={i} index={i} active />
+                    ))}
+                  </View>
+                  <Text style={styles.listeningText}>Listening...</Text>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator size="small" color={Colors.dark.gold} />
+                  <Text style={styles.processingText}>Processing...</Text>
+                </>
+              )}
+            </View>
+          ) : (
+            <TextInput
+              style={styles.input}
+              placeholder="Ask JARVIS anything..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={500}
+              editable={!isStreaming}
+            />
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.sendBtn,
+              (!input.trim() || isStreaming || isRecordingOrProcessing) && styles.sendBtnDisabled,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => sendMessage(input)}
+            disabled={!input.trim() || isStreaming || isRecordingOrProcessing}
+          >
+            <Ionicons
+              name="send"
+              size={18}
+              color={
+                input.trim() && !isStreaming && !isRecordingOrProcessing
+                  ? "#fff"
+                  : Colors.dark.textMuted
+              }
+            />
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
 
 const voiceStyles = StyleSheet.create({
   micContainer: {
-    width: 160,
-    height: 160,
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 20,
   },
   micRing: {
     position: "absolute",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
     borderWidth: 2,
   },
   micButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
     backgroundColor: "rgba(0,212,255,0.08)",
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   waveBar: {
-    width: 4,
+    width: 3,
     borderRadius: 2,
-    minHeight: 8,
+    minHeight: 6,
   },
 });
 
@@ -1156,38 +978,6 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     color: Colors.dark.green,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  modeToggleContainer: {
-    flexDirection: "row",
-    backgroundColor: Colors.dark.background,
-    borderRadius: 20,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  modeTab: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  modeTabActive: {
-    backgroundColor: Colors.dark.surfaceElevated,
-  },
-  modeTabLabel: {
-    fontSize: 11,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.textMuted,
-  },
-  modeTabLabelActive: {
-    color: CYAN,
-  },
   resetBtn: {
     width: 40,
     height: 40,
@@ -1195,114 +985,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
-  },
-  voiceContainer: {
-    flex: 1,
-  },
-  voiceCenterArea: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 50,
-  },
-  voiceStatusLabel: {
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-    letterSpacing: 2,
-    textTransform: "uppercase" as const,
-    marginBottom: 16,
-  },
-  waveformRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    height: 40,
-    marginBottom: 8,
-  },
-  voiceHint: {
-    fontSize: 13,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: 8,
-  },
-  transcriptArea: {
-    flex: 1,
-    marginTop: 12,
-  },
-  transcriptContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  transcriptBlock: {
-    backgroundColor: Colors.dark.card,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  transcriptLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
-  },
-  transcriptLabel: {
-    fontSize: 11,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.accent,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
-  },
-  transcriptText: {
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.text,
-    lineHeight: 22,
-  },
-  transcriptPlaceholder: {
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  voiceBottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    backgroundColor: Colors.dark.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
-  },
-  voiceBottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  langBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.dark.card,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  langBadgeText: {
-    fontSize: 12,
-    fontFamily: "DMSans_600SemiBold",
-    color: CYAN,
-  },
-  handsFreeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  handsFreeLabel: {
-    fontSize: 12,
-    fontFamily: "DMSans_500Medium",
-    color: Colors.dark.textSecondary,
   },
   chatWrapper: {
     flex: 1,
@@ -1423,10 +1105,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userText: {
-    color: "#fff",
+    color: "#ffffff",
   },
   inputContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 10,
     backgroundColor: Colors.dark.surface,
     borderTopWidth: 1,
@@ -1434,24 +1116,56 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
+    alignItems: "center",
+    gap: 8,
   },
   input: {
     flex: 1,
     backgroundColor: Colors.dark.inputBg,
     borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    color: Colors.dark.text,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
     fontFamily: "DMSans_400Regular",
-    fontSize: 15,
+    color: Colors.dark.text,
     maxHeight: 100,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+  },
+  recordingArea: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.dark.inputBg,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+  },
+  inlineWaveformRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    height: 24,
+  },
+  listeningText: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.red,
+    letterSpacing: 0.5,
+  },
+  processingText: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.gold,
+    letterSpacing: 0.5,
   },
   sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.dark.accent,
     alignItems: "center",
     justifyContent: "center",

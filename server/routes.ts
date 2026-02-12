@@ -1862,24 +1862,20 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       let audioBase64: string | null = null;
       try {
-        const ttsResponse = await openai.chat.completions.create({
-          model: "gpt-audio",
-          modalities: ["text", "audio"],
-          audio: { voice: "onyx", format: "mp3" },
-          messages: [
-            { role: "system", content: detectedLang === "tamil"
-              ? "You are JARVIS. Speak the following text in Tamil clearly. Pronounce Tamil words naturally."
-              : "You are JARVIS, an Iron Man-style AI. Speak with a confident, calm, authoritative tone."
-            },
-            { role: "user", content: `Repeat the following verbatim: ${aiText}` },
-          ],
+        const ttsResponse = await openai.audio.speech.create({
+          model: "tts-1",
+          voice: "onyx",
+          input: aiText,
+          response_format: "mp3",
         });
-        const audioData = (ttsResponse.choices[0]?.message as any)?.audio?.data ?? "";
-        if (audioData) {
-          audioBase64 = audioData;
+        const arrayBuffer = await ttsResponse.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length > 0) {
+          audioBase64 = buffer.toString("base64");
+          console.log("[VOICE] TTS generated successfully, size:", buffer.length);
         }
-      } catch (ttsErr) {
-        console.error("TTS failed:", ttsErr);
+      } catch (ttsErr: any) {
+        console.error("[VOICE] TTS failed:", ttsErr?.message || ttsErr);
       }
 
       res.json({
