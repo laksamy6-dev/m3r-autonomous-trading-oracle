@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { fetch } from "expo/fetch";
 import { getApiUrl } from "@/lib/query-client";
+import { speak, stopSpeech, isSpeaking as checkSpeaking } from "@/lib/speech";
 import { searchStocks, getStockBySymbol } from "@/lib/stocks";
 import Colors from "@/constants/colors";
 import { Stock } from "@/lib/types";
@@ -55,9 +56,23 @@ function AIScreenInner() {
   const [searchResults, setSearchResults] = useState<Stock[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [analyzingStock, setAnalyzingStock] = useState<string | null>(null);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [autoSpeak, setAutoSpeak] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
+  const lastSpokenRef = useRef<string>("");
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  function handleSpeak(msg: ChatMessage) {
+    if (speakingMsgId === msg.id) {
+      stopSpeech();
+      setSpeakingMsgId(null);
+      return;
+    }
+    setSpeakingMsgId(msg.id);
+    const cleanText = msg.content.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+    speak(cleanText, "en", () => setSpeakingMsgId(null));
+  }
 
   async function sendQuestion(question: string) {
     if (isStreaming || !question.trim()) return;
@@ -121,6 +136,12 @@ function AIScreenInner() {
     } finally {
       setIsStreaming(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      if (autoSpeak && fullContent && fullContent !== lastSpokenRef.current) {
+        lastSpokenRef.current = fullContent;
+        const cleanText = fullContent.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+        const shortText = cleanText.length > 500 ? cleanText.slice(0, 500) + "..." : cleanText;
+        speak(shortText, "en");
+      }
     }
   }
 
@@ -191,6 +212,12 @@ function AIScreenInner() {
       setIsStreaming(false);
       setAnalyzingStock(null);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      if (autoSpeak && fullContent && fullContent !== lastSpokenRef.current) {
+        lastSpokenRef.current = fullContent;
+        const cleanText = fullContent.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+        const shortText = cleanText.length > 500 ? cleanText.slice(0, 500) + "..." : cleanText;
+        speak(shortText, "en");
+      }
     }
   }
 
@@ -211,15 +238,27 @@ function AIScreenInner() {
             <Text style={styles.headerTitle}>AI Trading Advisor</Text>
             <Text style={styles.headerSubtitle}>Powered by AI</Text>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              setShowSearch(!showSearch);
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Ionicons name={showSearch ? "close" : "search"} size={22} color={Colors.dark.text} />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              style={({ pressed }) => [styles.searchBtn, autoSpeak && { backgroundColor: "rgba(0,212,255,0.2)" }, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                setAutoSpeak(!autoSpeak);
+                if (!autoSpeak) stopSpeech();
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons name={autoSpeak ? "volume-high" : "volume-mute"} size={20} color={autoSpeak ? "#00D4FF" : Colors.dark.textMuted} />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                setShowSearch(!showSearch);
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons name={showSearch ? "close" : "search"} size={22} color={Colors.dark.text} />
+            </Pressable>
+          </View>
         </View>
 
         {showSearch && (
@@ -294,7 +333,15 @@ function AIScreenInner() {
             {msg.role === "assistant" && (
               <View style={styles.assistantHeader}>
                 <Ionicons name="sparkles" size={14} color={Colors.dark.accent} />
-                <Text style={styles.assistantLabel}>AI Advisor</Text>
+                <Text style={styles.assistantLabel}>JARVIS</Text>
+                <View style={{ flex: 1 }} />
+                <Pressable onPress={() => handleSpeak(msg)} style={{ padding: 4 }}>
+                  <Ionicons
+                    name={speakingMsgId === msg.id ? "stop-circle" : "volume-medium"}
+                    size={16}
+                    color={speakingMsgId === msg.id ? "#00D4FF" : Colors.dark.textMuted}
+                  />
+                </Pressable>
               </View>
             )}
             <Text style={[styles.messageText, msg.role === "user" && styles.userText]}>
