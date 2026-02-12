@@ -1843,7 +1843,6 @@ Provide the full 10-section comprehensive analysis now.`;
 
   app.post("/api/order/place", (req, res) => {
     const { type, strike, lots, premium, action, target, stopLoss, pin } = req.body;
-    console.log("[ORDER] Received order request:", { type, strike, lots, premium, action, pin: pin ? "****" : "missing" });
 
     if (!pin || pin !== currentPin) {
       console.log("[ORDER] PIN rejected");
