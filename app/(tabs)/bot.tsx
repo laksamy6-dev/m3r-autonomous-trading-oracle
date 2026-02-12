@@ -656,11 +656,18 @@ export default function BotScreen() {
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
       }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
       const sound = new Audio.Sound();
       soundRef.current = sound;
-      await sound.loadAsync({
-        uri: `data:audio/mp3;base64,${audioBase64}`,
-      });
+      await sound.loadAsync(
+        { uri: `data:audio/mp3;base64,${audioBase64}` },
+        { volume: 1.0 }
+      );
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           setVoiceStatus("ready");

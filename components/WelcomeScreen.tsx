@@ -43,9 +43,15 @@ function playAudioWeb(audioBase64: string): Promise<void> {
 }
 
 async function playAudioNative(audioBase64: string): Promise<void> {
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
+    playsInSilentModeIOS: true,
+    staysActiveInBackground: false,
+    shouldDuckAndroid: true,
+  });
   const { sound } = await Audio.Sound.createAsync(
     { uri: `data:audio/mp3;base64,${audioBase64}` },
-    { shouldPlay: true }
+    { shouldPlay: true, volume: 1.0 }
   );
   return new Promise((resolve) => {
     sound.setOnPlaybackStatusUpdate((status) => {
