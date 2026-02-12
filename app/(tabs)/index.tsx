@@ -139,7 +139,30 @@ export default function MarketScreen() {
   const [togglingAutoScan, setTogglingAutoScan] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
-  const loadData = useCallback(() => {
+  const [dataSource, setDataSource] = useState<"mock" | "upstox">("mock");
+
+  const loadData = useCallback(async () => {
+    try {
+      const url = `${getApiUrl()}api/market/live-stocks`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.source === "upstox" && data.stocks?.length > 0) {
+          setDataSource("upstox");
+          setAllStocks(data.stocks);
+          const sorted = [...data.stocks].sort((a: Stock, b: Stock) => b.changePercent - a.changePercent);
+          setGainers(sorted.filter((s: Stock) => s.changePercent > 0).slice(0, 5));
+          setLosers(sorted.filter((s: Stock) => s.changePercent < 0).sort((a: Stock, b: Stock) => a.changePercent - b.changePercent).slice(0, 5));
+          if (data.indices?.length > 0) {
+            setIndices(data.indices);
+          } else {
+            setIndices(getIndices());
+          }
+          return;
+        }
+      }
+    } catch (e) {}
+    setDataSource("mock");
     setIndices(getIndices());
     setGainers(getTopGainers());
     setLosers(getTopLosers());
@@ -368,7 +391,7 @@ export default function MarketScreen() {
             <View>
               <View style={styles.chartLabelRow}>
                 <View style={styles.liveDot} />
-                <Text style={styles.chartLabel}>NIFTY 50 LIVE</Text>
+                <Text style={styles.chartLabel}>NIFTY 50 {dataSource === "upstox" ? "LIVE" : "SIMULATED"}</Text>
               </View>
               <View style={styles.chartPriceRow}>
                 <Text style={styles.chartPrice}>

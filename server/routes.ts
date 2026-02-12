@@ -617,6 +617,299 @@ Based on this data, give me:
     }
   });
 
+  app.get("/api/option/expiries", async (_req, res) => {
+    if (!upstoxAccessToken) return res.json({ source: "mock", expiries: [] });
+    try {
+      const ocRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const data = await ocRes.json();
+      if (data.status === "success" && data.data) {
+        const expiries = [...new Set(data.data.map((c: any) => c.expiry))].sort();
+        const lotSize = data.data[0]?.lot_size || 75;
+        res.json({ source: "upstox", expiries, lotSize });
+      } else {
+        res.json({ source: "mock", expiries: [] });
+      }
+    } catch (error) {
+      res.json({ source: "mock", expiries: [] });
+    }
+  });
+
+  app.get("/api/option/chain", async (req, res) => {
+    if (!upstoxAccessToken) return res.json({ source: "mock" });
+    try {
+      const { expiry } = req.query;
+      const url = expiry
+        ? `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}&expiry_date=${expiry}`
+        : `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`;
+      const ocRes = await globalThis.fetch(url, {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      const data = await ocRes.json();
+      if (data.status !== "success" || !data.data || data.data.length === 0) {
+        return res.json({ source: "mock" });
+      }
+
+      const rawChain = data.data;
+      const spotPrice = rawChain[0]?.underlying_spot_price || 0;
+      const atmStrike = Math.round(spotPrice / 50) * 50;
+      const expiryDate = rawChain[0]?.expiry || "";
+
+      const options = rawChain
+        .filter((item: any) => item.call_options && item.put_options)
+        .map((item: any) => {
+          const ce = item.call_options;
+          const pe = item.put_options;
+          const ceM = ce.market_data || {};
+          const peM = pe.market_data || {};
+          const ceG = ce.option_greeks || {};
+          const peG = pe.option_greeks || {};
+          return {
+            strikePrice: item.strike_price,
+            expiryDate: item.expiry,
+            cePrice: ceM.ltp || 0,
+            ceOI: ceM.oi || 0,
+            ceOIChange: (ceM.oi || 0) - (ceM.prev_oi || ceM.oi || 0),
+            ceVolume: ceM.volume || 0,
+            ceIV: ceG.iv || 0,
+            ceDelta: ceG.delta || 0,
+            ceTheta: ceG.theta || 0,
+            ceGamma: ceG.gamma || 0,
+            ceVega: ceG.vega || 0,
+            ceBidPrice: ceM.bid_price || 0,
+            ceAskPrice: ceM.ask_price || 0,
+            ceBidQty: ceM.bid_qty || 0,
+            ceAskQty: ceM.ask_qty || 0,
+            ceClosePrice: ceM.close_price || 0,
+            pePrice: peM.ltp || 0,
+            peOI: peM.oi || 0,
+            peOIChange: (peM.oi || 0) - (peM.prev_oi || peM.oi || 0),
+            peVolume: peM.volume || 0,
+            peIV: peG.iv || 0,
+            peDelta: peG.delta || 0,
+            peTheta: peG.theta || 0,
+            peGamma: peG.gamma || 0,
+            peVega: peG.vega || 0,
+            peBidPrice: peM.bid_price || 0,
+            peAskPrice: peM.ask_price || 0,
+            peBidQty: peM.bid_qty || 0,
+            peAskQty: peM.ask_qty || 0,
+            peClosePrice: peM.close_price || 0,
+            pcr: item.pcr || 0,
+          };
+        })
+        .sort((a: any, b: any) => a.strikePrice - b.strikePrice);
+
+      const totalCeOI = options.reduce((s: number, o: any) => s + o.ceOI, 0);
+      const totalPeOI = options.reduce((s: number, o: any) => s + o.peOI, 0);
+      const overallPCR = totalCeOI > 0 ? Math.round((totalPeOI / totalCeOI) * 100) / 100 : 1;
+
+      let maxPainValue = Infinity;
+      let maxPainStrike = atmStrike;
+      for (const opt of options) {
+        const strike = opt.strikePrice;
+        const cePain = options
+          .filter((o: any) => o.strikePrice < strike)
+          .reduce((s: number, o: any) => s + o.ceOI * (strike - o.strikePrice), 0);
+        const pePain = options
+          .filter((o: any) => o.strikePrice > strike)
+          .reduce((s: number, o: any) => s + o.peOI * (o.strikePrice - strike), 0);
+        const totalPain = cePain + pePain;
+        if (totalPain < maxPainValue) {
+          maxPainValue = totalPain;
+          maxPainStrike = strike;
+        }
+      }
+
+      const totalCeOIChange = options.reduce((s: number, o: any) => s + o.ceOIChange, 0);
+      const totalPeOIChange = options.reduce((s: number, o: any) => s + o.peOIChange, 0);
+
+      const maxCeOIStrike = options.reduce((max: any, o: any) => o.ceOI > (max?.ceOI || 0) ? o : max, options[0]);
+      const maxPeOIStrike = options.reduce((max: any, o: any) => o.peOI > (max?.peOI || 0) ? o : max, options[0]);
+
+      res.json({
+        source: "upstox",
+        spotPrice: Math.round(spotPrice * 100) / 100,
+        expiryDate,
+        options,
+        overallPCR,
+        maxPainStrike,
+        atmStrike,
+        totalCeOI,
+        totalPeOI,
+        totalCeOIChange,
+        totalPeOIChange,
+        maxCeOIStrike: maxCeOIStrike?.strikePrice || atmStrike,
+        maxPeOIStrike: maxPeOIStrike?.strikePrice || atmStrike,
+        resistance: maxCeOIStrike?.strikePrice || atmStrike,
+        support: maxPeOIStrike?.strikePrice || atmStrike,
+      });
+    } catch (error) {
+      console.error("Option chain error:", error);
+      res.json({ source: "mock" });
+    }
+  });
+
+  const priceHistory: number[] = [];
+
+  app.get("/api/market/cognitive", async (_req, res) => {
+    let spotPrice = 0;
+    if (upstoxAccessToken) {
+      try {
+        const ltp = await globalThis.fetch(
+          `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const ltpData = await ltp.json();
+        if (ltpData.status === "success" && ltpData.data) {
+          const key = Object.keys(ltpData.data)[0];
+          spotPrice = ltpData.data[key]?.last_price || 0;
+        }
+      } catch {}
+    }
+
+    if (spotPrice > 0) {
+      priceHistory.push(spotPrice);
+      if (priceHistory.length > 300) priceHistory.shift();
+    }
+
+    const p = priceHistory;
+    let velocity = 0, acceleration = 0, entropy = 0, winProb = 0.5;
+
+    if (p.length >= 3) {
+      velocity = Math.round((p[p.length - 1] - p[p.length - 2]) * 100) / 100;
+      acceleration = Math.round(((p[p.length - 1] - p[p.length - 2]) - (p[p.length - 2] - p[p.length - 3])) * 100) / 100;
+    }
+
+    if (p.length >= 20) {
+      const window = p.slice(-20);
+      const min = Math.min(...window);
+      const max = Math.max(...window);
+      const range = max - min || 1;
+      const bins = 10;
+      const counts = new Array(bins).fill(0);
+      for (const val of window) {
+        const idx = Math.min(bins - 1, Math.floor(((val - min) / range) * bins));
+        counts[idx]++;
+      }
+      const total = window.length;
+      entropy = 0;
+      for (const c of counts) {
+        if (c > 0) {
+          const prob = c / total;
+          entropy -= prob * Math.log2(prob);
+        }
+      }
+      entropy = Math.round(entropy * 100) / 100;
+    }
+
+    if (p.length >= 20) {
+      const returns = [];
+      for (let i = 1; i < p.length; i++) {
+        returns.push((p[i] - p[i - 1]) / p[i - 1]);
+      }
+      const mu = returns.reduce((s, r) => s + r, 0) / returns.length;
+      const sigma = Math.sqrt(returns.reduce((s, r) => s + (r - mu) ** 2, 0) / returns.length);
+      let bullPaths = 0;
+      const sims = 100;
+      const last = p[p.length - 1];
+      for (let s = 0; s < sims; s++) {
+        let sim = last;
+        for (let step = 0; step < 5; step++) {
+          const u1 = Math.random();
+          const u2 = Math.random();
+          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+          sim *= (1 + mu + sigma * z);
+        }
+        if (sim > last) bullPaths++;
+      }
+      winProb = Math.round((bullPaths / sims) * 100) / 100;
+    }
+
+    const votes: Record<string, string> = {};
+
+    if (velocity > 1.5 && acceleration > 0.3) votes["Physics"] = "BUY";
+    else if (velocity < -1.5 && acceleration < -0.3) votes["Physics"] = "SELL";
+    else votes["Physics"] = "WAIT";
+
+    if (p.length > 20) {
+      const ma20 = p.slice(-20).reduce((s, v) => s + v, 0) / 20;
+      if (spotPrice > ma20) votes["Trend"] = "BUY";
+      else votes["Trend"] = "SELL";
+    } else {
+      votes["Trend"] = "WAIT";
+    }
+
+    if (winProb > 0.6) votes["WinProb"] = "BUY";
+    else if (winProb < 0.4) votes["WinProb"] = "SELL";
+    else votes["WinProb"] = "WAIT";
+
+    if (entropy > 1.5) votes["Chaos"] = "RISKY";
+    else votes["Chaos"] = "GO";
+
+    const bestStrike = Math.round(spotPrice / 50) * 50;
+    const buyScore = Object.values(votes).filter(v => v === "BUY").length;
+    const sellScore = Object.values(votes).filter(v => v === "SELL").length;
+    let signal = "WAIT";
+    let optionPick = "";
+    if (buyScore >= 2 && votes["Chaos"] !== "RISKY") {
+      signal = "BUY";
+      optionPick = `${bestStrike} CE`;
+    } else if (sellScore >= 2 && votes["Chaos"] !== "RISKY") {
+      signal = "SELL";
+      optionPick = `${bestStrike} PE`;
+    }
+
+    res.json({
+      source: upstoxAccessToken ? "upstox" : "mock",
+      spotPrice,
+      velocity,
+      acceleration,
+      entropy,
+      winProb,
+      votes,
+      signal,
+      optionPick,
+      priceHistoryLength: p.length,
+      dataPoints: p.slice(-50),
+    });
+  });
+
+  app.post("/api/ai/gemini-analyze", async (req, res) => {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(400).json({ error: "Gemini API key not configured" });
+    try {
+      const { query, spotPrice, velocity, entropy, pcr, signal } = req.body;
+      const prompt = `You are JARVIS, an AI trading assistant for Indian NSE markets. You speak concisely.
+Current Nifty 50 spot: ${spotPrice || "N/A"}
+Velocity: ${velocity || "N/A"}, Entropy: ${entropy || "N/A"}
+PCR: ${pcr || "N/A"}, Signal: ${signal || "N/A"}
+
+User query: ${query}
+
+Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, mention specific strike prices.`;
+
+      const geminiRes = await globalThis.fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
+          }),
+        }
+      );
+      const geminiData = await geminiRes.json();
+      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis unavailable.";
+      res.json({ analysis: text });
+    } catch (error) {
+      res.status(500).json({ error: "Gemini analysis failed" });
+    }
+  });
+
   const STOCK_ISIN_MAP: Record<string, string> = {
     "RELIANCE": "NSE_EQ|INE002A01018",
     "TCS": "NSE_EQ|INE467B01029",
@@ -629,15 +922,16 @@ Based on this data, give me:
     "WIPRO": "NSE_EQ|INE075A01022",
     "HCLTECH": "NSE_EQ|INE860A01027",
     "TATAMOTORS": "NSE_EQ|INE155A01022",
+    "TMPV": "NSE_EQ|INE155A01022",
     "AXISBANK": "NSE_EQ|INE238A01034",
     "SUNPHARMA": "NSE_EQ|INE044A01036",
-    "BAJFINANCE": "NSE_EQ|INE296A01024",
+    "BAJFINANCE": "NSE_EQ|INE296A01032",
     "MARUTI": "NSE_EQ|INE585B01010",
     "TATASTEEL": "NSE_EQ|INE081A01020",
     "LTIM": "NSE_EQ|INE214T01019",
     "ADANIENT": "NSE_EQ|INE423A01024",
     "POWERGRID": "NSE_EQ|INE752E01010",
-    "NESTLEIND": "NSE_EQ|INE239A01016",
+    "NESTLEIND": "NSE_EQ|INE239A01024",
   };
 
   const INDEX_KEY_MAP: Record<string, string> = {
@@ -675,16 +969,16 @@ Based on this data, give me:
       return res.json({ source: "mock", stocks: [], indices: [] });
     }
     try {
-      const stockKeys = Object.values(STOCK_ISIN_MAP).join(",");
-      const indexKeys = Object.values(INDEX_KEY_MAP).join(",");
+      const stockKeys = Object.values(STOCK_ISIN_MAP).map(k => encodeURIComponent(k)).join(",");
+      const indexKeys = Object.values(INDEX_KEY_MAP).map(k => encodeURIComponent(k)).join(",");
 
       const [stocksRes, indicesRes] = await Promise.all([
         globalThis.fetch(
-          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(stockKeys)}`,
+          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`,
           { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
         ),
         globalThis.fetch(
-          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(indexKeys)}`,
+          `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${indexKeys}`,
           { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
         ),
       ]);
@@ -692,51 +986,63 @@ Based on this data, give me:
       const stocksData = await stocksRes.json();
       const indicesData = await indicesRes.json();
 
+
+      const SYMBOL_ALIAS: Record<string, string> = { "TMPV": "TATAMOTORS" };
+
       const stocks: any[] = [];
+      const addedSymbols = new Set<string>();
       if (stocksData?.status === "success" && stocksData?.data) {
-        for (const [symbol, isin] of Object.entries(STOCK_ISIN_MAP)) {
-          const key = Object.keys(stocksData.data).find(k => k.includes(symbol) || stocksData.data[k]?.instrument_token === isin);
-          const quoteKey = key || `NSE_EQ:${symbol}`;
-          const quote = stocksData.data[quoteKey];
-          if (quote) {
-            const meta = STOCK_META[symbol] || { name: symbol, sector: "Unknown", pe: 0, weekHigh52: 0, weekLow52: 0 };
-            const lastPrice = quote.last_price || 0;
-            const prevClose = quote.ohlc?.close || lastPrice;
-            const change = lastPrice - prevClose;
-            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-            stocks.push({
-              symbol,
-              name: meta.name,
-              price: lastPrice,
-              change: Math.round(change * 100) / 100,
-              changePercent: Math.round(changePercent * 100) / 100,
-              high: quote.ohlc?.high || lastPrice,
-              low: quote.ohlc?.low || lastPrice,
-              volume: quote.volume ? (quote.volume >= 1000000 ? `${(quote.volume / 1000000).toFixed(1)}M` : `${(quote.volume / 1000).toFixed(0)}K`) : "0",
-              marketCap: meta.pe > 50 ? "N/A" : "N/A",
-              sector: meta.sector,
-              pe: meta.pe,
-              weekHigh52: quote.week_52_high || meta.weekHigh52,
-              weekLow52: quote.week_52_low || meta.weekLow52,
-            });
-          }
+        for (const dataKey of Object.keys(stocksData.data)) {
+          const quote = stocksData.data[dataKey];
+          const rawSymbol = dataKey.replace("NSE_EQ:", "");
+          const displaySymbol = SYMBOL_ALIAS[rawSymbol] || rawSymbol;
+          if (addedSymbols.has(displaySymbol)) continue;
+          if (!STOCK_META[displaySymbol]) continue;
+          addedSymbols.add(displaySymbol);
+          const meta = STOCK_META[displaySymbol];
+          const lastPrice = quote.last_price || 0;
+          const netChange = quote.net_change || 0;
+          const prevClose = lastPrice - netChange;
+          const changePercent = prevClose > 0 ? (netChange / prevClose) * 100 : 0;
+          stocks.push({
+            symbol: displaySymbol,
+            name: meta.name,
+            price: lastPrice,
+            change: Math.round(netChange * 100) / 100,
+            changePercent: Math.round(changePercent * 100) / 100,
+            high: quote.ohlc?.high || lastPrice,
+            low: quote.ohlc?.low || lastPrice,
+            volume: quote.volume ? (quote.volume >= 1000000 ? `${(quote.volume / 1000000).toFixed(1)}M` : `${(quote.volume / 1000).toFixed(0)}K`) : "0",
+            marketCap: "N/A",
+            sector: meta.sector,
+            pe: meta.pe,
+            weekHigh52: meta.weekHigh52,
+            weekLow52: meta.weekLow52,
+          });
         }
       }
 
+      const INDEX_DISPLAY_MAP: Record<string, string> = {
+        "NSE_INDEX:Nifty 50": "NIFTY 50",
+        "NSE_INDEX:Nifty Bank": "NIFTY BANK",
+        "NSE_INDEX:Nifty IT": "NIFTY IT",
+        "BSE_INDEX:SENSEX": "SENSEX",
+      };
+
       const indices: any[] = [];
       if (indicesData?.status === "success" && indicesData?.data) {
-        for (const [name, iKey] of Object.entries(INDEX_KEY_MAP)) {
-          const quoteKey = Object.keys(indicesData.data).find(k => k.includes(name.replace(" ", "_")) || k.includes(name));
-          const quote = quoteKey ? indicesData.data[quoteKey] : null;
+        for (const [dataKey, quote] of Object.entries(indicesData.data as Record<string, any>)) {
+          const name = INDEX_DISPLAY_MAP[dataKey];
+          if (!name) continue;
           if (quote) {
             const lastPrice = quote.last_price || 0;
-            const prevClose = quote.ohlc?.close || lastPrice;
-            const change = lastPrice - prevClose;
-            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+            const netChange = quote.net_change || 0;
+            const prevClose = lastPrice - netChange;
+            const changePercent = prevClose > 0 ? (netChange / prevClose) * 100 : 0;
             indices.push({
               name,
               value: lastPrice,
-              change: Math.round(change * 100) / 100,
+              change: Math.round(netChange * 100) / 100,
               changePercent: Math.round(changePercent * 100) / 100,
             });
           }
