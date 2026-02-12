@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import Colors from "@/constants/colors";
 
@@ -26,9 +26,17 @@ function NativeTabLayout() {
         <Icon sf={{ default: "bolt.shield", selected: "bolt.shield.fill" }} md="auto_fix_high" />
         <Label>Strategy</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ai">
+        <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
+        <Label>JARVIS</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
         <Label>Portfolio</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="watchlist">
+        <Icon sf={{ default: "star", selected: "star.fill" }} md="star" />
+        <Label>Watchlist</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
@@ -56,6 +64,10 @@ function ClassicTabLayout() {
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
+        tabBarLabelStyle: {
+          fontSize: 9,
+          fontFamily: "DMSans_500Medium",
+        },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
@@ -69,7 +81,7 @@ function ClassicTabLayout() {
         options={{
           title: "Market",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up" size={size} color={color} />
+            <Ionicons name="trending-up" size={size - 2} color={color} />
           ),
         }}
       />
@@ -78,7 +90,7 @@ function ClassicTabLayout() {
         options={{
           title: "Options",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid" size={size} color={color} />
+            <Ionicons name="grid" size={size - 2} color={color} />
           ),
         }}
       />
@@ -87,7 +99,7 @@ function ClassicTabLayout() {
         options={{
           title: "Bot",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="hardware-chip" size={size} color={color} />
+            <Ionicons name="hardware-chip" size={size - 2} color={color} />
           ),
         }}
       />
@@ -96,7 +108,16 @@ function ClassicTabLayout() {
         options={{
           title: "Strategy",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flash" size={size} color={color} />
+            <Ionicons name="flash" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="ai"
+        options={{
+          title: "JARVIS",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="brain" size={size - 2} color={color} />
           ),
         }}
       />
@@ -105,7 +126,16 @@ function ClassicTabLayout() {
         options={{
           title: "Portfolio",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="briefcase" size={size} color={color} />
+            <Ionicons name="briefcase" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="watchlist"
+        options={{
+          title: "Watchlist",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="star" size={size - 2} color={color} />
           ),
         }}
       />
@@ -114,17 +144,9 @@ function ClassicTabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-sharp" size={size} color={color} />
+            <Ionicons name="settings-sharp" size={size - 2} color={color} />
           ),
         }}
-      />
-      <Tabs.Screen
-        name="ai"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="watchlist"
-        options={{ href: null }}
       />
     </Tabs>
   );
