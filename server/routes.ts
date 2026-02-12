@@ -4,7 +4,6 @@ import OpenAI, { toFile } from "openai";
 import express from "express";
 import { Buffer } from "node:buffer";
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
 const upstoxApiKey = process.env.UPSTOX_API_KEY;
 const upstoxApiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
@@ -44,7 +43,7 @@ let autoScanActive = false;
 let autoScanInterval: ReturnType<typeof setInterval> | null = null;
 let scanCycleCount = 0;
 
-const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
   console.warn("WARNING: OpenAI API key not found. AI features will be unavailable until configured.");
 }
@@ -373,52 +372,6 @@ Based on this data, give me:
     }
   });
 
-  app.post("/api/jarvis/voice", async (req, res) => {
-    try {
-      const { audio, jarvisContext } = req.body;
-      if (!audio) return res.status(400).json({ error: "Audio is required" });
-
-      // 1. Transcribe audio using OpenAI Whisper
-      const transcription = await openai.audio.transcriptions.create({
-        file: await toFile(Buffer.from(audio, "base64"), "input.wav"),
-        model: "whisper-1",
-      });
-
-      const userText = transcription.text;
-
-      // 2. Get AI response
-      const chatResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: OPTIONS_SYSTEM_PROMPT },
-          { role: "user", content: `CONTEXT:\n${jarvisContext}\n\nUSER VOICE INPUT: ${userText}` }
-        ],
-      });
-
-      const aiText = chatResponse.choices[0].message.content || "I'm sorry, I couldn't process that.";
-
-      // 3. Convert AI response to Speech using OpenAI TTS
-      const mp3 = await openai.audio.speech.create({
-        model: "tts-1",
-        voice: "alloy",
-        input: aiText,
-      });
-
-      const audioBuffer = Buffer.from(await mp3.arrayBuffer());
-      const audioBase64 = audioBuffer.toString("base64");
-
-      res.json({
-        userText,
-        aiText,
-        audioBase64,
-        language: "en"
-      });
-    } catch (error) {
-      console.error("Jarvis voice error:", error);
-      res.status(500).json({ error: "Voice processing failed" });
-    }
-  });
-
   app.post("/api/options/bot/reset", (_req, res) => {
     optionsBotHistory.length = 0;
     res.json({ success: true });
@@ -470,7 +423,6 @@ Based on this data, give me:
   app.post("/api/gemini/analyze", async (req, res) => {
     try {
       const { optionChain, question } = req.body;
-      if (!geminiApiKey) return res.status(400).json({ error: "Gemini API key not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -479,35 +431,31 @@ Based on this data, give me:
 
       const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
 
-      const geminiRes = await globalThis.fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are a Nifty 50 options trading expert. ${prompt}` }] }],
-            generationConfig: { maxOutputTokens: 1024 }
-          })
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses." },
+          { role: "user", content: prompt }
+        ],
+        stream: true,
+        max_completion_tokens: 1024,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
-      );
-
-      const data = await geminiRes.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Unable to analyze.";
-
-      const words = text.split(" ");
-      for (let i = 0; i < words.length; i += 3) {
-        const chunk = words.slice(i, i + 3).join(" ") + " ";
-        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
       }
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error) {
-      console.error("Error in Gemini analyze:", error);
+      console.error("Error in AI analyze:", error);
       if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: "Gemini analysis failed" })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: "AI analysis failed" })}\n\n`);
         res.end();
       } else {
-        res.status(500).json({ error: "Failed to analyze with Gemini" });
+        res.status(500).json({ error: "Failed to analyze" });
       }
     }
   });
@@ -878,8 +826,6 @@ Based on this data, give me:
   });
 
   app.post("/api/ai/gemini-analyze", async (req, res) => {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) return res.status(400).json({ error: "Gemini API key not configured" });
     try {
       const { query, spotPrice, velocity, entropy, pcr, signal } = req.body;
       const prompt = `You are JARVIS, an AI trading assistant for Indian NSE markets. You speak concisely.
@@ -891,22 +837,16 @@ User query: ${query}
 
 Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, mention specific strike prices.`;
 
-      const geminiRes = await globalThis.fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
-          }),
-        }
-      );
-      const geminiData = await geminiRes.json();
-      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis unavailable.";
+      const chatResponse = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [{ role: "user", content: prompt }],
+        max_completion_tokens: 300,
+      });
+      const text = chatResponse.choices[0]?.message?.content || "Analysis unavailable.";
       res.json({ analysis: text });
     } catch (error) {
-      res.status(500).json({ error: "Gemini analysis failed" });
+      console.error("AI analysis error:", error);
+      res.status(500).json({ error: "AI analysis failed" });
     }
   });
 
