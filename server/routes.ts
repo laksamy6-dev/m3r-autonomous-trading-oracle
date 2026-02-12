@@ -1540,6 +1540,205 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     });
   });
 
+  app.post("/api/market/comprehensive-analysis", async (req, res) => {
+    try {
+      const { symbol, spotPrice, optionData, engineData } = req.body;
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      const now = new Date();
+      const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+      const marketOpen = istTime.getHours() >= 9 && (istTime.getHours() < 15 || (istTime.getHours() === 15 && istTime.getMinutes() <= 30));
+
+      const systemPrompt = `You are JARVIS, an elite AI trading analyst for Indian NSE markets. Provide a COMPREHENSIVE market analysis covering ALL these dimensions. Be specific with data, numbers, and actionable insights.
+
+Your analysis must cover these sections in order:
+
+1. MARKET OVERVIEW
+- Current Nifty 50 status, trend direction, key levels
+- Market timing: ${marketOpen ? "MARKET IS OPEN" : "MARKET IS CLOSED"} (IST: ${istTime.toLocaleTimeString("en-IN")})
+- Intraday bias and momentum
+
+2. INDIAN ECONOMY CONTEXT
+- GDP growth trajectory, inflation (CPI/WPI), RBI monetary policy stance
+- Rupee vs Dollar movement impact on markets
+- FII/DII flows - institutional money direction
+- Government fiscal policy, budget impact, PLI schemes
+
+3. POLITICAL LANDSCAPE
+- Government policy decisions affecting markets
+- State/Central elections impact
+- Regulatory changes (SEBI, RBI circulars)
+- Geopolitical tensions affecting Indian markets
+
+4. GLOBAL MARKET IMPACT
+- US markets (S&P 500, Nasdaq, Dow) overnight impact
+- European markets influence
+- Asian markets (Nikkei, Hang Seng, SGX Nifty) correlation
+- US Fed interest rate expectations
+- Crude oil prices impact on India (import dependency)
+- Gold prices and safe haven flows
+
+5. SECTOR ANALYSIS
+- Banking & Financial Services (Nifty Bank, interest rate sensitivity)
+- IT sector (US recession fears, rupee impact)
+- Pharma (US FDA approvals, generic drug market)
+- Auto (EV transition, rural demand)
+- FMCG (rural/urban consumption)
+- Metal & Mining (China demand, global commodity cycle)
+- Energy (crude oil, gas prices, green energy push)
+
+6. CORPORATE MOVEMENTS
+- Major quarterly results impact
+- Block deals, bulk deals, insider trading
+- M&A activity in Indian markets
+- FPO/IPO pipeline effect on liquidity
+
+7. IMPORT/EXPORT & TRADE
+- Trade deficit/surplus trends
+- Key import dependencies (crude oil, gold, electronics)
+- Export competitiveness (IT services, pharma, textiles)
+- PLI scheme beneficiaries
+
+8. MILITARY & DEFENSE
+- Defense sector opportunities
+- Indigenous defense manufacturing (Make in India)
+- Border tensions impact on markets
+- Defense budget allocation
+
+9. OPTIONS SPECIFIC ANALYSIS
+- Nifty option chain interpretation
+- PCR analysis and what it signals
+- Max pain theory application
+- IV skew and volatility regime
+- Recommended strategy: specific strikes, entry, target, SL
+
+10. FINAL VERDICT
+- Clear BUY CE / BUY PE / STAY AWAY recommendation
+- Confidence level with reasoning
+- Risk factors to watch
+- Key levels to monitor
+
+Use INR for all prices. Be thorough but actionable. This analysis should give the trader a complete picture of the Indian market landscape.`;
+
+      const userPrompt = `Analyze the current Indian market comprehensively:
+Symbol: ${symbol || "NIFTY 50"}
+Spot Price: ${spotPrice || "N/A"}
+${optionData ? `Option Data: PCR=${optionData.pcr}, Max Pain=${optionData.maxPain}, ATM IV=${optionData.atmIV}` : ""}
+${engineData ? `Engine Signal: ${engineData.signal}, Confidence: ${engineData.confidence}%, Entropy: ${engineData.entropy}` : ""}
+
+Provide the full 10-section comprehensive analysis now.`;
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        stream: true,
+        max_completion_tokens: 4096,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error) {
+      console.error("Comprehensive analysis error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Analysis failed" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to generate comprehensive analysis" });
+      }
+    }
+  });
+
+  const orderBook: Array<{
+    id: string;
+    type: "CE" | "PE";
+    strike: number;
+    lots: number;
+    premium: number;
+    action: "BUY" | "SELL";
+    status: "PENDING_PIN" | "APPROVED" | "EXECUTED" | "REJECTED" | "CANCELLED";
+    target: number;
+    stopLoss: number;
+    createdAt: string;
+    executedAt: string | null;
+    pnl: number | null;
+  }> = [];
+
+  app.post("/api/order/place", (req, res) => {
+    const { type, strike, lots, premium, action, target, stopLoss, pin } = req.body;
+
+    if (!pin || pin !== "1234") {
+      return res.status(403).json({ error: "Invalid PIN", requirePin: true });
+    }
+
+    if (!type || !strike || !lots || !premium) {
+      return res.status(400).json({ error: "Missing order details" });
+    }
+
+    const order = {
+      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      type: type as "CE" | "PE",
+      strike: Number(strike),
+      lots: Number(lots),
+      premium: Number(premium),
+      action: (action || "BUY") as "BUY" | "SELL",
+      status: "EXECUTED" as const,
+      target: Number(target || 0),
+      stopLoss: Number(stopLoss || 0),
+      createdAt: new Date().toISOString(),
+      executedAt: new Date().toISOString(),
+      pnl: null,
+    };
+
+    orderBook.push(order);
+
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID;
+    if (tgToken && tgChatId) {
+      const msg = [
+        `ORDER EXECUTED`,
+        `${order.action} ${order.type} ${order.strike}`,
+        `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
+        `Target: Rs.${order.target} | SL: Rs.${order.stopLoss}`,
+        `Order ID: ${order.id}`,
+        `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+      ].join("\n");
+
+      globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, order });
+  });
+
+  app.get("/api/order/book", (_req, res) => {
+    res.json({ orders: orderBook.slice().reverse() });
+  });
+
+  app.post("/api/order/cancel", (req, res) => {
+    const { orderId, pin } = req.body;
+    if (pin !== "1234") return res.status(403).json({ error: "Invalid PIN" });
+    const order = orderBook.find(o => o.id === orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    order.status = "CANCELLED";
+    res.json({ success: true, order });
+  });
+
   const voiceBodyParser = express.json({ limit: "50mb" });
   const voiceBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
 

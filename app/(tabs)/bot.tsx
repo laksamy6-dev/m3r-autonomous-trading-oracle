@@ -745,7 +745,7 @@ export default function BotScreen() {
                 ]}
               >
                 <Ionicons name="sparkles" size={10} color={CYAN} />
-                <Text style={{ color: CYAN, fontSize: 10, fontFamily: 'DMSans_600SemiBold' }}>Gemini AI</Text>
+                <Text style={{ color: CYAN, fontSize: 10, fontFamily: 'DMSans_600SemiBold' }}>GPT AI</Text>
               </Pressable>
             </View>
           </View>

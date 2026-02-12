@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +25,8 @@ import {
   OptionData,
 } from "@/lib/options";
 import Colors from "@/constants/colors";
+
+const CYAN = "#00D4FF";
 
 function formatOI(oi: number): string {
   if (oi >= 10000000) return (oi / 10000000).toFixed(1) + "Cr";
@@ -154,6 +158,18 @@ export default function OptionsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOption, setSelectedOption] = useState<OptionData | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showComprehensive, setShowComprehensive] = useState(false);
+  const [comprehensiveText, setComprehensiveText] = useState("");
+  const [isComprehensiveLoading, setIsComprehensiveLoading] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderType, setOrderType] = useState<"CE" | "PE">("CE");
+  const [orderStrike, setOrderStrike] = useState("");
+  const [orderLots, setOrderLots] = useState("1");
+  const [orderPremium, setOrderPremium] = useState("");
+  const [orderTarget, setOrderTarget] = useState("");
+  const [orderSL, setOrderSL] = useState("");
+  const [orderPin, setOrderPin] = useState("");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const initialScrollDone = useRef(false);
 
@@ -303,6 +319,127 @@ export default function OptionsScreen() {
       }
     } finally {
       setIsAnalyzing(false);
+    }
+  }
+
+  async function runComprehensiveAnalysis() {
+    if (isComprehensiveLoading || !chain) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    setShowComprehensive(true);
+    setComprehensiveText("");
+    setIsComprehensiveLoading(true);
+
+    let fullContent = "";
+
+    try {
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}api/market/comprehensive-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({
+          symbol: "NIFTY 50",
+          spotPrice: chain.spotPrice,
+          optionData: {
+            pcr: chain.overallPCR,
+            maxPain: chain.maxPainStrike,
+            atmIV: chain.options.find(o => o.strikePrice === chain.atmStrike)?.ceIV || 0,
+          },
+          engineData: bias ? {
+            signal: bias.bias,
+            confidence: bias.strength,
+            entropy: "N/A",
+          } : null,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed");
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No body");
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              setComprehensiveText(fullContent);
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      if (!fullContent) {
+        setComprehensiveText("Failed to load comprehensive analysis. Please check your connection and try again.");
+      }
+    } finally {
+      setIsComprehensiveLoading(false);
+    }
+  }
+
+  function openOrderModal(option?: OptionData, type?: "CE" | "PE") {
+    if (option) {
+      setOrderStrike(String(option.strikePrice));
+      setOrderPremium(String(type === "PE" ? option.pePrice.toFixed(2) : option.cePrice.toFixed(2)));
+      setOrderType(type || "CE");
+    } else if (chain) {
+      setOrderStrike(String(chain.atmStrike));
+      setOrderPremium("");
+    }
+    setOrderLots("1");
+    setOrderTarget("");
+    setOrderSL("");
+    setOrderPin("");
+    setShowOrderModal(true);
+  }
+
+  async function placeOrder() {
+    if (!orderPin || !orderStrike || !orderPremium) {
+      Alert.alert("Error", "Please fill all required fields and enter PIN");
+      return;
+    }
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setIsPlacingOrder(true);
+
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/order/place`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: orderType,
+          strike: orderStrike,
+          lots: orderLots,
+          premium: orderPremium,
+          action: "BUY",
+          target: orderTarget,
+          stopLoss: orderSL,
+          pin: orderPin,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert("Order Executed", `${orderType} ${orderStrike} x${orderLots} lots placed successfully!\nOrder ID: ${data.order.id}`);
+        setShowOrderModal(false);
+      } else {
+        Alert.alert("Error", data.error || "Order failed");
+      }
+    } catch {
+      Alert.alert("Error", "Network error. Please try again.");
+    } finally {
+      setIsPlacingOrder(false);
     }
   }
 
@@ -536,7 +673,33 @@ export default function OptionsScreen() {
         onPress={runAnalysis}
       >
         <Ionicons name="sparkles" size={20} color="#fff" />
-        <Text style={styles.fabText}>AI Analyze</Text>
+        <Text style={styles.fabText}>AI</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.fabComprehensive,
+          {
+            bottom: Platform.OS === "web" ? webBottomInset + 140 : insets.bottom + 140,
+          },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={runComprehensiveAnalysis}
+      >
+        <Ionicons name="globe" size={18} color="#fff" />
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.fabOrder,
+          {
+            bottom: Platform.OS === "web" ? webBottomInset + 140 : insets.bottom + 140,
+          },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={() => openOrderModal()}
+      >
+        <Ionicons name="cart" size={18} color="#fff" />
       </Pressable>
 
       <StrikeDetailModal
@@ -604,6 +767,188 @@ export default function OptionsScreen() {
             </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      <Modal
+        visible={showComprehensive}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowComprehensive(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                paddingTop: insets.top + (Platform.OS === "web" ? webTopInset : 0) + 16,
+                paddingBottom: Platform.OS === "web" ? webBottomInset + 16 : insets.bottom + 16,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="globe" size={18} color={CYAN} />
+                <Text style={styles.modalTitle}>Full Market Analysis</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setShowComprehensive(false);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={22} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {isComprehensiveLoading && !comprehensiveText ? (
+                <View style={styles.analyzingContainer}>
+                  <ActivityIndicator size="small" color={CYAN} />
+                  <Text style={styles.analyzingText}>Generating comprehensive analysis...</Text>
+                </View>
+              ) : (
+                <Text style={styles.analysisText}>{comprehensiveText}</Text>
+              )}
+              {isComprehensiveLoading && !!comprehensiveText && (
+                <ActivityIndicator
+                  size="small"
+                  color={CYAN}
+                  style={{ marginTop: 12 }}
+                />
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showOrderModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowOrderModal(false)}
+      >
+        <Pressable style={styles.orderModalOverlay} onPress={() => setShowOrderModal(false)}>
+          <Pressable style={styles.orderModalContent} onPress={() => {}}>
+            <View style={styles.orderModalHandle} />
+            <Text style={styles.orderModalTitle}>Quick Order</Text>
+
+            <View style={styles.orderTypeRow}>
+              <Pressable
+                onPress={() => setOrderType("CE")}
+                style={[styles.orderTypeBtn, orderType === "CE" && styles.orderTypeBtnActiveCE]}
+              >
+                <Text style={[styles.orderTypeBtnText, orderType === "CE" && styles.orderTypeBtnTextActiveCE]}>
+                  CALL (CE)
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setOrderType("PE")}
+                style={[styles.orderTypeBtn, orderType === "PE" && styles.orderTypeBtnActivePE]}
+              >
+                <Text style={[styles.orderTypeBtnText, orderType === "PE" && styles.orderTypeBtnTextActivePE]}>
+                  PUT (PE)
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.orderFieldRow}>
+              <View style={styles.orderField}>
+                <Text style={styles.orderFieldLabel}>Strike</Text>
+                <TextInput
+                  style={styles.orderFieldInput}
+                  value={orderStrike}
+                  onChangeText={setOrderStrike}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              <View style={styles.orderField}>
+                <Text style={styles.orderFieldLabel}>Premium</Text>
+                <TextInput
+                  style={styles.orderFieldInput}
+                  value={orderPremium}
+                  onChangeText={setOrderPremium}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              <View style={styles.orderField}>
+                <Text style={styles.orderFieldLabel}>Lots</Text>
+                <TextInput
+                  style={styles.orderFieldInput}
+                  value={orderLots}
+                  onChangeText={setOrderLots}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+            </View>
+
+            <View style={styles.orderFieldRow}>
+              <View style={styles.orderField}>
+                <Text style={styles.orderFieldLabel}>Target</Text>
+                <TextInput
+                  style={styles.orderFieldInput}
+                  value={orderTarget}
+                  onChangeText={setOrderTarget}
+                  keyboardType="numeric"
+                  placeholder="Optional"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              <View style={styles.orderField}>
+                <Text style={styles.orderFieldLabel}>Stop Loss</Text>
+                <TextInput
+                  style={styles.orderFieldInput}
+                  value={orderSL}
+                  onChangeText={setOrderSL}
+                  keyboardType="numeric"
+                  placeholder="Optional"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+            </View>
+
+            <View style={styles.orderPinRow}>
+              <Ionicons name="lock-closed" size={16} color={CYAN} />
+              <TextInput
+                style={styles.orderPinInput}
+                value={orderPin}
+                onChangeText={(t) => setOrderPin(t.replace(/[^0-9]/g, ""))}
+                placeholder="Enter PIN to approve"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={6}
+              />
+            </View>
+
+            <Pressable
+              onPress={placeOrder}
+              disabled={isPlacingOrder}
+              style={({ pressed }) => [
+                styles.orderExecuteBtn,
+                orderType === "CE" ? { backgroundColor: Colors.dark.green } : { backgroundColor: Colors.dark.red },
+                pressed && { opacity: 0.8 },
+                isPlacingOrder && { opacity: 0.5 },
+              ]}
+            >
+              {isPlacingOrder ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="flash" size={18} color="#fff" />
+                  <Text style={styles.orderExecuteBtnText}>
+                    BUY {orderType} {orderStrike}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -1066,5 +1411,156 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  fabComprehensive: {
+    position: "absolute",
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,212,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0,212,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabOrder: {
+    position: "absolute",
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(16,185,129,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  orderModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  orderModalContent: {
+    backgroundColor: Colors.dark.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  orderModalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.dark.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  orderModalTitle: {
+    fontSize: 18,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.text,
+    marginBottom: 16,
+  },
+  orderTypeRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  orderTypeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+  },
+  orderTypeBtnActiveCE: {
+    backgroundColor: "rgba(16,185,129,0.15)",
+    borderColor: Colors.dark.green,
+  },
+  orderTypeBtnActivePE: {
+    backgroundColor: "rgba(239,68,68,0.15)",
+    borderColor: Colors.dark.red,
+  },
+  orderTypeBtnText: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+  },
+  orderTypeBtnTextActiveCE: {
+    color: Colors.dark.green,
+  },
+  orderTypeBtnTextActivePE: {
+    color: Colors.dark.red,
+  },
+  orderFieldRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+  },
+  orderField: {
+    flex: 1,
+  },
+  orderFieldLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  orderFieldInput: {
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+  },
+  orderPinRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: "rgba(0,212,255,0.2)",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 16,
+  },
+  orderPinInput: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: 16,
+    fontFamily: "DMSans_600SemiBold",
+    paddingVertical: 10,
+  },
+  orderExecuteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  orderExecuteBtnText: {
+    fontSize: 16,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
   },
 });

@@ -30,6 +30,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
         <Label>Portfolio</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
+        <Label>Settings</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -102,6 +106,15 @@ function ClassicTabLayout() {
           title: "Portfolio",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="briefcase" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-sharp" size={size} color={color} />
           ),
         }}
       />
