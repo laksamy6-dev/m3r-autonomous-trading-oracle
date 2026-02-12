@@ -44,8 +44,12 @@ let autoScanActive = false;
 let autoScanInterval: ReturnType<typeof setInterval> | null = null;
 let scanCycleCount = 0;
 
+const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+if (!openaiApiKey) {
+  console.warn("WARNING: OpenAI API key not found. AI features will be unavailable until configured.");
+}
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: openaiApiKey || "placeholder-key-not-configured",
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
