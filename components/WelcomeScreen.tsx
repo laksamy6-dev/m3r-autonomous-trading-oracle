@@ -18,6 +18,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { speak, stopSpeech } from "@/lib/speech";
 import { getIndices } from "@/lib/stocks";
@@ -373,17 +374,15 @@ export default function WelcomeScreen() {
 
         <View style={styles.arcReactorWrap}>
           <Animated.View style={[styles.arcGlow, pulseStyle]} />
-          <View style={styles.arcReactorOuter}>
-            <View style={styles.arcReactorMiddle}>
-              <View style={styles.arcReactorCore}>
-                <Ionicons name="flash" size={32} color={CYAN} />
-              </View>
-            </View>
-          </View>
+          <Image 
+            source={require("@/assets/images/logo.png")} 
+            style={styles.logo} 
+            resizeMode="contain"
+          />
         </View>
 
-        <Text style={styles.jarvisTitle}>J.A.R.V.I.S</Text>
-        <Text style={styles.subtitle}>Neural Trading System</Text>
+        <Text style={styles.jarvisTitle}>M3R</Text>
+        <Text style={styles.subtitle}>INNOVATIVE FINTECH SOLUTIONS</Text>
 
         <View style={styles.langSection}>
           <Text style={styles.langPrompt}>Select Your Language</Text>
@@ -421,18 +420,16 @@ export default function WelcomeScreen() {
 
       <View style={styles.arcReactorWrap}>
         <Animated.View style={[styles.arcGlow, pulseStyle]} />
-        <View style={styles.arcReactorOuter}>
-          <View style={styles.arcReactorMiddle}>
-            <View style={styles.arcReactorCore}>
-              <Ionicons name="flash" size={32} color={CYAN} />
-            </View>
-          </View>
-        </View>
+        <Image 
+          source={require("@/assets/images/logo.png")} 
+          style={styles.logo} 
+          resizeMode="contain"
+        />
       </View>
 
-      <Text style={styles.jarvisTitle}>J.A.R.V.I.S</Text>
+      <Text style={styles.jarvisTitle}>M3R</Text>
       <Text style={styles.subtitle}>
-        {isOwner ? "Welcome, Boss" : "Neural Trading System"}
+        {isOwner ? "Welcome back, Boss" : "INNOVATIVE FINTECH SOLUTIONS"}
       </Text>
 
       <View style={styles.textArea}>
@@ -485,6 +482,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 16,
   },
+  logo: {
+    width: 80,
+    height: 80,
+  },
   arcGlow: {
     position: "absolute",
     width: 140,
@@ -521,6 +522,10 @@ const styles = StyleSheet.create({
     borderColor: CYAN,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logo: {
+    width: 80,
+    height: 80,
   },
   jarvisTitle: {
     fontSize: 36,

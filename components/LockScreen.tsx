@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import Colors from "@/constants/colors";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "react-native";
 
 const C = Colors.dark;
 const CYAN = "#00D4FF";
@@ -81,17 +82,15 @@ export default function LockScreen() {
       />
 
       <View style={styles.topSection}>
-        <View style={styles.arcReactorOuter}>
-          <View style={styles.arcReactorMiddle}>
-            <View style={styles.arcReactorCore}>
-              <Ionicons name="flash" size={32} color={CYAN} />
-            </View>
-          </View>
-        </View>
+        <Image 
+          source={require("@/assets/images/logo.png")} 
+          style={styles.logo} 
+          resizeMode="contain"
+        />
 
-        <Text style={styles.jarvisTitle}>J.A.R.V.I.S</Text>
-        <Text style={styles.subtitle}>Neural Trading System</Text>
-        <Text style={styles.creatorTag}>Created by MANIKANDAN RAJENDRAN</Text>
+        <Text style={styles.jarvisTitle}>M3R</Text>
+        <Text style={styles.subtitle}>INNOVATIVE FINTECH SOLUTIONS</Text>
+        <Text style={styles.creatorTag}>DEVELOPER: MANIKANDAN RAJENDRAN</Text>
       </View>
 
       <View style={styles.pinSection}>
@@ -162,40 +161,16 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 16,
   },
-  arcReactorOuter: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: CYAN + "44",
-    alignItems: "center",
-    justifyContent: "center",
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: 16,
   },
-  arcReactorMiddle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: CYAN + "66",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arcReactorCore: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: CYAN + "22",
-    borderWidth: 1,
-    borderColor: CYAN,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   jarvisTitle: {
-    fontSize: 36,
+    fontSize: 32,
     fontFamily: "DMSans_700Bold",
     color: CYAN,
-    letterSpacing: 8,
+    letterSpacing: 6,
   },
   subtitle: {
     fontSize: 13,

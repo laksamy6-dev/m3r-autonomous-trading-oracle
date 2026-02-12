@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View, Platform } from "react-native";
+import { StyleSheet, Text, View, Platform, Image } from "react-native";
 
 const CYAN = "#00F3FF";
 const NEON_GREEN = "#39FF14";
@@ -25,11 +25,15 @@ export default function BrandHeader() {
   return (
     <View style={s.container}>
       <View style={s.row1}>
-        <View style={s.glowDot} />
-        <Text style={s.brandName}>M3R</Text>
-        <View style={s.sep} />
-        <Text style={s.brandSub}>INNOVATIVE FINTECH SOLUTIONS</Text>
-        <View style={s.glowDot} />
+        <Image 
+          source={require("@/assets/images/logo.png")} 
+          style={s.logo} 
+          resizeMode="contain"
+        />
+        <View style={s.brandCol}>
+          <Text style={s.brandName}>M3R</Text>
+          <Text style={s.brandSub}>INNOVATIVE FINTECH SOLUTIONS</Text>
+        </View>
       </View>
 
       <View style={s.row2}>
@@ -78,37 +82,31 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    marginBottom: 3,
+    gap: 8,
+    marginBottom: 4,
   },
-  glowDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: CYAN,
-    ...Platform.select({
-      web: { boxShadow: "0 0 5px #00F3FF" },
-    }),
+  logo: {
+    width: 24,
+    height: 24,
+  },
+  brandCol: {
+    alignItems: "flex-start",
   },
   brandName: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "DMSans_700Bold",
-    color: "#FFFFFF",
-    letterSpacing: 3,
+    color: CYAN,
+    letterSpacing: 2,
     ...Platform.select({
       web: { textShadow: "0 0 8px rgba(0, 243, 255, 0.5)" },
     }),
   },
-  sep: {
-    width: 1,
-    height: 10,
-    backgroundColor: "rgba(0, 243, 255, 0.35)",
-  },
   brandSub: {
     fontSize: 7,
     fontFamily: "DMSans_700Bold",
-    color: CYAN,
-    letterSpacing: 1.5,
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    opacity: 0.8,
   },
   row2: {
     flexDirection: "row",
@@ -149,11 +147,11 @@ const s = StyleSheet.create({
     flexDirection: "row",
   },
   nameSpace: {
-    fontSize: 13,
+    fontSize: 12,
   },
   fireLetter: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "DMSans_700Bold",
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
 });
