@@ -1,5 +1,3 @@
-import { Stock } from "./types";
-
 export interface OptionData {
   strikePrice: number;
   expiryDate: string;
@@ -9,12 +7,28 @@ export interface OptionData {
   ceVolume: number;
   ceIV: number;
   ceDelta: number;
+  ceTheta?: number;
+  ceGamma?: number;
+  ceVega?: number;
+  ceBidPrice?: number;
+  ceAskPrice?: number;
+  ceBidQty?: number;
+  ceAskQty?: number;
+  ceClosePrice?: number;
   pePrice: number;
   peOI: number;
   peOIChange: number;
   peVolume: number;
   peIV: number;
   peDelta: number;
+  peTheta?: number;
+  peGamma?: number;
+  peVega?: number;
+  peBidPrice?: number;
+  peAskPrice?: number;
+  peBidQty?: number;
+  peAskQty?: number;
+  peClosePrice?: number;
   pcr: number;
 }
 
@@ -26,6 +40,16 @@ export interface OptionChainData {
   overallPCR: number;
   maxPainStrike: number;
   atmStrike: number;
+  source?: "upstox" | "simulated";
+  totalCeOI?: number;
+  totalPeOI?: number;
+  totalCeOIChange?: number;
+  totalPeOIChange?: number;
+  maxCeOIStrike?: number;
+  maxPeOIStrike?: number;
+  resistance?: number;
+  support?: number;
+  lotSize?: number;
 }
 
 export interface TradeSignal {
@@ -114,7 +138,7 @@ function generateOptionChainForStrike(
 }
 
 export function generateOptionChain(spotPrice?: number): OptionChainData {
-  const spot = spotPrice || 24856.75 + (Math.random() - 0.5) * 50; // Reduced variance to match market
+  const spot = spotPrice || 24856.75 + (Math.random() - 0.5) * 50;
   const atmStrike = Math.round(spot / 50) * 50;
   const expiries = getNextWeeklyExpiries();
   const expiryDate = expiries[0];
@@ -162,6 +186,9 @@ export function generateOptionChain(spotPrice?: number): OptionChainData {
     overallPCR,
     maxPainStrike,
     atmStrike,
+    source: "simulated",
+    totalCeOI,
+    totalPeOI,
   };
 }
 

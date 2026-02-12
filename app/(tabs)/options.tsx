@@ -24,37 +24,44 @@ import {
 } from "@/lib/options";
 import Colors from "@/constants/colors";
 
-let msgCounter = 0;
-function genId(): string {
-  msgCounter++;
-  return `opt-${Date.now()}-${msgCounter}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
 function formatOI(oi: number): string {
-  return (oi / 100000).toFixed(1);
+  if (oi >= 10000000) return (oi / 10000000).toFixed(1) + "Cr";
+  return (oi / 100000).toFixed(1) + "L";
 }
 
 function formatOIChange(change: number): string {
-  const val = (change / 100000).toFixed(1);
-  return change >= 0 ? `+${val}` : val;
+  const absVal = Math.abs(change);
+  let val: string;
+  if (absVal >= 10000000) val = (absVal / 10000000).toFixed(1) + "Cr";
+  else val = (absVal / 100000).toFixed(1) + "L";
+  return change >= 0 ? `+${val}` : `-${val}`;
 }
 
 function formatPremium(price: number): string {
   return price.toFixed(2);
 }
 
+function formatNumber(n: number): string {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
 function OptionRow({
   item,
   isATM,
+  onPress,
 }: {
   item: OptionData;
   isATM: boolean;
+  onPress: () => void;
 }) {
   const ceOIChangeColor = item.ceOIChange >= 0 ? Colors.dark.green : Colors.dark.red;
   const peOIChangeColor = item.peOIChange >= 0 ? Colors.dark.green : Colors.dark.red;
 
   return (
-    <View style={[styles.row, isATM && styles.atmRow]}>
+    <Pressable
+      style={[styles.row, isATM && styles.atmRow]}
+      onPress={onPress}
+    >
       <View style={styles.ceSection}>
         <Text style={styles.premiumText}>{formatPremium(item.cePrice)}</Text>
         <Text style={styles.oiText}>{formatOI(item.ceOI)}</Text>
@@ -74,37 +81,140 @@ function OptionRow({
           {formatOIChange(item.peOIChange)}
         </Text>
       </View>
-    </View>
+    </Pressable>
+  );
+}
+
+function StrikeDetailModal({
+  visible,
+  option,
+  onClose,
+}: {
+  visible: boolean;
+  option: OptionData | null;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  if (!option) return null;
+
+  const rows = [
+    { label: "LTP", ce: formatPremium(option.cePrice), pe: formatPremium(option.pePrice) },
+    { label: "OI", ce: formatOI(option.ceOI), pe: formatOI(option.peOI) },
+    { label: "OI Chg", ce: formatOIChange(option.ceOIChange), pe: formatOIChange(option.peOIChange) },
+    { label: "Volume", ce: formatNumber(option.ceVolume), pe: formatNumber(option.peVolume) },
+    { label: "IV", ce: option.ceIV ? option.ceIV.toFixed(2) + "%" : "-", pe: option.peIV ? option.peIV.toFixed(2) + "%" : "-" },
+    { label: "Delta", ce: option.ceDelta?.toFixed(4) ?? "-", pe: option.peDelta?.toFixed(4) ?? "-" },
+    { label: "Theta", ce: option.ceTheta?.toFixed(4) ?? "-", pe: option.peTheta?.toFixed(4) ?? "-" },
+    { label: "Gamma", ce: option.ceGamma?.toFixed(6) ?? "-", pe: option.peGamma?.toFixed(6) ?? "-" },
+    { label: "Vega", ce: option.ceVega?.toFixed(4) ?? "-", pe: option.peVega?.toFixed(4) ?? "-" },
+    { label: "Bid", ce: option.ceBidPrice?.toFixed(2) ?? "-", pe: option.peBidPrice?.toFixed(2) ?? "-" },
+    { label: "Ask", ce: option.ceAskPrice?.toFixed(2) ?? "-", pe: option.peAskPrice?.toFixed(2) ?? "-" },
+    { label: "Prev Close", ce: option.ceClosePrice?.toFixed(2) ?? "-", pe: option.peClosePrice?.toFixed(2) ?? "-" },
+  ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.detailModal, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.detailHandle} />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Strike {option.strikePrice}</Text>
+            <Pressable onPress={onClose} style={styles.modalCloseBtn}>
+              <Ionicons name="close" size={22} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+          <View style={styles.detailTableHeader}>
+            <Text style={[styles.detailHeaderText, styles.detailHeaderCE]}>CE</Text>
+            <Text style={styles.detailHeaderLabel}>Greek</Text>
+            <Text style={[styles.detailHeaderText, styles.detailHeaderPE]}>PE</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {rows.map((r) => (
+              <View key={r.label} style={styles.detailRow}>
+                <Text style={styles.detailCEVal}>{r.ce}</Text>
+                <Text style={styles.detailLabel}>{r.label}</Text>
+                <Text style={styles.detailPEVal}>{r.pe}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 export default function OptionsScreen() {
   const insets = useSafeAreaInsets();
   const [chain, setChain] = useState<OptionChainData | null>(null);
+  const [availableExpiries, setAvailableExpiries] = useState<string[]>([]);
   const [selectedExpiry, setSelectedExpiry] = useState<string>("");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisText, setAnalysisText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedOption, setSelectedOption] = useState<OptionData | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const initialScrollDone = useRef(false);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
-  const loadData = useCallback(() => {
-    const data = generateOptionChain();
-    setChain(data);
-    if (!selectedExpiry && data.expiryDates.length > 0) {
-      setSelectedExpiry(data.expiryDates[0]);
+  useEffect(() => {
+    async function fetchExpiries() {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/option/expiries`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.expiries && data.expiries.length > 0) {
+            setAvailableExpiries(data.expiries);
+            if (!selectedExpiry) {
+              setSelectedExpiry(data.expiries[0]);
+            }
+          }
+        }
+      } catch {
+        const mock = generateOptionChain();
+        setAvailableExpiries(mock.expiryDates);
+        if (!selectedExpiry) setSelectedExpiry(mock.expiryDates[0]);
+      }
     }
-  }, [selectedExpiry]);
+    fetchExpiries();
+  }, []);
+
+  const loadChain = useCallback(async () => {
+    if (!selectedExpiry) return;
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/option/chain?expiry=${selectedExpiry}`);
+      if (res.ok) {
+        const data = await res.json();
+        data.expiryDates = availableExpiries.length > 0 ? availableExpiries : [selectedExpiry];
+        setChain(data);
+      } else {
+        throw new Error("API failed");
+      }
+    } catch {
+      const mock = generateOptionChain();
+      mock.expiryDates = availableExpiries.length > 0 ? availableExpiries : mock.expiryDates;
+      setChain(mock);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedExpiry, availableExpiries]);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 15000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+    if (selectedExpiry) {
+      initialScrollDone.current = false;
+      loadChain();
+      const interval = setInterval(loadChain, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedExpiry, loadChain]);
 
   const bias = chain ? analyzeMarketBias(chain) : null;
+  const isLive = chain?.source === "upstox";
 
   const scrollToATM = useCallback(() => {
     if (!chain || !flatListRef.current) return;
@@ -117,8 +227,9 @@ export default function OptionsScreen() {
   }, [chain]);
 
   useEffect(() => {
-    if (chain) {
-      setTimeout(scrollToATM, 300);
+    if (chain && !initialScrollDone.current) {
+      initialScrollDone.current = true;
+      setTimeout(scrollToATM, 400);
     }
   }, [chain, scrollToATM]);
 
@@ -182,12 +293,11 @@ export default function OptionsScreen() {
           ``,
           `${localBias?.reasoning}`,
           ``,
-          bestCE ? `Best CE: ${bestCE.strikePrice} @ ${bestCE.cePrice.toFixed(2)} (OI: ${formatOI(bestCE.ceOI)}L)` : "",
-          bestPE ? `Best PE: ${bestPE.strikePrice} @ ${bestPE.pePrice.toFixed(2)} (OI: ${formatOI(bestPE.peOI)}L)` : "",
+          bestCE ? `Best CE: ${bestCE.strikePrice} @ ${bestCE.cePrice.toFixed(2)} (OI: ${formatOI(bestCE.ceOI)})` : "",
+          bestPE ? `Best PE: ${bestPE.strikePrice} @ ${bestPE.pePrice.toFixed(2)} (OI: ${formatOI(bestPE.peOI)})` : "",
           ``,
-          `Key Levels:`,
-          `Resistance: ${chain.options.sort((a, b) => b.ceOI - a.ceOI)[0]?.strikePrice || "N/A"} (Highest CE OI)`,
-          `Support: ${chain.options.sort((a, b) => b.peOI - a.peOI)[0]?.strikePrice || "N/A"} (Highest PE OI)`,
+          chain.support ? `Support: ${chain.support}` : "",
+          chain.resistance ? `Resistance: ${chain.resistance}` : "",
         ].filter(Boolean).join("\n");
         setAnalysisText(localAnalysis);
       }
@@ -212,7 +322,15 @@ export default function OptionsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: OptionData }) => (
-      <OptionRow item={item} isATM={chain ? item.strikePrice === chain.atmStrike : false} />
+      <OptionRow
+        item={item}
+        isATM={chain ? item.strikePrice === chain.atmStrike : false}
+        onPress={() => {
+          setSelectedOption(item);
+          setShowDetail(true);
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+      />
     ),
     [chain]
   );
@@ -222,10 +340,23 @@ export default function OptionsScreen() {
     []
   );
 
-  if (!chain) {
+  if (isLoading && !chain) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={Colors.dark.accent} />
+        <Text style={styles.loadingText}>Loading option chain...</Text>
+      </View>
+    );
+  }
+
+  if (!chain) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.textMuted} />
+        <Text style={styles.loadingText}>Failed to load data</Text>
+        <Pressable style={styles.retryBtn} onPress={loadChain}>
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -235,7 +366,15 @@ export default function OptionsScreen() {
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
         <View style={styles.headerTopRow}>
           <View>
-            <Text style={styles.headerTitle}>Nifty 50 Options</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.headerTitle}>Nifty 50 Options</Text>
+              <View style={[styles.sourceBadge, isLive ? styles.liveBadge : styles.simBadge]}>
+                <View style={[styles.statusDot, isLive ? styles.liveDot : styles.simDot]} />
+                <Text style={[styles.sourceText, isLive ? styles.liveText : styles.simText]}>
+                  {isLive ? "LIVE" : "SIM"}
+                </Text>
+              </View>
+            </View>
             <Text style={styles.spotPrice}>
               {chain.spotPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
             </Text>
@@ -293,6 +432,20 @@ export default function OptionsScreen() {
             <Text style={styles.statLabel}>ATM</Text>
             <Text style={styles.statValue}>{chain.atmStrike}</Text>
           </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Support</Text>
+            <Text style={[styles.statValue, { color: Colors.dark.green }]}>
+              {chain.support || "-"}
+            </Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Resist</Text>
+            <Text style={[styles.statValue, { color: Colors.dark.red }]}>
+              {chain.resistance || "-"}
+            </Text>
+          </View>
         </View>
 
         <ScrollView
@@ -300,7 +453,7 @@ export default function OptionsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.expiryRow}
         >
-          {chain.expiryDates.map((exp) => {
+          {(availableExpiries.length > 0 ? availableExpiries : chain.expiryDates).map((exp) => {
             const isSelected = exp === selectedExpiry;
             const label = new Date(exp + "T00:00:00").toLocaleDateString("en-IN", {
               day: "numeric",
@@ -327,7 +480,7 @@ export default function OptionsScreen() {
       <View style={styles.tableHeader}>
         <View style={styles.ceHeaderSection}>
           <Text style={styles.colHeaderCE}>Prem</Text>
-          <Text style={styles.colHeaderCE}>OI(L)</Text>
+          <Text style={styles.colHeaderCE}>OI</Text>
           <Text style={styles.colHeaderCE}>Chg</Text>
         </View>
         <View style={styles.strikeHeaderSection}>
@@ -335,7 +488,7 @@ export default function OptionsScreen() {
         </View>
         <View style={styles.peHeaderSection}>
           <Text style={styles.colHeaderPE}>Prem</Text>
-          <Text style={styles.colHeaderPE}>OI(L)</Text>
+          <Text style={styles.colHeaderPE}>OI</Text>
           <Text style={styles.colHeaderPE}>Chg</Text>
         </View>
       </View>
@@ -367,11 +520,30 @@ export default function OptionsScreen() {
           },
           pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
         ]}
+        onPress={scrollToATM}
+      >
+        <Ionicons name="locate" size={18} color="#fff" />
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.fabAnalyze,
+          {
+            bottom: Platform.OS === "web" ? webBottomInset + 90 : insets.bottom + 90,
+          },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+        ]}
         onPress={runAnalysis}
       >
         <Ionicons name="sparkles" size={20} color="#fff" />
         <Text style={styles.fabText}>AI Analyze</Text>
       </Pressable>
+
+      <StrikeDetailModal
+        visible={showDetail}
+        option={selectedOption}
+        onClose={() => setShowDetail(false)}
+      />
 
       <Modal
         visible={showAnalysis}
@@ -393,6 +565,12 @@ export default function OptionsScreen() {
               <View style={styles.modalTitleRow}>
                 <Ionicons name="sparkles" size={18} color={Colors.dark.accent} />
                 <Text style={styles.modalTitle}>AI Analysis</Text>
+                {isLive && (
+                  <View style={[styles.sourceBadge, styles.liveBadge, { marginLeft: 8 }]}>
+                    <View style={[styles.statusDot, styles.liveDot]} />
+                    <Text style={[styles.sourceText, styles.liveText]}>LIVE DATA</Text>
+                  </View>
+                )}
               </View>
               <Pressable
                 onPress={() => {
@@ -436,6 +614,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.background,
   },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginTop: 12,
+  },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: Colors.dark.accent,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#fff",
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 10,
@@ -448,10 +644,54 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   headerTitle: {
     fontSize: 20,
     fontFamily: "DMSans_700Bold",
     color: Colors.dark.text,
+  },
+  sourceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  liveBadge: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderColor: "rgba(16, 185, 129, 0.3)",
+  },
+  simBadge: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderColor: "rgba(245, 158, 11, 0.3)",
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  liveDot: {
+    backgroundColor: "#10B981",
+  },
+  simDot: {
+    backgroundColor: "#F59E0B",
+  },
+  sourceText: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.8,
+  },
+  liveText: {
+    color: "#10B981",
+  },
+  simText: {
+    color: "#F59E0B",
   },
   spotPrice: {
     fontSize: 16,
@@ -503,21 +743,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.card,
     borderRadius: 10,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   statItem: {
     flex: 1,
     alignItems: "center",
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "DMSans_500Medium",
     color: Colors.dark.textMuted,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "DMSans_700Bold",
     color: Colors.dark.text,
     marginTop: 2,
@@ -664,6 +904,23 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabAnalyze: {
+    position: "absolute",
     right: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -738,5 +995,76 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     color: Colors.dark.text,
     lineHeight: 22,
+  },
+  detailModal: {
+    backgroundColor: Colors.dark.surface,
+    marginTop: "auto",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: "70%",
+  },
+  detailHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.dark.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  detailTableHeader: {
+    flexDirection: "row",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+    marginBottom: 4,
+  },
+  detailHeaderText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    textAlign: "center",
+  },
+  detailHeaderCE: {
+    color: Colors.dark.green,
+  },
+  detailHeaderPE: {
+    color: Colors.dark.red,
+  },
+  detailHeaderLabel: {
+    flex: 0.8,
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  detailRow: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.dark.border,
+  },
+  detailCEVal: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  detailLabel: {
+    flex: 0.8,
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  detailPEVal: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "DMSans_500Medium",
+    color: Colors.dark.text,
+    textAlign: "center",
   },
 });
