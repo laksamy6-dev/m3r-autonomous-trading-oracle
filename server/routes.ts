@@ -1662,6 +1662,153 @@ Provide the full 10-section comprehensive analysis now.`;
   });
 
   let currentPin = "1234";
+  let autoTradeMode = false;
+
+  interface ActivePosition {
+    id: string;
+    type: "CE" | "PE";
+    strike: number;
+    lots: number;
+    entryPremium: number;
+    currentPremium: number;
+    target: number;
+    stopLoss: number;
+    pnl: number;
+    pnlPercent: number;
+    entryTime: string;
+    status: "ACTIVE" | "EXITED" | "AUTO_EXITED" | "PROFIT_BOOKED";
+    exitPremium: number | null;
+    exitTime: string | null;
+    exitReason: string | null;
+  }
+
+  const activePositions: ActivePosition[] = [];
+  let positionSimInterval: ReturnType<typeof setInterval> | null = null;
+
+  function simulatePositionPriceMovement() {
+    for (const pos of activePositions) {
+      if (pos.status !== "ACTIVE") continue;
+      const drift = (Math.random() - 0.48) * 3;
+      const volatility = (Math.random() - 0.5) * pos.entryPremium * 0.04;
+      pos.currentPremium = Math.max(0.5, pos.currentPremium + drift + volatility);
+      pos.currentPremium = parseFloat(pos.currentPremium.toFixed(2));
+      const lotSize = 25;
+      pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
+      pos.pnlPercent = parseFloat((((pos.currentPremium - pos.entryPremium) / pos.entryPremium) * 100).toFixed(2));
+    }
+  }
+
+  function startPositionSimulation() {
+    if (positionSimInterval) return;
+    positionSimInterval = setInterval(simulatePositionPriceMovement, 2000);
+  }
+
+  function stopPositionSimulation() {
+    if (positionSimInterval) {
+      clearInterval(positionSimInterval);
+      positionSimInterval = null;
+    }
+  }
+
+  app.get("/api/auto-trade/mode", (_req, res) => {
+    res.json({ autoTradeMode });
+  });
+
+  app.post("/api/auto-trade/mode", (req, res) => {
+    const { enabled, pin } = req.body;
+    if (!autoTradeMode && enabled) {
+      if (pin !== currentPin) {
+        return res.status(403).json({ error: "Invalid PIN" });
+      }
+    }
+    autoTradeMode = !!enabled;
+    console.log(`[AUTO-TRADE] Mode ${autoTradeMode ? "ENABLED" : "DISABLED"}`);
+    res.json({ success: true, autoTradeMode });
+  });
+
+  app.get("/api/positions/active", (_req, res) => {
+    const active = activePositions.filter(p => p.status === "ACTIVE");
+    res.json({ positions: active, autoTradeMode });
+  });
+
+  app.post("/api/positions/open", (req, res) => {
+    const { type, strike, lots, premium, target, stopLoss, pin } = req.body;
+    if (!autoTradeMode && pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const position: ActivePosition = {
+      id: `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      type: type as "CE" | "PE",
+      strike: Number(strike),
+      lots: Number(lots || 1),
+      entryPremium: Number(premium),
+      currentPremium: Number(premium),
+      target: Number(target || premium * 1.8),
+      stopLoss: Number(stopLoss || premium * 0.7),
+      pnl: 0,
+      pnlPercent: 0,
+      entryTime: new Date().toISOString(),
+      status: "ACTIVE",
+      exitPremium: null,
+      exitTime: null,
+      exitReason: null,
+    };
+    activePositions.push(position);
+    startPositionSimulation();
+
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID;
+    if (tgToken && tgChatId) {
+      const msg = `POSITION OPENED\nBUY ${position.type} ${position.strike}\nPremium: Rs.${position.entryPremium}\nTarget: Rs.${position.target} | SL: Rs.${position.stopLoss}\nLots: ${position.lots}\nTime: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+      globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, position });
+  });
+
+  app.post("/api/positions/exit", (req, res) => {
+    const { positionId, reason, pin } = req.body;
+    if (!autoTradeMode && pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const pos = activePositions.find(p => p.id === positionId && p.status === "ACTIVE");
+    if (!pos) return res.status(404).json({ error: "Active position not found" });
+
+    pos.exitPremium = pos.currentPremium;
+    pos.exitTime = new Date().toISOString();
+    pos.exitReason = reason || "Manual exit";
+    pos.status = reason === "AUTO_STOP_LOSS" ? "AUTO_EXITED" : reason === "AUTO_PROFIT_BOOK" ? "PROFIT_BOOKED" : "EXITED";
+
+    const lotSize = 25;
+    const finalPnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
+    pos.pnl = finalPnl;
+
+    const activeRemaining = activePositions.filter(p => p.status === "ACTIVE");
+    if (activeRemaining.length === 0) stopPositionSimulation();
+
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID;
+    if (tgToken && tgChatId) {
+      const emoji = finalPnl >= 0 ? "PROFIT" : "LOSS";
+      const msg = `POSITION ${pos.status}\n${emoji}: Rs.${finalPnl}\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nReason: ${pos.exitReason}\nTime: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+      globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, position: pos });
+  });
+
+  app.get("/api/positions/history", (_req, res) => {
+    const exited = activePositions.filter(p => p.status !== "ACTIVE");
+    res.json({ positions: exited.slice().reverse() });
+  });
 
   const orderBook: Array<{
     id: string;
