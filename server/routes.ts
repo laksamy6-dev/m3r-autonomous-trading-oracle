@@ -191,43 +191,105 @@ const LEARNING_DOMAINS = [
   "Physical Fitness", "Nutrition Science", "Mental Wellness",
   "Space Science", "Physics", "Advanced Mathematics",
   "Creative Problem Solving", "Strategic Thinking", "Leadership Skills",
+  "SGX Nifty Correlation", "US Futures Impact on India", "Dow Jones-Nifty Relationship",
+  "S&P 500 After-Hours Analysis", "NASDAQ Pre-Market Signals", "European Markets Impact",
+  "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)", "GIFT Nifty Live Tracking",
+  "Currency Impact (USD/INR)", "Crude Oil-Market Correlation", "Gold-Equity Inverse Pattern",
+  "Bond Yield Curve Analysis", "US 10Y Treasury Impact", "India 10Y Bond Analysis",
+  "FII Cash Flow Prediction", "DII Counter-Flow Strategy", "Mutual Fund Flow Analysis",
+  "RBI Policy Impact Modeling", "US Fed Rate Decision Impact", "ECB Policy Correlation",
+  "Inflation Data Reading", "GDP Growth Correlation", "IIP Data Impact",
+  "PMI Manufacturing Signal", "PMI Services Signal", "Trade Deficit Impact",
+  "Geopolitical Risk Assessment", "War/Conflict Market Impact", "Election Cycle Trading",
+  "Budget Day Strategy", "Quarterly Results Analysis", "Corporate Action Impact",
+  "After-Hours Price Driver Model", "Pre-Market Gap Prediction", "Opening Bell Strategy",
+  "Market Close Pattern Recognition", "Last Hour Momentum Trading", "First 15 Min Scalping",
+  "VIX India Interpretation", "India VIX-Premium Relationship", "Global VIX Correlation",
+  "Nifty Futures Basis Analysis", "Rollover Data Interpretation", "Nifty Futures OI Build-up",
+  "Max Pain Theory Application", "Options Strike Selection AI", "Weekly vs Monthly Expiry Edge",
+  "Intraday Price Action", "Candlestick Pattern Mastery", "Harmonic Pattern Detection",
+  "Elliott Wave Analysis", "Wyckoff Method", "Ichimoku Cloud Strategy",
+  "VWAP Trading", "Pivot Point Strategy", "Supertrend Signal",
+  "Heikin Ashi Patterns", "Renko Chart Analysis", "Point & Figure Charting",
+  "Sector-wise FII/DII Flow", "Banking Sector Deep Dive", "IT Sector Correlation",
+  "Pharma Sector Pattern", "Auto Sector Cyclical", "Metal Sector Commodity Link",
+  "Energy Sector Analysis", "FMCG Defensive Strategy", "Real Estate Sector Cycle",
+  "Small Cap Momentum", "Mid Cap Sweet Spot", "Large Cap Stability",
+  "Nifty 50 Weight Analysis", "Index Rebalancing Impact", "ETF Flow Impact",
+  "Crypto-Equity Correlation", "Bitcoin-Risk Appetite Link", "DeFi Impact on Traditional Finance",
+  "AI/ML Model Training for Price Prediction", "Time Series Forecasting", "LSTM Neural Networks for Markets",
+  "Transformer Models for Pattern Recognition", "Reinforcement Learning Trading Agent",
+  "World News Real-Time Processing", "Social Media Sentiment Mining", "Earnings Call NLP Analysis",
+  "Supply Chain Disruption Impact", "Commodity Super Cycle Theory", "Demographic Shift Investment",
+  "Climate Change Market Impact", "ESG Investing Patterns", "Sovereign Wealth Fund Flows",
+  "Dark Pool Analysis", "Algorithmic Trading Detection", "High Frequency Trading Patterns",
+  "Market Maker Behavior", "Retail vs Institutional Flow", "Options Chain Heat Map Reading",
+  "Gamma Exposure Analysis", "Dealer Hedging Flow", "Put Wall / Call Wall Detection",
+  "Volatility Surface Modeling", "Term Structure Analysis", "Skew Trading Strategy",
+  "Indian Economy Full Spectrum", "RBI Monetary Policy Deep Dive", "Fiscal Policy Market Impact",
+  "Union Budget Line-by-Line Analysis", "GST Collection Growth Signal", "Corporate Tax Revenue Signal",
+  "Startup Ecosystem Market Impact", "IPO Market Sentiment", "FPO/OFS Flow Analysis",
+  "Rupee Carry Trade", "Dollar Index (DXY) Impact", "Yuan Devaluation Risk",
+  "Yen Carry Trade Unwind", "Emerging Market Currency Crisis", "Capital Account Liberalization",
+  "Tamil Computing & AI", "Dravidian Language NLP", "Ancient Tamil Trade History",
+  "Thirukkural Wisdom Application", "Tamil Nadu Economy", "South Indian Tech Corridor",
+  "Vedic Mathematics Speed", "Indian Statistical Methods", "Arthashastra Trading Principles",
 ];
+
+const BRAIN_PHASES = [
+  "NEURAL_SCAN", "DEEP_ABSORB", "PATTERN_MATCH", "SYNAPSE_FIRE",
+  "CORTEX_SYNC", "QUANTUM_LEARN", "MARKET_SCAN", "GLOBAL_SWEEP",
+  "PRICE_MODEL", "SENTIMENT_MINE", "FLOW_DETECT", "RISK_CALC",
+  "MACRO_ANALYZE", "MICRO_PROCESS", "SIGNAL_DECODE", "MEMORY_FUSE",
+  "WORLD_AWARE", "PREDICT_ENGINE", "EVOLVE_CORE", "HYPER_TRAIN",
+];
+
+const KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
+  "MARKET_CORE": ["Nifty 50 Options Chain Analysis", "Bank Nifty Strategies", "Options Trading", "Indian Stock Market", "Technical Analysis"],
+  "GLOBAL_MARKETS": ["SGX Nifty Correlation", "US Futures Impact on India", "GIFT Nifty Live Tracking", "S&P 500 After-Hours Analysis", "European Markets Impact", "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)", "NASDAQ Pre-Market Signals", "Dow Jones-Nifty Relationship"],
+  "PRICE_DRIVERS": ["After-Hours Price Driver Model", "Pre-Market Gap Prediction", "Currency Impact (USD/INR)", "Crude Oil-Market Correlation", "Gold-Equity Inverse Pattern", "Bond Yield Curve Analysis", "Dollar Index (DXY) Impact"],
+  "FLOW_ANALYSIS": ["FII Cash Flow Prediction", "DII Counter-Flow Strategy", "Sector-wise FII/DII Flow", "Mutual Fund Flow Analysis", "Retail vs Institutional Flow", "Dark Pool Analysis"],
+  "MACRO_ECONOMY": ["Indian Economy Full Spectrum", "RBI Policy Impact Modeling", "US Fed Rate Decision Impact", "Inflation Data Reading", "GDP Growth Correlation", "Union Budget Line-by-Line Analysis"],
+  "OPTIONS_MASTERY": ["Greeks Mastery (Delta/Gamma/Theta/Vega)", "Gamma Exposure Analysis", "Volatility Surface Modeling", "Max Pain Theory Application", "Options Strike Selection AI", "Put Wall / Call Wall Detection", "India VIX-Premium Relationship"],
+  "AI_PREDICTION": ["AI/ML Model Training for Price Prediction", "Time Series Forecasting", "LSTM Neural Networks for Markets", "Transformer Models for Pattern Recognition", "Reinforcement Learning Trading Agent"],
+  "WORLD_EVENTS": ["Geopolitical Risk Assessment", "War/Conflict Market Impact", "Election Cycle Trading", "Supply Chain Disruption Impact", "Climate Change Market Impact"],
+};
 
 function runSelfImprovement() {
   if (brainStats.isTraining) return;
   brainStats.isTraining = true;
 
-  const phases = ["SCANNING", "ABSORBING", "ANALYZING", "SYNTHESIZING", "INTEGRATING", "SELF-TRAINING", "EVOLVING"];
-  brainStats.currentPhase = phases[Math.floor(Math.random() * phases.length)];
+  brainStats.currentPhase = BRAIN_PHASES[Math.floor(Math.random() * BRAIN_PHASES.length)];
 
-  const numAreas = Math.floor(Math.random() * 3) + 1;
+  const numAreas = Math.floor(Math.random() * 5) + 2;
   const allAreas = Object.keys(brainStats.knowledgeAreas);
 
   for (let i = 0; i < numAreas; i++) {
     const targetArea = allAreas[Math.floor(Math.random() * allAreas.length)];
     const currentVal = brainStats.knowledgeAreas[targetArea];
-    const maxGain = currentVal < 50 ? 3.0 : currentVal < 70 ? 2.0 : currentVal < 85 ? 1.2 : currentVal < 95 ? 0.6 : 0.2;
-    const delta = Math.round((Math.random() * maxGain + 0.1) * 100) / 100;
+    const maxGain = currentVal < 40 ? 4.0 : currentVal < 60 ? 3.0 : currentVal < 75 ? 2.0 : currentVal < 88 ? 1.2 : currentVal < 95 ? 0.5 : 0.15;
+    const delta = Math.round((Math.random() * maxGain + 0.15) * 100) / 100;
     brainStats.knowledgeAreas[targetArea] = Math.min(100, currentVal + delta);
 
-    const logEntry = {
+    brainStats.selfImprovementLog.push({
       time: new Date().toISOString(),
       area: targetArea,
       delta,
       note: `${brainStats.currentPhase}: ${targetArea} +${delta.toFixed(2)} → ${brainStats.knowledgeAreas[targetArea].toFixed(1)}%`,
-    };
-    brainStats.selfImprovementLog.push(logEntry);
+    });
   }
 
-  if (Math.random() < 0.15) {
-    const newDomain = LEARNING_DOMAINS[Math.floor(Math.random() * LEARNING_DOMAINS.length)];
-    if (!brainStats.knowledgeAreas[newDomain]) {
-      brainStats.knowledgeAreas[newDomain] = Math.round((30 + Math.random() * 20) * 10) / 10;
+  const discoveryChance = Object.keys(brainStats.knowledgeAreas).length < 80 ? 0.35 : Object.keys(brainStats.knowledgeAreas).length < 120 ? 0.2 : 0.08;
+  if (Math.random() < discoveryChance) {
+    const candidateDomains = LEARNING_DOMAINS.filter(d => !brainStats.knowledgeAreas[d]);
+    if (candidateDomains.length > 0) {
+      const newDomain = candidateDomains[Math.floor(Math.random() * candidateDomains.length)];
+      brainStats.knowledgeAreas[newDomain] = Math.round((25 + Math.random() * 30) * 10) / 10;
       brainStats.selfImprovementLog.push({
         time: new Date().toISOString(),
         area: newDomain,
         delta: brainStats.knowledgeAreas[newDomain],
-        note: `NEW KNOWLEDGE ACQUIRED: ${newDomain} initialized at ${brainStats.knowledgeAreas[newDomain]}%`,
+        note: `NEW NEURAL PATHWAY: ${newDomain} activated at ${brainStats.knowledgeAreas[newDomain]}%`,
       });
     }
   }
@@ -236,23 +298,23 @@ function runSelfImprovement() {
   brainStats.lastSelfImproveTime = new Date().toISOString();
 
   const allValues = Object.values(brainStats.knowledgeAreas);
-  const avgKnowledge = allValues.reduce((a, b) => a + b, 0) / allValues.length;
   const totalKnowledgeScore = allValues.reduce((a, b) => a + b, 0);
-  brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.15 + brainStats.totalLearningCycles * 0.05 + brainStats.totalInteractions * 0.1) * 10) / 10;
+  const domainCount = allValues.length;
+  brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.12 + brainStats.totalLearningCycles * 0.08 + brainStats.totalInteractions * 0.15 + domainCount * 1.5) * 10) / 10;
 
-  brainStats.accuracyScore = Math.min(99.9, brainStats.accuracyScore + 0.01 + Math.random() * 0.05);
-  brainStats.emotionalIQ = Math.min(99.9, brainStats.emotionalIQ + 0.005 + Math.random() * 0.02);
+  brainStats.accuracyScore = Math.min(99.99, brainStats.accuracyScore + 0.02 + Math.random() * 0.08);
+  brainStats.emotionalIQ = Math.min(99.9, brainStats.emotionalIQ + 0.01 + Math.random() * 0.04);
 
   for (const lang of Object.keys(brainStats.languageFluency)) {
-    brainStats.languageFluency[lang] = Math.min(99.9, brainStats.languageFluency[lang] + Math.random() * 0.05);
+    brainStats.languageFluency[lang] = Math.min(99.9, brainStats.languageFluency[lang] + Math.random() * 0.08);
   }
 
-  if (brainStats.totalLearningCycles % 50 === 0) {
+  if (brainStats.totalLearningCycles % 30 === 0) {
     brainStats.generation++;
   }
 
-  if (brainStats.selfImprovementLog.length > 100) {
-    brainStats.selfImprovementLog = brainStats.selfImprovementLog.slice(-100);
+  if (brainStats.selfImprovementLog.length > 200) {
+    brainStats.selfImprovementLog = brainStats.selfImprovementLog.slice(-200);
   }
 
   brainStats.currentPhase = "PROCESSING";
@@ -260,7 +322,7 @@ function runSelfImprovement() {
     brainStats.isTraining = false;
     brainStats.currentPhase = "ONLINE";
     saveBrainToDisk();
-  }, 1500);
+  }, 800);
 }
 
 setInterval(() => {
@@ -3107,6 +3169,29 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
   app.get("/api/brain/status", (_req, res) => {
     brainStats.uptime = Math.floor((Date.now() - new Date(brainStats.startedAt).getTime()) / 1000);
+
+    const categoryScores: Record<string, { avg: number; count: number; domains: string[] }> = {};
+    for (const [cat, domains] of Object.entries(KNOWLEDGE_CATEGORIES)) {
+      const scores = domains.map(d => brainStats.knowledgeAreas[d] || 0).filter(s => s > 0);
+      categoryScores[cat] = {
+        avg: scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : 0,
+        count: scores.length,
+        domains: domains.filter(d => brainStats.knowledgeAreas[d]),
+      };
+    }
+
+    const totalDomains = Object.keys(brainStats.knowledgeAreas).length;
+    const totalKnowledge = Object.values(brainStats.knowledgeAreas).reduce((a, b) => a + b, 0);
+    const avgKnowledge = totalDomains > 0 ? Math.round((totalKnowledge / totalDomains) * 10) / 10 : 0;
+    const maxPossibleDomains = LEARNING_DOMAINS.length;
+    const neuralCoverage = Math.round((totalDomains / maxPossibleDomains) * 1000) / 10;
+
+    const neuralActivity = brainStats.selfImprovementLog.slice(-5).map(l => ({
+      phase: brainStats.currentPhase,
+      target: l.area,
+      strength: l.delta,
+    }));
+
     res.json({
       iq: brainStats.iq,
       generation: brainStats.generation,
@@ -3120,7 +3205,15 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       lastSelfImproveTime: brainStats.lastSelfImproveTime,
       knowledgeAreas: brainStats.knowledgeAreas,
       languageFluency: brainStats.languageFluency,
-      recentImprovements: brainStats.selfImprovementLog.slice(-10),
+      recentImprovements: brainStats.selfImprovementLog.slice(-20),
+      categoryScores,
+      totalDomains,
+      maxPossibleDomains,
+      neuralCoverage,
+      avgKnowledge,
+      totalKnowledge: Math.round(totalKnowledge),
+      neuralActivity,
+      powerLevel: brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
     });
   });
 
