@@ -613,7 +613,7 @@ function BotScreenInner() {
     updateMarketContext();
     const interval = setInterval(() => {
       updateMarketContext();
-    }, 10000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [updateMarketContext]);
 
