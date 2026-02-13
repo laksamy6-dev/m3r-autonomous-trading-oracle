@@ -120,7 +120,28 @@ Client-side integration files are in `.replit_integration_files/client/replit_in
 - **Upstox API** (fully integrated): Live trading via OAuth authentication. Provides real-time option chains, spot prices, positions, holdings, fund balance, and order placement. Access tokens expire daily — user must re-authenticate each trading day via Settings page. Environment variables: `UPSTOX_API_KEY`, `UPSTOX_SECRET_KEY`, `UPSTOX_ACCESS_TOKEN`. Backend endpoints: `/api/upstox/status`, `/api/upstox/option-chain`, `/api/upstox/profile`, `/api/upstox/positions`, `/api/upstox/holdings`, `/api/upstox/funds`, `/api/upstox/auth`, `/api/upstox/callback`, `/api/order/place`.
 - **AsyncStorage**: On-device persistence for watchlist and portfolio (no server sync).
 
+## Telegram Notification Engine
+
+Located in `server/telegram-engine.ts`, the comprehensive 24/7 notification system sends all updates to Telegram:
+
+- **Startup Notification**: Connection status, brain status, market status — sent on server boot
+- **Market Session Alerts**: Pre-Market (9:00), Market Open (9:15), Market Close (15:30) — auto-detected
+- **24/7 Market Analysis**: Every 15 minutes — Nifty prediction range, sentiment, VIX, PCR, key drivers, global indices
+- **Brain Progress Reports**: Every 1 hour — IQ, domains, top skills, recent learning, power level
+- **Token Health Checks**: Every 5 minutes — Upstox token expiry, API key status, Gemini key status
+- **Heartbeat**: Every 4 hours — system alive confirmation with all metrics
+- **Manual Triggers**: `POST /api/telegram/trigger` with `{type: "analysis"|"brain"|"token"|"heartbeat"|"all"}`
+
+Vault system (`.vault-data.json`) overrides Replit secrets for Telegram Chat ID to ensure correct delivery.
+
 ## Recent Changes (Feb 13, 2026)
+
+### Comprehensive Telegram Notification Engine
+- Built `server/telegram-engine.ts` with 6 automated notification types
+- Removed duplicate Telegram route handlers (4 duplicates cleaned up)
+- Added manual trigger endpoint `/api/telegram/trigger` for on-demand notifications
+- Vault file audit completed — fixed Telegram Chat ID (was using bot's own ID)
+- Cleaned up stale env var `TELEGRAM_CHAT_ID_CORRECT`
 
 ### M3R INFINITY v3.0 Upgrade
 - **INFINITE Learning Unlocked**: Removed ALL Math.min() caps on brain metrics — IQ, accuracy, prediction rate, creativity, consciousness, all scores grow without limit
