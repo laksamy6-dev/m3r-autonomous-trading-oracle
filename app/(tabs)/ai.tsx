@@ -484,7 +484,7 @@ export default function AIScreen() {
           <View style={s.headerDot} />
           <View>
             <Text style={s.headerTitle}>
-              CM-X <Text style={{ color: CYAN }}>JARVIS</Text>
+              M3R <Text style={{ color: CYAN }}>JARVIS</Text>
             </Text>
             <Text style={s.headerSub}>NEURAL RESEARCH LAB</Text>
           </View>
