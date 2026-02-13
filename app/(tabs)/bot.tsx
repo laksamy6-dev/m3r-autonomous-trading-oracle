@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { getApiUrl } from "@/lib/query-client";
 import { generateOptionChain, analyzeMarketBias } from "@/lib/options";
+import { fetchLiveOptionChain } from "@/lib/live-market";
 import {
   runNeuralEngine,
   NeuralEngineOutput,
@@ -319,6 +320,7 @@ function BotScreenInner() {
   const [engineOutput, setEngineOutput] = useState<NeuralEngineOutput | null>(
     null
   );
+  const [isLiveData, setIsLiveData] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("ready");
@@ -529,8 +531,9 @@ function BotScreenInner() {
     }
   }, [autoTradeMode, engineOutput, activePositions.length]);
 
-  const updateMarketContext = useCallback(() => {
-    const chain = generateOptionChain();
+  const updateMarketContext = useCallback(async () => {
+    const { chain, isLive } = await fetchLiveOptionChain();
+    setIsLiveData(isLive);
     const analysis = analyzeMarketBias(chain);
     const result = runNeuralEngine(chain);
     setEngineOutput(result);
@@ -543,7 +546,9 @@ function BotScreenInner() {
 
   useEffect(() => {
     updateMarketContext();
-    const interval = setInterval(updateMarketContext, 10000);
+    const interval = setInterval(() => {
+      updateMarketContext();
+    }, 10000);
     return () => clearInterval(interval);
   }, [updateMarketContext]);
 
@@ -784,7 +789,8 @@ function BotScreenInner() {
     }
 
     try {
-      const chain = generateOptionChain();
+      const { chain, isLive } = await fetchLiveOptionChain();
+      setIsLiveData(isLive);
       const latestEngine = runNeuralEngine(chain);
       setEngineOutput(latestEngine);
       const jarvisContext = buildJarvisContext(latestEngine);
@@ -870,7 +876,8 @@ function BotScreenInner() {
     setInput("");
     setIsStreaming(true);
 
-    const chain = generateOptionChain();
+    const { chain, isLive } = await fetchLiveOptionChain();
+    setIsLiveData(isLive);
     const latestEngine = runNeuralEngine(chain);
     setEngineOutput(latestEngine);
     const jarvisContext = buildJarvisContext(latestEngine);
