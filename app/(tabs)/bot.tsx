@@ -404,8 +404,20 @@ export default function BotScreen() {
     } catch {}
   }, []);
 
+  const handleStopSpeech = useCallback(() => {
+    stopSpeech();
+    if (soundRef.current) {
+      soundRef.current.stopAsync().catch(() => {});
+      soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    }
+    setAssistantState("idle");
+  }, []);
+
   const assistantSpeak = useCallback((text: string) => {
+    stopSpeech();
     const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+    if (!cleanText.trim()) return;
     const hasTamil = /[\u0B80-\u0BFF]/.test(cleanText);
     const lang = hasTamil ? "ta" : "en";
     setAssistantState("speaking");
@@ -970,12 +982,18 @@ export default function BotScreen() {
                     <Text style={styles.msgTime}>{msg.timestamp}</Text>
                     {msg.role === "assistant" && (
                       <Pressable
-                        onPress={() => assistantSpeak(msg.content)}
+                        onPress={() => {
+                          if (assistantState === "speaking") {
+                            handleStopSpeech();
+                          } else {
+                            assistantSpeak(msg.content);
+                          }
+                        }}
                       >
                         <Ionicons
-                          name="volume-medium"
+                          name={assistantState === "speaking" ? "stop-circle" : "volume-medium"}
                           size={14}
-                          color={CYAN}
+                          color={assistantState === "speaking" ? RED : CYAN}
                         />
                       </Pressable>
                     )}
@@ -1247,6 +1265,22 @@ export default function BotScreen() {
         )}
       </ScrollView>
 
+      {assistantState === "speaking" && (
+        <Pressable
+          onPress={handleStopSpeech}
+          style={[styles.speakingBar, { paddingBottom: Platform.OS === "web" ? 0 : 0 }]}
+        >
+          <View style={styles.speakingPulse}>
+            <Ionicons name="volume-high" size={16} color={CYAN} />
+          </View>
+          <Text style={styles.speakingText}>M3R பேசுகிறது...</Text>
+          <View style={styles.stopBtn}>
+            <Ionicons name="stop" size={14} color="#fff" />
+            <Text style={styles.stopBtnText}>STOP</Text>
+          </View>
+        </Pressable>
+      )}
+
       <View
         style={[
           styles.inputBar,
@@ -1259,7 +1293,12 @@ export default function BotScreen() {
         ]}
       >
         <Pressable
-          onPress={handleMicPress}
+          onPress={() => {
+            if (assistantState === "speaking") {
+              handleStopSpeech();
+            }
+            handleMicPress();
+          }}
           style={[
             styles.micBtn,
             assistantState === "listening" && styles.micBtnActive,
@@ -1269,9 +1308,12 @@ export default function BotScreen() {
             name={
               assistantState === "listening" ? "mic" : "mic-outline"
             }
-            size={20}
+            size={22}
             color={assistantState === "listening" ? "#fff" : CYAN}
           />
+          {assistantState === "listening" && (
+            <View style={styles.micRecordingDot} />
+          )}
         </Pressable>
         <TextInput
           placeholder="Boss, உங்க command..."
@@ -1816,19 +1858,70 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
   },
-  micBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0, 243, 255, 0.08)",
+  speakingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(0, 243, 255, 0.06)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 243, 255, 0.15)",
+    gap: 10,
+  },
+  speakingPulse: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 243, 255, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speakingText: {
+    flex: 1,
+    fontSize: 12,
+    color: CYAN,
+    fontWeight: "500",
+  },
+  stopBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(0, 243, 255, 0.2)",
+    borderColor: "rgba(239, 68, 68, 0.4)",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  stopBtnText: {
+    fontSize: 11,
+    color: RED,
+    fontWeight: "700",
+  },
+  micBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 243, 255, 0.1)",
+    borderWidth: 1.5,
+    borderColor: "rgba(0, 243, 255, 0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
   micBtnActive: {
     backgroundColor: "rgba(239, 68, 68, 0.3)",
     borderColor: RED,
+    borderWidth: 2,
+  },
+  micRecordingDot: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: RED,
   },
   textInput: {
     flex: 1,
