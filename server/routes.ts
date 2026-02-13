@@ -1303,42 +1303,6 @@ Based on this data, give me:
     res.json({ success: true });
   });
 
-  app.post("/api/telegram/send", async (req, res) => {
-    try {
-      const { message } = req.body;
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
-
-      if (!botToken || !chatId) {
-        return res.status(400).json({ error: "Telegram credentials not configured", configured: false });
-      }
-
-      const telegramRes = await globalThis.fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: message,
-            parse_mode: "Markdown",
-          }),
-        }
-      );
-
-      const data = await telegramRes.json();
-      res.json({ success: data.ok, configured: true });
-    } catch (error) {
-      console.error("Telegram error:", error);
-      res.status(500).json({ error: "Failed to send Telegram message" });
-    }
-  });
-
-  app.get("/api/telegram/status", (_req, res) => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-    res.json({ configured: !!(botToken && chatId) });
-  });
 
   app.post("/api/login-event", async (req, res) => {
     try {
@@ -2167,25 +2131,6 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     }
   });
 
-  app.post("/api/telegram/test", async (_req, res) => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-    if (!botToken || !chatId) return res.status(400).json({ error: "Not configured", configured: false });
-    try {
-      const telegramRes = await globalThis.fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: "Nifty Options Bot connected successfully! You will receive trade signals here.", parse_mode: "Markdown" }),
-        }
-      );
-      const data = await telegramRes.json();
-      res.json({ success: data.ok, configured: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to send test message" });
-    }
-  });
 
   app.get("/api/market/session", (_req, res) => {
     const now = new Date();
@@ -2225,64 +2170,6 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     });
   });
 
-  app.post("/api/telegram/alert", async (req, res) => {
-    try {
-      const { alertType, customMessage, signalData } = req.body;
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
-      if (!botToken || !chatId) return res.status(400).json({ error: "Telegram not configured" });
-
-      const now = new Date();
-      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-      const ist = new Date(utc + 5.5 * 60 * 60000);
-      const uae = new Date(utc + 4 * 60 * 60000);
-      const fmt2 = (n: number) => n.toString().padStart(2, "0");
-      const istStr = `${fmt2(ist.getHours())}:${fmt2(ist.getMinutes())}`;
-      const uaeStr = `${fmt2(uae.getHours())}:${fmt2(uae.getMinutes())}`;
-
-      let message = "";
-      switch (alertType) {
-        case "MARKET_OPEN":
-          message = `*JARVIS - Market Open*\n\nNSE is NOW OPEN\nIST: ${istStr} | UAE: ${uaeStr}\nSession: 09:15-15:30 IST / 07:45-14:00 UAE\n\nAll 20 neural formulas active, sir.`;
-          break;
-        case "MARKET_CLOSE":
-          message = `*JARVIS - Market Closed*\n\nNSE session ended\nIST: ${istStr} | UAE: ${uaeStr}\n\nNext session: Tomorrow 09:15 IST / 07:45 UAE`;
-          break;
-        case "PRE_MARKET":
-          message = `*JARVIS - Pre-Market*\n\nPre-market session active\nIST: ${istStr} | UAE: ${uaeStr}\nMarket opens at 09:15 IST / 07:45 UAE\n\nWarming up neural engine...`;
-          break;
-        case "SIGNAL":
-          if (signalData) {
-            message = `*JARVIS Trading Signal*\n\n*${signalData.action}* | Confidence: ${signalData.confidence}%\nStrike: ${signalData.strike} | Premium: Rs.${signalData.premium}\nTarget: Rs.${signalData.target} | SL: Rs.${signalData.stopLoss}\n\nEngine: ${signalData.engineVersion || "v8.0"}\n${signalData.rocketThrust ? `Rocket: ${signalData.rocketThrust}` : ""}\n${signalData.neuroWisdom ? `Brain: ${signalData.neuroWisdom}` : ""}\n\nIST: ${istStr} | UAE: ${uaeStr}`;
-          }
-          break;
-        case "SESSION_UPDATE":
-          const currentMins = ist.getHours() * 60 + ist.getMinutes();
-          const progress = Math.max(0, Math.round(((currentMins - 555) / (930 - 555)) * 100));
-          message = `*JARVIS Status*\n\nIST: ${istStr} | UAE: ${uaeStr}\nSession Progress: ${Math.min(100, progress)}%`;
-          break;
-        case "CUSTOM":
-          message = customMessage || "JARVIS alert";
-          break;
-        default:
-          message = customMessage || `JARVIS Alert\nIST: ${istStr} | UAE: ${uaeStr}`;
-      }
-
-      const telegramRes = await globalThis.fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "Markdown" }),
-        }
-      );
-      const data = await telegramRes.json();
-      res.json({ success: data.ok });
-    } catch (error) {
-      console.error("Telegram alert error:", error);
-      res.status(500).json({ error: "Failed to send alert" });
-    }
-  });
 
   let lastAlertedSession = "";
   setInterval(async () => {
