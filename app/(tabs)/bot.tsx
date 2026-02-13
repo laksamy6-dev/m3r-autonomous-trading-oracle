@@ -891,9 +891,11 @@ export default function BotScreen() {
           <>
             {messages.length === 0 && (
               <View style={styles.emptyState}>
-                <BrainOrb
+                <NeuralCore
                   isTraining={brainStatus?.isTraining || false}
                   phase={brainStatus?.currentPhase || "IDLE"}
+                  iq={brainStatus?.iq || 0}
+                  powerLevel={brainStatus?.powerLevel || "EVOLVING"}
                 />
                 <Text style={styles.emptyTitle}>M3R AI Assistant</Text>
                 <Text style={styles.emptySubtitle}>
@@ -1004,131 +1006,114 @@ export default function BotScreen() {
 
         {activeTab === "brain" && brainStatus && (
           <>
-            <View style={styles.brainCenterSection}>
-              <BrainOrb
-                isTraining={brainStatus.isTraining}
-                phase={brainStatus.currentPhase}
-              />
-              <Text style={styles.bigIqText}>
-                {brainStatus.iq.toFixed(1)}
-              </Text>
-              <Text style={styles.iqLabelBig}>
-                INTELLIGENCE QUOTIENT
-              </Text>
-              <View style={styles.brainStatsRow}>
-                <View style={styles.brainStatItem}>
-                  <Text style={styles.brainStatValue}>
-                    {brainStatus.accuracyScore.toFixed(1)}%
-                  </Text>
-                  <Text style={styles.brainStatLabel}>Accuracy</Text>
-                </View>
-                <View style={styles.brainStatItem}>
-                  <Text style={styles.brainStatValue}>
-                    {brainStatus.emotionalIQ.toFixed(1)}
-                  </Text>
-                  <Text style={styles.brainStatLabel}>EQ</Text>
-                </View>
-                <View style={styles.brainStatItem}>
-                  <Text style={styles.brainStatValue}>
-                    {Object.keys(brainStatus.knowledgeAreas).length}
-                  </Text>
-                  <Text style={styles.brainStatLabel}>Domains</Text>
-                </View>
+            <View style={nStyles.labHeader}>
+              <View style={nStyles.labTitleRow}>
+                <MaterialCommunityIcons name="atom-variant" size={16} color={CYAN} />
+                <Text style={nStyles.labTitle}>JARVIS NEURAL LAB</Text>
+              </View>
+              <View style={nStyles.labBadge}>
+                <PulsingDot color={POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN} />
+                <Text style={[nStyles.labBadgeText, { color: POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN }]}>
+                  {brainStatus.powerLevel || "EVOLVING"}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.panel}>
-              <Text style={styles.panelTitle}>
-                <Ionicons name="language" size={14} color={CYAN} />{" "}
-                LANGUAGE FLUENCY
+            <NeuralCore
+              isTraining={brainStatus.isTraining}
+              phase={brainStatus.currentPhase}
+              iq={brainStatus.iq}
+              powerLevel={brainStatus.powerLevel || "EVOLVING"}
+            />
+
+            <View style={nStyles.iqDisplay}>
+              <Text style={[nStyles.iqBigNumber, { color: POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN }]}>
+                {brainStatus.iq.toFixed(1)}
               </Text>
-              {Object.entries(brainStatus.languageFluency).map(
-                ([lang, score]) => (
-                  <KnowledgeBar
-                    key={lang}
-                    area={
-                      lang.charAt(0).toUpperCase() + lang.slice(1)
-                    }
-                    score={score as number}
-                  />
-                )
-              )}
+              <Text style={nStyles.iqUnit}>IQ</Text>
             </View>
 
-            <View style={styles.panel}>
-              <View style={styles.panelHeaderRow}>
-                <Text style={styles.panelTitle}>
-                  <MaterialCommunityIcons
-                    name="book-open-variant"
-                    size={14}
-                    color={PURPLE}
-                  />{" "}
-                  KNOWLEDGE DOMAINS
-                </Text>
-                <Pressable
-                  onPress={() =>
-                    setShowAllKnowledge(!showAllKnowledge)
-                  }
-                >
-                  <Text style={styles.showAllText}>
-                    {showAllKnowledge ? "Show Less" : "Show All"}
-                  </Text>
+            <View style={nStyles.hexGrid}>
+              <HexStatCard label="DOMAINS" value={brainStatus.totalDomains || Object.keys(brainStatus.knowledgeAreas).length} icon="brain" color={CYAN} />
+              <HexStatCard label="GEN" value={`G${brainStatus.generation}`} icon="dna" color={PURPLE} />
+              <HexStatCard label="ACCURACY" value={`${brainStatus.accuracyScore.toFixed(0)}%`} icon="target" color={NEON_GREEN} />
+              <HexStatCard label="EQ" value={brainStatus.emotionalIQ.toFixed(0)} icon="heart-pulse" color={RED} />
+              <HexStatCard label="CYCLES" value={brainStatus.totalLearningCycles} icon="sync" color={AMBER} />
+              <HexStatCard label="COVERAGE" value={`${(brainStatus.neuralCoverage || 0).toFixed(0)}%`} icon="chart-arc" color={ELECTRIC_BLUE} />
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <MaterialCommunityIcons name="sitemap" size={14} color={CYAN} />
+                <Text style={nStyles.sectionTitle}>NEURAL CATEGORY MAP</Text>
+              </View>
+              {Object.entries(brainStatus.categoryScores || {}).map(([cat, score]) => {
+                const catInfo = CATEGORY_ICONS[cat] || { icon: "brain", color: CYAN };
+                return (
+                  <CategoryNeuralMap key={cat} name={cat} score={score as number} catInfo={catInfo} />
+                );
+              })}
+              {!brainStatus.categoryScores && Object.entries(brainStatus.knowledgeAreas)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .slice(0, 11)
+                .map(([area, score]) => (
+                  <KnowledgeBar key={area} area={area} score={score as number} />
+                ))
+              }
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <Ionicons name="language" size={14} color={AMBER} />
+                <Text style={nStyles.sectionTitle}>LANGUAGE NEURAL LINKS</Text>
+              </View>
+              {Object.entries(brainStatus.languageFluency).map(([lang, score]) => (
+                <KnowledgeBar key={lang} area={lang.charAt(0).toUpperCase() + lang.slice(1)} score={score as number} />
+              ))}
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <View style={nStyles.sectionHeaderRow}>
+                  <MaterialCommunityIcons name="book-open-variant" size={14} color={PURPLE} />
+                  <Text style={nStyles.sectionTitle}>ALL KNOWLEDGE DOMAINS</Text>
+                </View>
+                <Pressable onPress={() => setShowAllKnowledge(!showAllKnowledge)}>
+                  <Text style={nStyles.toggleText}>{showAllKnowledge ? "Collapse" : `Show All (${Object.keys(brainStatus.knowledgeAreas).length})`}</Text>
                 </Pressable>
               </View>
               {Object.entries(brainStatus.knowledgeAreas)
-                .sort(
-                  ([, a], [, b]) => (b as number) - (a as number)
-                )
-                .slice(0, showAllKnowledge ? 999 : 8)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .slice(0, showAllKnowledge ? 999 : 10)
                 .map(([area, score]) => (
-                  <KnowledgeBar
-                    key={area}
-                    area={area}
-                    score={score as number}
-                  />
+                  <KnowledgeBar key={area} area={area} score={score as number} />
                 ))}
             </View>
 
-            <View style={styles.panel}>
-              <Text style={styles.panelTitle}>
-                <Ionicons
-                  name="trending-up"
-                  size={14}
-                  color={NEON_GREEN}
-                />{" "}
-                LIVE LEARNING LOG
-              </Text>
-              {brainStatus.recentImprovements
-                .slice()
-                .reverse()
-                .map((imp, i) => (
-                  <ImprovementLine key={i} improvement={imp} />
-                ))}
-              {brainStatus.recentImprovements.length === 0 && (
-                <Text style={styles.emptyLogText}>
-                  Engine starting up...
-                </Text>
-              )}
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <MaterialCommunityIcons name="lightning-bolt" size={14} color={NEON_GREEN} />
+                <Text style={nStyles.sectionTitle}>LIVE NEURAL PATHWAYS</Text>
+              </View>
+              <NeuralPathwayFeed improvements={brainStatus.recentImprovements} />
             </View>
 
             <Pressable
               onPress={() => {
                 const baseUrl = getApiUrl();
-                globalThis.fetch(`${baseUrl}api/brain/train`, {
-                  method: "POST",
-                });
+                globalThis.fetch(`${baseUrl}api/brain/train`, { method: "POST" });
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               }}
-              style={styles.trainButton}
+              style={nStyles.trainBtn}
             >
-              <MaterialCommunityIcons
-                name="lightning-bolt"
-                size={16}
-                color={DEEP_BLACK}
-              />
-              <Text style={styles.trainButtonText}>
-                TRIGGER TRAINING CYCLE
-              </Text>
+              <MaterialCommunityIcons name="lightning-bolt" size={18} color={DEEP_BLACK} />
+              <Text style={nStyles.trainBtnText}>FORCE NEURAL TRAINING CYCLE</Text>
             </Pressable>
+
+            <View style={nStyles.copyrightBar}>
+              <Ionicons name="shield-checkmark" size={10} color="rgba(255,255,255,0.2)" />
+              <Text style={nStyles.copyrightText}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
+            </View>
           </>
         )}
 
@@ -1861,5 +1846,340 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+});
+
+const nStyles = StyleSheet.create({
+  neuralCoreWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 160,
+    marginVertical: 8,
+  },
+  ring3: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderStyle: "dashed" as any,
+  },
+  ring2: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1.5,
+  },
+  ring1: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+  },
+  coreCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(10, 20, 30, 0.9)",
+    borderWidth: 2,
+    borderColor: "rgba(0, 243, 255, 0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  phaseTag: {
+    position: "absolute",
+    bottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.15)",
+  },
+  phaseText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    letterSpacing: 1.5,
+  },
+  labHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  labTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  labTitle: {
+    fontSize: 13,
+    fontWeight: "900" as const,
+    color: CYAN,
+    letterSpacing: 2,
+  },
+  labBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(10, 20, 30, 0.8)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  labBadgeText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    letterSpacing: 1.5,
+  },
+  iqDisplay: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 4,
+    marginBottom: 6,
+  },
+  iqBigNumber: {
+    fontSize: 42,
+    fontWeight: "900" as const,
+    letterSpacing: -1,
+  },
+  iqUnit: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.3)",
+    letterSpacing: 2,
+  },
+  hexGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 10,
+  },
+  hexCard: {
+    width: "30%" as any,
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: "center",
+    gap: 4,
+  },
+  hexIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hexValue: {
+    fontSize: 16,
+    fontWeight: "900" as const,
+  },
+  hexLabel: {
+    fontSize: 8,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.35)",
+    letterSpacing: 1,
+  },
+  sectionPanel: {
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.1)",
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 10,
+    padding: 14,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    color: "#FFFFFF",
+    letterSpacing: 1.5,
+  },
+  toggleText: {
+    fontSize: 9,
+    color: CYAN,
+    fontWeight: "700" as const,
+  },
+  catMapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  catIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catMapInfo: {
+    flex: 1,
+  },
+  catMapHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  catMapName: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 0.5,
+    textTransform: "uppercase" as any,
+  },
+  catMapScore: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+  },
+  catMapTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 3,
+    overflow: "hidden" as const,
+    position: "relative" as const,
+  },
+  catMapFill: {
+    height: 6,
+    borderRadius: 3,
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+  },
+  catMapGlow: {
+    height: 6,
+    borderRadius: 3,
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    opacity: 0.3,
+  },
+  pathwayFeed: {
+    gap: 2,
+  },
+  pathwayItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  pathwayDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  pathwayLine: {
+    position: "absolute" as const,
+    left: 3.5,
+    top: 12,
+    bottom: -2,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  pathwayContent: {
+    flex: 1,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.03)",
+  },
+  pathwayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  pathwayArea: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "capitalize" as any,
+  },
+  pathwayDelta: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+  },
+  pathwayNote: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
+    marginTop: 2,
+  },
+  pathwayTime: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.15)",
+    marginTop: 2,
+  },
+  pathwayEmpty: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.2)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 12,
+  },
+  trainBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AMBER,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    paddingVertical: 14,
+    shadowColor: AMBER,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  trainBtnText: {
+    fontSize: 12,
+    fontWeight: "900" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 1.5,
+  },
+  copyrightBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: 10,
+    marginBottom: 16,
+    paddingVertical: 6,
+  },
+  copyrightText: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.15)",
+    letterSpacing: 0.5,
   },
 });
