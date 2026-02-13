@@ -90,6 +90,26 @@ export function initTelegramEngine(getBrain: GetBrainStats, getTokens: GetTokenS
   console.log("[TELEGRAM ENGINE] Comprehensive notification engine STARTED");
 }
 
+export async function triggerMarketAnalysis() {
+  lastAnalysisTime = 0;
+  await runMarketAnalysis();
+}
+
+export async function triggerBrainReport() {
+  lastBrainReportTime = 0;
+  await runBrainProgressReport();
+}
+
+export async function triggerTokenCheck() {
+  lastTokenAlert = "";
+  await runTokenHealthCheck();
+}
+
+export async function triggerHeartbeat() {
+  lastHeartbeatTime = 0;
+  await runHeartbeat();
+}
+
 async function sendStartupNotification() {
   if (!isTelegramConfigured()) return;
   const ist = getIST();

@@ -37,7 +37,7 @@ import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
 import { isTelegramConfigured, sendTelegramMessage, sendTradingAlert, getBotInfo } from "./telegram";
-import { initTelegramEngine } from "./telegram-engine";
+import { initTelegramEngine, triggerMarketAnalysis, triggerBrainReport, triggerTokenCheck, triggerHeartbeat } from "./telegram-engine";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
@@ -989,6 +989,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: "M3R INFINITY v3.0 Telegram Bot Connected! 🚀\nTrading alerts will appear here.\n\n© M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN",
     });
     res.json(result);
+  });
+
+  app.post("/api/telegram/trigger", async (req, res) => {
+    const { type } = req.body;
+    try {
+      if (type === "analysis") await triggerMarketAnalysis();
+      else if (type === "brain") await triggerBrainReport();
+      else if (type === "token") await triggerTokenCheck();
+      else if (type === "heartbeat") await triggerHeartbeat();
+      else if (type === "all") {
+        await triggerMarketAnalysis();
+        await triggerBrainReport();
+        await triggerTokenCheck();
+      }
+      else return res.status(400).json({ error: "Invalid type. Use: analysis, brain, token, heartbeat, all" });
+      res.json({ ok: true, triggered: type });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/analyze", async (req, res) => {
