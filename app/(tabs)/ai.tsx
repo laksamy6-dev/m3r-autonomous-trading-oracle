@@ -193,6 +193,7 @@ export default function AIScreen() {
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
   const [tradingSummary, setTradingSummary] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [logs, setLogs] = useState<{ text: string; type: "info" | "success" | "warning" | "ai" }[]>([
     { text: "Neural Architecture v8.0 Loaded", type: "success" },
     { text: "JARVIS AI Core: ONLINE", type: "ai" },
@@ -237,6 +238,39 @@ export default function AIScreen() {
     const interval = setInterval(checkStatus, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleRefreshConnection = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    addLog("Refreshing Upstox connection...", "info");
+    try {
+      const baseUrl = getApiUrl();
+      const refreshRes = await globalThis.fetch(`${baseUrl}api/upstox/refresh-token`, { method: "POST" });
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        setUpstoxStatus({ configured: data.configured, connected: data.connected });
+        if (data.connected) {
+          addLog("UPSTOX CONNECTED - LIVE MODE ACTIVE", "success");
+          jarvisSpeak("Sir, Upstox connection refreshed successfully. Live trading mode is now active.");
+        } else if (data.configured) {
+          addLog("UPSTOX CONFIGURED - Token expired or invalid", "warning");
+          jarvisSpeak("Sir, Upstox keys are configured but the access token appears invalid. Please update the daily token.");
+        } else {
+          addLog("UPSTOX NOT CONFIGURED - Missing API keys", "warning");
+        }
+      }
+      const summaryRes = await globalThis.fetch(`${baseUrl}api/trading/summary`).catch(() => null);
+      if (summaryRes && summaryRes.ok) {
+        const summaryData = await summaryRes.json();
+        setTradingSummary(summaryData);
+      }
+    } catch (err) {
+      addLog("Failed to refresh connection", "warning");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   function jarvisSpeak(text: string) {
     if (!autoSpeak) return;
@@ -570,6 +604,21 @@ export default function AIScreen() {
             </View>
           </>
         )}
+        <View style={s.statusDivider} />
+        <Pressable
+          onPress={handleRefreshConnection}
+          style={({ pressed }) => [s.refreshBtn, pressed && { opacity: 0.6 }]}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size={10} color={CYAN} />
+          ) : (
+            <Ionicons name="refresh" size={11} color={CYAN} />
+          )}
+          <Text style={[s.statusLabel, { color: CYAN }]}>
+            {isRefreshing ? "REFRESHING..." : "REFRESH"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={s.voiceSection}>
@@ -777,6 +826,17 @@ const s = StyleSheet.create({
     width: 1,
     height: 12,
     backgroundColor: "rgba(100,116,139,0.3)",
+  },
+  refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(0,243,255,0.3)",
+    backgroundColor: "rgba(0,243,255,0.08)",
   },
   container: {
     flex: 1,
