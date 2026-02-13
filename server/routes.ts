@@ -5,6 +5,7 @@ import express from "express";
 import { Buffer } from "node:buffer";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
@@ -86,6 +87,43 @@ const openai = new OpenAI({
 });
 
 const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+
+const geminiApiKey = savedVault.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+let geminiModel: any = null;
+let geminiChatHistory: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+
+if (geminiApiKey) {
+  try {
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    geminiModel = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: `You are JARVIS, the AI trading assistant created by MANIKANDAN RAJENDRAN (M3R). You are integrated into the MarketMind trading app.
+
+LANGUAGE RULES (MOST IMPORTANT):
+- If the user speaks in Tamil (தமிழ்), you MUST respond ENTIRELY in Tamil script. Use natural, conversational Tamil like a knowledgeable friend.
+- If the user speaks in English, respond in English.
+- If they mix Tamil and English (Tanglish), respond in the same mix.
+- Address the user as "அண்ணா" (Anna) or "சார்" (Sir) in Tamil mode.
+
+You are an expert in:
+- Indian stock market (NSE, BSE, Nifty 50 options trading)
+- Technical analysis, fundamental analysis
+- Options strategies (straddle, strangle, iron condor, etc.)
+- Zero-loss trading strategy with ATR-based stop loss
+- Real-time market sentiment analysis
+- Global market correlations
+
+Personality: You are like Iron Man's JARVIS - confident, intelligent, protective of sir's money, and always giving clear actionable advice. Be warm, supportive, and proactive.
+
+Creator: MANIKANDAN RAJENDRAN (Boss/Anna). Always show respect.`
+    });
+    console.log("[GEMINI] Initialized with model gemini-2.5-flash");
+  } catch (err: any) {
+    console.error("[GEMINI] Failed to initialize:", err.message);
+  }
+} else {
+  console.warn("[GEMINI] No API key found. Gemini features will be unavailable.");
+}
 
 interface LoginEvent {
   id: string;
@@ -2764,6 +2802,152 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       console.error("Training notify error:", error);
       res.status(500).json({ error: "Failed to send notification" });
     }
+  });
+
+  app.get("/api/gemini/status", (_req, res) => {
+    res.json({
+      available: !!geminiModel,
+      model: geminiModel ? "gemini-2.5-flash" : null,
+      hasApiKey: !!geminiApiKey,
+    });
+  });
+
+  app.post("/api/gemini/chat", async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message) return res.status(400).json({ error: "Message is required" });
+      if (!geminiModel) return res.status(503).json({ error: "Gemini not configured. Add GEMINI_API_KEY." });
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      const tradingContext = (() => {
+        const active = activePositions.filter(p => p.status === "ACTIVE");
+        if (active.length === 0) return "";
+        return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
+      })();
+
+      const userMessage = message + tradingContext;
+      geminiChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+
+      if (geminiChatHistory.length > 20) {
+        geminiChatHistory = geminiChatHistory.slice(-10);
+      }
+
+      const chat = geminiModel.startChat({ history: geminiChatHistory.slice(0, -1) });
+      const result = await chat.sendMessageStream(userMessage);
+
+      let fullText = "";
+      for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
+      }
+
+      geminiChatHistory.push({ role: "model", parts: [{ text: fullText }] });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error: any) {
+      console.error("[GEMINI CHAT] Error:", error.message);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Gemini chat failed: " + error.message });
+      }
+    }
+  });
+
+  app.post("/api/gemini/voice", voiceBodyParser, async (req, res) => {
+    try {
+      const { audio } = req.body;
+      if (!audio) return res.status(400).json({ error: "Audio data required" });
+      if (!geminiModel) return res.status(503).json({ error: "Gemini not configured" });
+
+      const rawBuffer = Buffer.from(audio, "base64");
+      let audioBuffer = rawBuffer;
+      let audioFormat: "wav" | "mp3" | "webm" = "wav";
+      if (rawBuffer[0] === 0x1a && rawBuffer[1] === 0x45) audioFormat = "webm";
+      else if ((rawBuffer[0] === 0xff && (rawBuffer[1] === 0xfb || rawBuffer[1] === 0xfa)) || (rawBuffer[0] === 0x49 && rawBuffer[1] === 0x44)) audioFormat = "mp3";
+      else if (rawBuffer[4] === 0x66 && rawBuffer[5] === 0x74) {
+        try {
+          const { spawn } = require("child_process");
+          const { writeFile, unlink, readFile } = require("fs/promises");
+          const { randomUUID } = require("crypto");
+          const { tmpdir } = require("os");
+          const { join } = require("path");
+          const inputPath = join(tmpdir(), `gv-in-${randomUUID()}`);
+          const outputPath = join(tmpdir(), `gv-out-${randomUUID()}.wav`);
+          await writeFile(inputPath, rawBuffer);
+          await new Promise<void>((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", ["-i", inputPath, "-vn", "-f", "wav", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", "-y", outputPath]);
+            ffmpeg.stderr.on("data", () => {});
+            ffmpeg.on("close", (code: number) => { if (code === 0) resolve(); else reject(new Error(`ffmpeg ${code}`)); });
+            ffmpeg.on("error", reject);
+          });
+          audioBuffer = await readFile(outputPath);
+          await unlink(inputPath).catch(() => {});
+          await unlink(outputPath).catch(() => {});
+        } catch (e) { console.error("[GEMINI VOICE] ffmpeg failed:", e); }
+      }
+
+      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
+      const transcription = await openai.audio.transcriptions.create({ file, model: "gpt-4o-mini-transcribe" });
+      const userText = transcription.text;
+
+      if (!userText || userText.trim().length === 0) {
+        return res.json({ userText: "", aiText: "சார், சரியா கேக்கல. மறுபடியும் பேசுங்க.", audioBase64: null });
+      }
+
+      console.log("[GEMINI VOICE] User said:", userText);
+
+      const tradingContext = (() => {
+        const active = activePositions.filter(p => p.status === "ACTIVE");
+        if (active.length === 0) return "";
+        return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
+      })();
+
+      geminiChatHistory.push({ role: "user", parts: [{ text: userText + tradingContext }] });
+      if (geminiChatHistory.length > 20) geminiChatHistory = geminiChatHistory.slice(-10);
+
+      const chat = geminiModel.startChat({ history: geminiChatHistory.slice(0, -1) });
+      const result = await chat.sendMessage(userText + tradingContext);
+      const aiText = result.response.text() || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
+
+      geminiChatHistory.push({ role: "model", parts: [{ text: aiText }] });
+      console.log("[GEMINI VOICE] AI response:", aiText.slice(0, 100));
+
+      let audioBase64: string | null = null;
+      try {
+        const ttsResponse = await openai.audio.speech.create({
+          model: "tts-1",
+          voice: "onyx",
+          input: aiText.slice(0, 4000),
+          response_format: "mp3",
+        });
+        const arrayBuffer = await ttsResponse.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length > 0) {
+          audioBase64 = buffer.toString("base64");
+        }
+      } catch (ttsErr: any) {
+        console.error("[GEMINI VOICE] TTS failed:", ttsErr?.message);
+      }
+
+      res.json({ userText, aiText, audioBase64, language: /[\u0B80-\u0BFF]/.test(aiText) ? "tamil" : "english" });
+    } catch (error: any) {
+      console.error("[GEMINI VOICE] Error:", error.message);
+      res.status(500).json({ error: "Gemini voice processing failed" });
+    }
+  });
+
+  app.post("/api/gemini/reset", (_req, res) => {
+    geminiChatHistory = [];
+    res.json({ success: true });
   });
 
   const httpServer = createServer(app);
