@@ -8,10 +8,9 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
@@ -24,33 +23,64 @@ import Animated, {
   withSequence,
   Easing,
   withSpring,
-  interpolateColor,
 } from "react-native-reanimated";
 import { getApiUrl } from "@/lib/query-client";
 import { speak, stopSpeech } from "@/lib/speech";
 import Colors from "@/constants/colors";
 import BrandHeader from "@/components/BrandHeader";
 
-const GEMINI_BLUE = "#4285F4";
-const GEMINI_RED = "#EA4335";
-const GEMINI_YELLOW = "#FBBC05";
-const GEMINI_GREEN = "#34A853";
-const DEEP_BLACK = "#0A0A0F";
-const PANEL_BG = "rgba(15, 15, 25, 0.9)";
-const SUBTLE_BORDER = "rgba(255, 255, 255, 0.08)";
+const CYAN = "#00F3FF";
+const DEEP_BLACK = "#050508";
+const PANEL_BG = "rgba(10, 20, 30, 0.85)";
+const PANEL_BORDER = "rgba(0, 243, 255, 0.15)";
+const AMBER = "#F59E0B";
+const NEON_GREEN = "#39FF14";
+const RED = "#EF4444";
+const ELECTRIC_BLUE = "#3B82F6";
+const PURPLE = "#A855F7";
 
 interface ChatMessage {
   id: string;
-  role: "user" | "gemini";
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
 }
 
 type AssistantState = "idle" | "listening" | "thinking" | "speaking";
 
+interface BrainStatus {
+  iq: number;
+  generation: number;
+  accuracyScore: number;
+  emotionalIQ: number;
+  totalInteractions: number;
+  totalLearningCycles: number;
+  isTraining: boolean;
+  currentPhase: string;
+  uptime: number;
+  lastSelfImproveTime: string;
+  knowledgeAreas: Record<string, number>;
+  languageFluency: Record<string, number>;
+  recentImprovements: Array<{
+    time: string;
+    area: string;
+    delta: number;
+    note: string;
+  }>;
+}
+
+interface Memory {
+  id: number;
+  category: string;
+  content: string;
+  importance: number;
+  created_at: string;
+  tags: string[];
+}
+
 let msgCounter = 0;
 function genId() {
-  return "gm-" + Date.now() + "-" + ++msgCounter;
+  return "bot-" + Date.now() + "-" + ++msgCounter;
 }
 
 function getTimestamp(): string {
@@ -58,79 +88,21 @@ function getTimestamp(): string {
   return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function OrbRing({
-  size,
-  color,
-  state,
-  delay,
-}: {
-  size: number;
-  color: string;
-  state: AssistantState;
-  delay: number;
-}) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.3);
+function PulsingDot({ color }: { color: string }) {
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
-    if (state === "idle") {
-      scale.value = withRepeat(
-        withTiming(1.08, { duration: 3000 + delay, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-      opacity.value = withRepeat(
-        withTiming(0.15, { duration: 3000 + delay, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else if (state === "listening") {
-      scale.value = withRepeat(
-        withTiming(1.3 + delay * 0.0002, { duration: 800 + delay * 0.5, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-      opacity.value = withRepeat(
-        withTiming(0.5, { duration: 800 + delay * 0.5, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else if (state === "thinking") {
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(1.2, { duration: 400 + delay * 0.3, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.95, { duration: 400 + delay * 0.3, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.6, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.2, { duration: 400, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-    } else if (state === "speaking") {
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(1.12, { duration: 600 + delay * 0.4, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0, { duration: 600 + delay * 0.4, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-      opacity.value = withRepeat(
-        withTiming(0.4, { duration: 1200 + delay, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    }
-  }, [state, scale, opacity, delay]);
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, [opacity]);
 
   const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
 
@@ -138,12 +110,10 @@ function OrbRing({
     <Animated.View
       style={[
         {
-          position: "absolute",
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: 1.5,
-          borderColor: color,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: color,
         },
         animStyle,
       ]}
@@ -151,106 +121,148 @@ function OrbRing({
   );
 }
 
-function GeminiOrb({ state }: { state: AssistantState }) {
-  const pulse = useSharedValue(1);
+function BrainOrb({
+  isTraining,
+  phase,
+}: {
+  isTraining: boolean;
+  phase: string;
+}) {
+  const scale = useSharedValue(1);
+  const ringScale = useSharedValue(1);
+  const ringOpacity = useSharedValue(0.4);
 
   useEffect(() => {
-    if (state === "idle") {
-      pulse.value = withRepeat(
-        withTiming(1.04, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else if (state === "listening") {
-      pulse.value = withRepeat(
-        withTiming(1.1, { duration: 500, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else if (state === "thinking") {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 300, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.96, { duration: 300, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-    } else if (state === "speaking") {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1.06, { duration: 500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.98, { duration: 500, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-    }
-  }, [state, pulse]);
+    const duration = isTraining ? 600 : 1800;
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.06, {
+          duration,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(0.96, {
+          duration,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      false
+    );
+    ringScale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, {
+          duration: duration * 1.2,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(1.0, {
+          duration: duration * 1.2,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      false
+    );
+    ringOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.7, {
+          duration: duration * 0.8,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(0.2, {
+          duration: duration * 0.8,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      false
+    );
+  }, [isTraining, scale, ringScale, ringOpacity]);
 
-  const orbAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
+  const orbStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
   }));
 
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringScale.value }],
+    opacity: ringOpacity.value,
+  }));
+
+  const ringColor = isTraining ? AMBER : CYAN;
+
   return (
-    <View style={styles.orbWrapper}>
-      <OrbRing size={160} color={GEMINI_BLUE} state={state} delay={0} />
-      <OrbRing size={180} color={GEMINI_RED} state={state} delay={200} />
-      <OrbRing size={200} color={GEMINI_YELLOW} state={state} delay={400} />
-      <OrbRing size={220} color={GEMINI_GREEN} state={state} delay={600} />
-      <Animated.View style={[styles.orbCore, orbAnim]}>
-        <View style={styles.orbInner}>
-          <MaterialCommunityIcons name="google" size={40} color="#fff" />
-        </View>
+    <View style={styles.brainOrbContainer}>
+      <Animated.View
+        style={[
+          styles.brainOrbRing,
+          { borderColor: ringColor },
+          ringStyle,
+        ]}
+      />
+      <Animated.View style={[styles.brainOrbCore, orbStyle]}>
+        <MaterialCommunityIcons name="brain" size={36} color={CYAN} />
       </Animated.View>
+      <Text
+        style={[
+          styles.brainOrbPhase,
+          { color: isTraining ? AMBER : CYAN },
+        ]}
+      >
+        {phase}
+      </Text>
     </View>
   );
 }
 
-function WaveBar({ index, active }: { index: number; active: boolean }) {
-  const height = useSharedValue(6);
-
-  useEffect(() => {
-    if (active) {
-      const baseH = 10 + Math.random() * 26;
-      setTimeout(() => {
-        height.value = withRepeat(
-          withTiming(baseH, {
-            duration: 250 + Math.random() * 200,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          -1,
-          true
-        );
-      }, index * 60);
-    } else {
-      height.value = withTiming(6, { duration: 300 });
-    }
-  }, [active, height, index]);
-
-  const barStyle = useAnimatedStyle(() => ({
-    height: height.value,
-  }));
-
-  const colors = [GEMINI_BLUE, GEMINI_RED, GEMINI_YELLOW, GEMINI_GREEN, GEMINI_BLUE];
+function KnowledgeBar({ area, score }: { area: string; score: number }) {
+  const barColor =
+    score > 90
+      ? NEON_GREEN
+      : score > 75
+      ? CYAN
+      : score > 60
+      ? ELECTRIC_BLUE
+      : AMBER;
+  const widthPct = Math.min(100, Math.max(0, score));
 
   return (
-    <Animated.View
-      style={[
-        styles.waveBar,
-        { backgroundColor: active ? colors[index % 5] : "rgba(255,255,255,0.2)" },
-        barStyle,
-      ]}
-    />
+    <View style={styles.kbRow}>
+      <View style={styles.kbLabelRow}>
+        <Text style={styles.kbArea}>{area}</Text>
+        <Text style={[styles.kbScore, { color: barColor }]}>
+          {score.toFixed(1)}
+        </Text>
+      </View>
+      <View style={styles.kbTrack}>
+        <View
+          style={[
+            styles.kbFill,
+            { width: `${widthPct}%`, backgroundColor: barColor },
+          ]}
+        />
+      </View>
+    </View>
   );
 }
 
-function GeminiWaveform() {
+function ImprovementLine({
+  improvement,
+}: {
+  improvement: { time: string; area: string; delta: number; note: string };
+}) {
+  const deltaColor = improvement.delta > 0 ? NEON_GREEN : RED;
+  const sign = improvement.delta > 0 ? "+" : "";
+
   return (
-    <View style={styles.waveRow}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <WaveBar key={i} index={i} active={true} />
-      ))}
+    <View style={styles.impRow}>
+      <Text style={styles.impTime}>{improvement.time}</Text>
+      <Text style={styles.impArea}>{improvement.area}</Text>
+      <Text style={[styles.impDelta, { color: deltaColor }]}>
+        {sign}
+        {improvement.delta.toFixed(2)}
+      </Text>
+      <Text style={styles.impNote} numberOfLines={1}>
+        {improvement.note}
+      </Text>
     </View>
   );
 }
@@ -264,28 +276,53 @@ export default function BotScreen() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [assistantState, setAssistantState] = useState<AssistantState>("idle");
-  const [geminiAvailable, setGeminiAvailable] = useState(false);
+  const [brainStatus, setBrainStatus] = useState<BrainStatus | null>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [activeTab, setActiveTab] = useState<"chat" | "brain" | "memory">(
+    "chat"
+  );
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const soundRef = useRef<Audio.Sound | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const [showAllKnowledge, setShowAllKnowledge] = useState(false);
+  const [memoryInput, setMemoryInput] = useState("");
+  const [memoryCategory, setMemoryCategory] = useState("general");
 
   useEffect(() => {
-    const checkStatus = async () => {
+    let alive = true;
+    const poll = async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/gemini/status`);
+        const res = await globalThis.fetch(`${baseUrl}api/brain/status`);
+        if (res.ok && alive) {
+          const data = await res.json();
+          setBrainStatus(data);
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadMemories = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/brain/memory/list`);
         if (res.ok) {
           const data = await res.json();
-          setGeminiAvailable(data.available === true || data.status === "ok" || res.ok);
+          setMemories(Array.isArray(data) ? data : data.memories || []);
         }
-      } catch {
-        setGeminiAvailable(false);
-      }
+      } catch {}
     };
-    checkStatus();
+    loadMemories();
   }, []);
 
   useEffect(() => {
@@ -301,31 +338,31 @@ export default function BotScreen() {
     };
   }, []);
 
-  const geminiSpeak = useCallback(
-    (text: string) => {
-      const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
-      const hasTamil = /[\u0B80-\u0BFF]/.test(cleanText);
-      const lang = hasTamil ? "ta" : "en";
-      setAssistantState("speaking");
-      speak(
-        cleanText,
-        lang as "en" | "ta",
-        () => {
-          setAssistantState("idle");
-        },
-        () => {}
-      );
-    },
-    []
-  );
+  const refreshMemories = useCallback(async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/brain/memory/list`);
+      if (res.ok) {
+        const data = await res.json();
+        setMemories(Array.isArray(data) ? data : data.memories || []);
+      }
+    } catch {}
+  }, []);
 
-  const handleSpeakMsg = useCallback(
-    (msg: ChatMessage) => {
-      stopSpeech();
-      geminiSpeak(msg.content);
-    },
-    [geminiSpeak]
-  );
+  const assistantSpeak = useCallback((text: string) => {
+    const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+    const hasTamil = /[\u0B80-\u0BFF]/.test(cleanText);
+    const lang = hasTamil ? "ta" : "en";
+    setAssistantState("speaking");
+    speak(
+      cleanText,
+      lang as "en" | "ta",
+      () => {
+        setAssistantState("idle");
+      },
+      () => {}
+    );
+  }, []);
 
   const sendTextMessage = useCallback(
     async (text: string) => {
@@ -340,14 +377,14 @@ export default function BotScreen() {
       setIsStreaming(true);
       setAssistantState("thinking");
 
-      const geminiMsgId = genId();
-      const geminiMsg: ChatMessage = {
-        id: geminiMsgId,
-        role: "gemini",
+      const aiMsgId = genId();
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: "assistant",
         content: "",
         timestamp: getTimestamp(),
       };
-      setMessages((prev) => [...prev, geminiMsg]);
+      setMessages((prev) => [...prev, aiMsg]);
 
       let fullResponse = "";
 
@@ -388,7 +425,9 @@ export default function BotScreen() {
                   fullResponse += parsed.content;
                   setMessages((prev) =>
                     prev.map((m) =>
-                      m.id === geminiMsgId ? { ...m, content: fullResponse } : m
+                      m.id === aiMsgId
+                        ? { ...m, content: fullResponse }
+                        : m
                     )
                   );
                 }
@@ -397,22 +436,58 @@ export default function BotScreen() {
           }
         }
       } catch (err: any) {
-        fullResponse = fullResponse || "Sorry, I couldn't connect to Gemini. Please try again.";
+        fullResponse =
+          fullResponse ||
+          "Sorry, I couldn't process that. Please try again, Boss.";
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === geminiMsgId ? { ...m, content: fullResponse } : m
+            m.id === aiMsgId ? { ...m, content: fullResponse } : m
           )
         );
       } finally {
         setIsStreaming(false);
         setAssistantState("idle");
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+        setTimeout(
+          () => scrollRef.current?.scrollToEnd({ animated: true }),
+          150
+        );
         if (autoSpeak && fullResponse) {
-          geminiSpeak(fullResponse);
+          assistantSpeak(fullResponse);
         }
       }
     },
-    [isStreaming, autoSpeak, geminiSpeak]
+    [isStreaming, autoSpeak, assistantSpeak]
+  );
+
+  const handleSaveMemory = useCallback(async () => {
+    if (!memoryInput.trim()) return;
+    try {
+      const baseUrl = getApiUrl();
+      await globalThis.fetch(`${baseUrl}api/brain/memory/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: memoryInput.trim(),
+          category: memoryCategory,
+          importance: 8,
+        }),
+      });
+      setMemoryInput("");
+      refreshMemories();
+    } catch {}
+  }, [memoryInput, memoryCategory, refreshMemories]);
+
+  const handleDeleteMemory = useCallback(
+    async (id: number) => {
+      try {
+        const baseUrl = getApiUrl();
+        await globalThis.fetch(`${baseUrl}api/brain/memory/${id}`, {
+          method: "DELETE",
+        });
+        refreshMemories();
+      } catch {}
+    },
+    [refreshMemories]
   );
 
   const startRecordingNative = useCallback(async () => {
@@ -481,7 +556,9 @@ export default function BotScreen() {
       }
       mediaRecorder.onstop = async () => {
         try {
-          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const blob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
           const reader = new FileReader();
           reader.onloadend = () => {
             const result = reader.result as string;
@@ -536,7 +613,7 @@ export default function BotScreen() {
       }
 
       const data = await res.json();
-      const { userText, aiText, audioBase64, language } = data;
+      const { userText, aiText, audioBase64 } = data;
 
       if (userText) {
         setMessages((prev) => [
@@ -555,14 +632,17 @@ export default function BotScreen() {
           ...prev,
           {
             id: genId(),
-            role: "gemini" as const,
+            role: "assistant" as const,
             content: aiText,
             timestamp: getTimestamp(),
           },
         ]);
       }
 
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+      setTimeout(
+        () => scrollRef.current?.scrollToEnd({ animated: true }),
+        150
+      );
 
       if (audioBase64) {
         setAssistantState("speaking");
@@ -584,7 +664,7 @@ export default function BotScreen() {
               await soundRef.current.unloadAsync();
               soundRef.current = null;
             }
-            const uri = FileSystem.cacheDirectory + "gemini_response.mp3";
+            const uri = FileSystem.cacheDirectory + "m3r_response.mp3";
             await FileSystem.writeAsStringAsync(uri, audioBase64, {
               encoding: FileSystem.EncodingType.Base64,
             });
@@ -603,7 +683,7 @@ export default function BotScreen() {
           }
         }
       } else if (autoSpeak && aiText) {
-        geminiSpeak(aiText);
+        assistantSpeak(aiText);
       } else {
         setAssistantState("idle");
       }
@@ -613,14 +693,14 @@ export default function BotScreen() {
         ...prev,
         {
           id: genId(),
-          role: "gemini" as const,
-          content: "Sorry, voice processing failed. Please try again.",
+          role: "assistant" as const,
+          content: "Sorry Boss, voice processing failed. Please try again.",
           timestamp: getTimestamp(),
         },
       ]);
       setAssistantState("idle");
     }
-  }, [stopRecordingWeb, stopRecordingNative, autoSpeak, geminiSpeak]);
+  }, [stopRecordingWeb, stopRecordingNative, autoSpeak, assistantSpeak]);
 
   const handleMicPress = useCallback(() => {
     if (Platform.OS !== "web") {
@@ -633,15 +713,12 @@ export default function BotScreen() {
     }
   }, [assistantState, stopRecordingAndProcess, startRecording]);
 
-  const handleResetChat = useCallback(async () => {
-    try {
-      const baseUrl = getApiUrl();
-      await globalThis.fetch(`${baseUrl}api/gemini/reset`, { method: "POST" });
-    } catch {}
-    setMessages([]);
-    stopSpeech();
-    setAssistantState("idle");
-  }, []);
+  const formatUptime = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h}h ${m}m ${s}s`;
+  };
 
   return (
     <View
@@ -655,203 +732,535 @@ export default function BotScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>
-            Gemini <Text style={{ color: GEMINI_BLUE }}>Voice</Text>
+            M3R <Text style={{ color: CYAN }}>AI</Text>
           </Text>
-          <Text style={styles.subtitle}>Powered by Google Gemini</Text>
+          <Text style={styles.subtitle}>Personal Assistant</Text>
         </View>
         <View style={styles.headerRight}>
-          <Pressable
-            onPress={() => setAutoSpeak(!autoSpeak)}
-            style={styles.headerBtn}
-          >
+          <Pressable onPress={() => setAutoSpeak(!autoSpeak)}>
             <Ionicons
               name={autoSpeak ? "volume-high" : "volume-mute"}
               size={18}
-              color={autoSpeak ? GEMINI_BLUE : "rgba(255,255,255,0.35)"}
+              color={autoSpeak ? CYAN : "rgba(255,255,255,0.3)"}
             />
           </Pressable>
-          <Pressable onPress={handleResetChat} style={styles.headerBtn}>
-            <Ionicons name="refresh" size={20} color="rgba(255,255,255,0.5)" />
-          </Pressable>
+          <PulsingDot
+            color={brainStatus?.isTraining ? AMBER : NEON_GREEN}
+          />
+          <Text style={styles.phaseText}>
+            {brainStatus?.currentPhase || "OFFLINE"}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.statusBar}>
-        <View
-          style={[
-            styles.dot,
-            { backgroundColor: geminiAvailable ? GEMINI_GREEN : GEMINI_RED },
-          ]}
-        />
-        <Text style={styles.statusText}>
-          Gemini {geminiAvailable ? "Connected" : "Offline"}
-        </Text>
-        <Text style={styles.modelText}>gemini-2.5-flash</Text>
+      <View style={styles.iqBar}>
+        <View style={styles.iqItem}>
+          <FontAwesome5 name="brain" size={12} color={PURPLE} />
+          <Text style={styles.iqLabel}>IQ</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.iq?.toFixed(1) || "---"}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="git-branch" size={12} color={CYAN} />
+          <Text style={styles.iqLabel}>GEN</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.generation || 0}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="school" size={12} color={NEON_GREEN} />
+          <Text style={styles.iqLabel}>CYCLES</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.totalLearningCycles || 0}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="time" size={12} color={AMBER} />
+          <Text style={styles.iqLabel}>UPTIME</Text>
+          <Text style={styles.iqValue}>
+            {formatUptime(brainStatus?.uptime || 0)}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="chatbubbles" size={12} color={ELECTRIC_BLUE} />
+          <Text style={styles.iqLabel}>TALKS</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.totalInteractions || 0}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.tabBar}>
+        {(["chat", "brain", "memory"] as const).map((tab) => (
+          <Pressable
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            style={[
+              styles.tabBtn,
+              activeTab === tab && styles.tabBtnActive,
+            ]}
+          >
+            <Ionicons
+              name={
+                tab === "chat"
+                  ? "chatbubble-ellipses"
+                  : tab === "brain"
+                  ? "hardware-chip"
+                  : "bookmark"
+              }
+              size={14}
+              color={
+                activeTab === tab ? CYAN : "rgba(255,255,255,0.4)"
+              }
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab && styles.tabTextActive,
+              ]}
+            >
+              {tab.toUpperCase()}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         keyboardShouldPersistTaps="handled"
       >
-        {messages.length === 0 && (
-          <View style={styles.orbSection}>
-            <GeminiOrb state={assistantState} />
-            <Text style={styles.stateText}>
-              {assistantState === "idle" && "Tap the mic to start talking"}
-              {assistantState === "listening" && "Listening..."}
-              {assistantState === "thinking" && "Thinking..."}
-              {assistantState === "speaking" && "Speaking..."}
-            </Text>
-            <Text style={styles.hintText}>
-              Ask about markets, stocks, options strategy
-            </Text>
+        {activeTab === "chat" && (
+          <>
+            {messages.length === 0 && (
+              <View style={styles.emptyState}>
+                <BrainOrb
+                  isTraining={brainStatus?.isTraining || false}
+                  phase={brainStatus?.currentPhase || "IDLE"}
+                />
+                <Text style={styles.emptyTitle}>M3R AI Assistant</Text>
+                <Text style={styles.emptySubtitle}>
+                  Created by MANIKANDAN RAJENDRAN
+                </Text>
+                <Text style={styles.emptyHint}>
+                  உங்க personal assistant ready! எதையும் கேளுங்க...
+                </Text>
 
-            <View style={styles.suggestionsContainer}>
-              {[
-                "What's Nifty doing today?",
-                "Best option strategy now?",
-                "நிஃப்டி ட்ரெண்ட் சொல்லு",
-                "இன்றைய market summary",
-              ].map((q) => (
-                <Pressable
-                  key={q}
-                  onPress={() => sendTextMessage(q)}
-                  style={({ pressed }) => [
-                    styles.suggestionChip,
-                    pressed && { opacity: 0.7 },
+                <View style={styles.suggestionsGrid}>
+                  {[
+                    "நிஃப்டி ட்ரெண்ட் என்ன?",
+                    "brain status காட்டு",
+                    "என்ன கத்துக்கிட்ட?",
+                    "What should I trade today?",
+                    "Teach me iron condor",
+                    "How's your IQ growing?",
+                  ].map((q) => (
+                    <Pressable
+                      key={q}
+                      onPress={() => {
+                        setInput(q);
+                        sendTextMessage(q);
+                      }}
+                      style={styles.suggestionChip}
+                    >
+                      <Text style={styles.suggestionText}>{q}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {messages.map((msg) => (
+              <View
+                key={msg.id}
+                style={[
+                  styles.msgRow,
+                  msg.role === "user"
+                    ? styles.msgRowRight
+                    : styles.msgRowLeft,
+                ]}
+              >
+                {msg.role === "assistant" && (
+                  <View style={styles.aiAvatar}>
+                    <MaterialCommunityIcons
+                      name="brain"
+                      size={14}
+                      color={CYAN}
+                    />
+                  </View>
+                )}
+                <View
+                  style={[
+                    styles.msgBubble,
+                    msg.role === "user"
+                      ? styles.userBubble
+                      : styles.aiBubble,
                   ]}
                 >
-                  <Text style={styles.suggestionText}>{q}</Text>
-                </Pressable>
-              ))}
+                  <Text
+                    style={[
+                      styles.msgText,
+                      msg.role === "user"
+                        ? styles.userMsgText
+                        : styles.aiMsgText,
+                    ]}
+                  >
+                    {msg.content}
+                  </Text>
+                  <View style={styles.msgFooter}>
+                    <Text style={styles.msgTime}>{msg.timestamp}</Text>
+                    {msg.role === "assistant" && (
+                      <Pressable
+                        onPress={() => assistantSpeak(msg.content)}
+                      >
+                        <Ionicons
+                          name="volume-medium"
+                          size={14}
+                          color={CYAN}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+                {msg.role === "user" && (
+                  <View style={styles.userAvatar}>
+                    <FontAwesome5
+                      name="crown"
+                      size={10}
+                      color={AMBER}
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+
+            {isStreaming && (
+              <View style={styles.thinkingRow}>
+                <ActivityIndicator color={CYAN} size="small" />
+                <Text style={styles.thinkingText}>
+                  M3R AI thinking...
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === "brain" && brainStatus && (
+          <>
+            <View style={styles.brainCenterSection}>
+              <BrainOrb
+                isTraining={brainStatus.isTraining}
+                phase={brainStatus.currentPhase}
+              />
+              <Text style={styles.bigIqText}>
+                {brainStatus.iq.toFixed(1)}
+              </Text>
+              <Text style={styles.iqLabelBig}>
+                INTELLIGENCE QUOTIENT
+              </Text>
+              <View style={styles.brainStatsRow}>
+                <View style={styles.brainStatItem}>
+                  <Text style={styles.brainStatValue}>
+                    {brainStatus.accuracyScore.toFixed(1)}%
+                  </Text>
+                  <Text style={styles.brainStatLabel}>Accuracy</Text>
+                </View>
+                <View style={styles.brainStatItem}>
+                  <Text style={styles.brainStatValue}>
+                    {brainStatus.emotionalIQ.toFixed(1)}
+                  </Text>
+                  <Text style={styles.brainStatLabel}>EQ</Text>
+                </View>
+                <View style={styles.brainStatItem}>
+                  <Text style={styles.brainStatValue}>
+                    {Object.keys(brainStatus.knowledgeAreas).length}
+                  </Text>
+                  <Text style={styles.brainStatLabel}>Domains</Text>
+                </View>
+              </View>
             </View>
+
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons name="language" size={14} color={CYAN} />{" "}
+                LANGUAGE FLUENCY
+              </Text>
+              {Object.entries(brainStatus.languageFluency).map(
+                ([lang, score]) => (
+                  <KnowledgeBar
+                    key={lang}
+                    area={
+                      lang.charAt(0).toUpperCase() + lang.slice(1)
+                    }
+                    score={score as number}
+                  />
+                )
+              )}
+            </View>
+
+            <View style={styles.panel}>
+              <View style={styles.panelHeaderRow}>
+                <Text style={styles.panelTitle}>
+                  <MaterialCommunityIcons
+                    name="book-open-variant"
+                    size={14}
+                    color={PURPLE}
+                  />{" "}
+                  KNOWLEDGE DOMAINS
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    setShowAllKnowledge(!showAllKnowledge)
+                  }
+                >
+                  <Text style={styles.showAllText}>
+                    {showAllKnowledge ? "Show Less" : "Show All"}
+                  </Text>
+                </Pressable>
+              </View>
+              {Object.entries(brainStatus.knowledgeAreas)
+                .sort(
+                  ([, a], [, b]) => (b as number) - (a as number)
+                )
+                .slice(0, showAllKnowledge ? 999 : 8)
+                .map(([area, score]) => (
+                  <KnowledgeBar
+                    key={area}
+                    area={area}
+                    score={score as number}
+                  />
+                ))}
+            </View>
+
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons
+                  name="trending-up"
+                  size={14}
+                  color={NEON_GREEN}
+                />{" "}
+                LIVE LEARNING LOG
+              </Text>
+              {brainStatus.recentImprovements
+                .slice()
+                .reverse()
+                .map((imp, i) => (
+                  <ImprovementLine key={i} improvement={imp} />
+                ))}
+              {brainStatus.recentImprovements.length === 0 && (
+                <Text style={styles.emptyLogText}>
+                  Engine starting up...
+                </Text>
+              )}
+            </View>
+
+            <Pressable
+              onPress={() => {
+                const baseUrl = getApiUrl();
+                globalThis.fetch(`${baseUrl}api/brain/train`, {
+                  method: "POST",
+                });
+              }}
+              style={styles.trainButton}
+            >
+              <MaterialCommunityIcons
+                name="lightning-bolt"
+                size={16}
+                color={DEEP_BLACK}
+              />
+              <Text style={styles.trainButtonText}>
+                TRIGGER TRAINING CYCLE
+              </Text>
+            </Pressable>
+          </>
+        )}
+
+        {activeTab === "brain" && !brainStatus && (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={CYAN} size="large" />
+            <Text style={styles.emptyHint}>
+              Connecting to Brain Engine...
+            </Text>
           </View>
         )}
 
-        {messages.map((msg) => (
-          <View
-            key={msg.id}
-            style={[
-              styles.msgRow,
-              msg.role === "user" ? styles.msgRowRight : styles.msgRowLeft,
-            ]}
-          >
-            {msg.role === "gemini" && (
-              <View style={styles.geminiAvatar}>
-                <MaterialCommunityIcons
-                  name="google"
-                  size={14}
-                  color={GEMINI_BLUE}
+        {activeTab === "memory" && (
+          <>
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons name="bookmark" size={14} color={AMBER} />{" "}
+                PERMANENT MEMORY
+              </Text>
+              <Text style={styles.memoryHint}>
+                Boss says = I remember FOREVER
+              </Text>
+
+              <View style={styles.memoryInputRow}>
+                <TextInput
+                  placeholder="Tell me to remember something..."
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={memoryInput}
+                  onChangeText={setMemoryInput}
+                  style={styles.memoryTextInput}
+                  multiline
                 />
               </View>
-            )}
-            <View
-              style={[
-                styles.msgBubble,
-                msg.role === "user" ? styles.userBubble : styles.geminiBubble,
-              ]}
-            >
-              <Text
+              <View style={styles.memoryActionsRow}>
+                {[
+                  "general",
+                  "trading",
+                  "personal",
+                  "rules",
+                  "important",
+                ].map((cat) => (
+                  <Pressable
+                    key={cat}
+                    onPress={() => setMemoryCategory(cat)}
+                    style={[
+                      styles.catChip,
+                      memoryCategory === cat &&
+                        styles.catChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        memoryCategory === cat &&
+                          styles.catChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable
+                onPress={handleSaveMemory}
+                disabled={!memoryInput.trim()}
                 style={[
-                  styles.msgText,
-                  msg.role === "user" ? styles.userText : styles.geminiText,
+                  styles.saveMemoryBtn,
+                  !memoryInput.trim() && { opacity: 0.3 },
                 ]}
               >
-                {msg.content}
-              </Text>
-              <View style={styles.msgFooter}>
-                <Text style={styles.msgTime}>{msg.timestamp}</Text>
-                {msg.role === "gemini" && (
-                  <Pressable onPress={() => handleSpeakMsg(msg)}>
-                    <Ionicons
-                      name="volume-medium"
-                      size={14}
-                      color={GEMINI_BLUE}
-                    />
-                  </Pressable>
-                )}
-              </View>
+                <Ionicons name="save" size={14} color={DEEP_BLACK} />
+                <Text style={styles.saveMemoryBtnText}>
+                  SAVE TO PERMANENT MEMORY
+                </Text>
+              </Pressable>
             </View>
-            {msg.role === "user" && (
-              <View style={styles.userAvatar}>
-                <Ionicons name="person" size={14} color="#60A5FA" />
-              </View>
-            )}
-          </View>
-        ))}
 
-        {isStreaming && (
-          <View style={styles.thinkingIndicator}>
-            <ActivityIndicator color={GEMINI_BLUE} size="small" />
-            <Text style={styles.thinkingText}>Gemini is thinking...</Text>
-          </View>
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons name="server" size={14} color={CYAN} />{" "}
+                STORED MEMORIES ({memories.length})
+              </Text>
+              {memories.map((mem) => (
+                <View key={mem.id} style={styles.memoryItem}>
+                  <View style={styles.memoryItemHeader}>
+                    <View
+                      style={[
+                        styles.memCatBadge,
+                        {
+                          backgroundColor:
+                            mem.category === "trading"
+                              ? "rgba(0,243,255,0.2)"
+                              : mem.category === "important"
+                              ? "rgba(239,68,68,0.2)"
+                              : mem.category === "rules"
+                              ? "rgba(245,158,11,0.2)"
+                              : "rgba(255,255,255,0.1)",
+                        },
+                      ]}
+                    >
+                      <Text style={styles.memCatText}>
+                        {mem.category}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handleDeleteMemory(mem.id)}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={14}
+                        color="rgba(255,255,255,0.3)"
+                      />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.memContent}>
+                    {mem.content}
+                  </Text>
+                  <Text style={styles.memDate}>
+                    {new Date(mem.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+              ))}
+              {memories.length === 0 && (
+                <Text style={styles.emptyMemText}>
+                  No memories saved yet. Tell me what to remember!
+                </Text>
+              )}
+            </View>
+          </>
         )}
       </ScrollView>
 
-      {assistantState === "listening" && (
-        <View style={styles.waveContainer}>
-          <GeminiWaveform />
-        </View>
-      )}
-
       <View
         style={[
-          styles.bottomControls,
+          styles.inputBar,
           {
             paddingBottom:
               Platform.OS === "web"
                 ? webBottomInset + 8
-                : Math.max(insets.bottom, 8),
+                : insets.bottom + 8,
           },
         ]}
       >
-        <View style={styles.inputRow}>
-          <TextInput
-            placeholder="Type a message..."
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={() => {
-              if (input.trim()) {
-                sendTextMessage(input);
-                setInput("");
-              }
-            }}
-            style={styles.textInput}
-            returnKeyType="send"
+        <Pressable
+          onPress={handleMicPress}
+          style={[
+            styles.micBtn,
+            assistantState === "listening" && styles.micBtnActive,
+          ]}
+        >
+          <Ionicons
+            name={
+              assistantState === "listening" ? "mic" : "mic-outline"
+            }
+            size={20}
+            color={assistantState === "listening" ? "#fff" : CYAN}
           />
-          {input.trim() ? (
-            <Pressable
-              onPress={() => {
-                sendTextMessage(input);
-                setInput("");
-              }}
-              style={({ pressed }) => [
-                styles.sendBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Ionicons name="send" size={20} color={GEMINI_BLUE} />
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleMicPress}
-              style={({ pressed }) => [
-                styles.micButton,
-                assistantState === "listening" && styles.micButtonActive,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Ionicons
-                name={assistantState === "listening" ? "mic" : "mic-outline"}
-                size={24}
-                color={assistantState === "listening" ? "#fff" : GEMINI_BLUE}
-              />
-            </Pressable>
-          )}
-        </View>
+        </Pressable>
+        <TextInput
+          placeholder="Boss, உங்க command..."
+          placeholderTextColor="rgba(0,243,255,0.25)"
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={() => {
+            if (input.trim()) {
+              sendTextMessage(input);
+              setInput("");
+            }
+          }}
+          style={styles.textInput}
+        />
+        <Pressable
+          onPress={() => {
+            if (input.trim()) {
+              sendTextMessage(input);
+              setInput("");
+            }
+          }}
+          disabled={!input.trim()}
+          style={styles.sendBtn}
+        >
+          <Ionicons
+            name="send"
+            size={18}
+            color={input.trim() ? CYAN : "rgba(255,255,255,0.15)"}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -867,260 +1276,535 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700" as const,
-    color: "#fff",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
   subtitle: {
     fontSize: 11,
     color: "rgba(255,255,255,0.4)",
-    marginTop: 2,
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
-  headerBtn: {
-    padding: 4,
+  phaseText: {
+    fontSize: 9,
+    color: CYAN,
+    fontWeight: "700" as const,
+    letterSpacing: 1,
+    textTransform: "uppercase" as const,
   },
-  statusBar: {
+  iqBar: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(0, 243, 255, 0.04)",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: PANEL_BORDER,
+  },
+  iqItem: {
+    alignItems: "center",
+    gap: 2,
+  },
+  iqLabel: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: "600" as const,
+    letterSpacing: 0.5,
+  },
+  iqValue: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: PANEL_BORDER,
+  },
+  tabBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: SUBTLE_BORDER,
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  tabBtnActive: {
+    borderBottomColor: CYAN,
   },
-  statusText: {
+  tabText: {
     fontSize: 11,
-    color: "rgba(255,255,255,0.5)",
-  },
-  modelText: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.3)",
-    marginLeft: "auto",
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  orbSection: {
-    alignItems: "center",
-    paddingTop: 40,
-    paddingBottom: 20,
-  },
-  orbWrapper: {
-    width: 220,
-    height: 220,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  orbCore: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#1a237e",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: GEMINI_BLUE,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  orbInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(66, 133, 244, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.3)",
-  },
-  stateText: {
-    fontSize: 16,
-    color: "#fff",
     fontWeight: "600" as const,
-    marginTop: 20,
-    textAlign: "center",
+    color: "rgba(255,255,255,0.4)",
+    letterSpacing: 0.5,
   },
-  hintText: {
+  tabTextActive: {
+    color: CYAN,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 30,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
+  },
+  emptyHint: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.35)",
-    marginTop: 6,
-    textAlign: "center",
+    color: "rgba(0,243,255,0.5)",
+    marginTop: 8,
+    textAlign: "center" as const,
   },
-  suggestionsContainer: {
+  suggestionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    marginTop: 24,
-    paddingHorizontal: 16,
     gap: 8,
+    marginTop: 20,
+    paddingHorizontal: 10,
   },
   suggestionChip: {
-    backgroundColor: "rgba(66, 133, 244, 0.08)",
+    backgroundColor: "rgba(0, 243, 255, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.2)",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: "rgba(0, 243, 255, 0.15)",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   suggestionText: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 11,
+    color: CYAN,
   },
   msgRow: {
     flexDirection: "row",
-    paddingHorizontal: 12,
-    marginVertical: 4,
     alignItems: "flex-end",
+    paddingHorizontal: 12,
+    marginVertical: 3,
     gap: 6,
-  },
-  msgRowLeft: {
-    justifyContent: "flex-start",
   },
   msgRowRight: {
     justifyContent: "flex-end",
   },
-  geminiAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(66, 133, 244, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(96, 165, 250, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(96, 165, 250, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  msgRowLeft: {
+    justifyContent: "flex-start",
   },
   msgBubble: {
-    maxWidth: "72%",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: "75%",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   userBubble: {
-    backgroundColor: "rgba(66, 133, 244, 0.15)",
+    backgroundColor: "rgba(59, 130, 246, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.2)",
+    borderColor: "rgba(59, 130, 246, 0.25)",
     borderBottomRightRadius: 4,
   },
-  geminiBubble: {
+  aiBubble: {
     backgroundColor: PANEL_BG,
     borderWidth: 1,
-    borderColor: SUBTLE_BORDER,
+    borderColor: PANEL_BORDER,
     borderBottomLeftRadius: 4,
   },
   msgText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
   },
-  userText: {
-    color: "#E0E7FF",
+  userMsgText: {
+    color: "#FFFFFF",
   },
-  geminiText: {
-    color: "rgba(255,255,255,0.85)",
+  aiMsgText: {
+    color: "rgba(255,255,255,0.9)",
   },
   msgFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 4,
     gap: 8,
   },
   msgTime: {
-    fontSize: 10,
+    fontSize: 9,
     color: "rgba(255,255,255,0.25)",
   },
-  thinkingIndicator: {
+  aiAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0, 243, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thinkingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   thinkingText: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    color: CYAN,
+    fontStyle: "italic" as const,
   },
-  waveContainer: {
+  brainOrbContainer: {
     alignItems: "center",
+    justifyContent: "center",
+    width: 120,
+    height: 130,
+    alignSelf: "center" as const,
+  },
+  brainOrbRing: {
+    position: "absolute" as const,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+  },
+  brainOrbCore: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(0, 243, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brainOrbPhase: {
+    fontSize: 8,
+    fontWeight: "700" as const,
+    letterSpacing: 1,
+    marginTop: 6,
+    textTransform: "uppercase" as const,
+  },
+  brainCenterSection: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  bigIqText: {
+    fontSize: 38,
+    fontWeight: "800" as const,
+    color: CYAN,
+    marginTop: 8,
+    letterSpacing: 1,
+  },
+  iqLabelBig: {
+    fontSize: 10,
+    fontWeight: "600" as const,
+    color: "rgba(255,255,255,0.35)",
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  brainStatsRow: {
+    flexDirection: "row",
+    gap: 24,
+    marginTop: 16,
+  },
+  brainStatItem: {
+    alignItems: "center",
+  },
+  brainStatValue: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+  },
+  brainStatLabel: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  panel: {
+    backgroundColor: PANEL_BG,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 14,
+  },
+  panelTitle: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  panelHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  showAllText: {
+    fontSize: 10,
+    color: CYAN,
+    fontWeight: "600" as const,
+  },
+  kbRow: {
+    marginBottom: 8,
+  },
+  kbLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 3,
+  },
+  kbArea: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "capitalize" as const,
+  },
+  kbScore: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+  },
+  kbTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 3,
+    overflow: "hidden" as const,
+  },
+  kbFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  impRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  impTime: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.25)",
+    width: 50,
+  },
+  impArea: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "600" as const,
+    width: 70,
+    textTransform: "capitalize" as const,
+  },
+  impDelta: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    width: 40,
+  },
+  impNote: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
+    flex: 1,
+  },
+  emptyLogText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.25)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 10,
+  },
+  trainButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AMBER,
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 8,
     paddingVertical: 12,
   },
-  waveRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    height: 40,
+  trainButtonText: {
+    fontSize: 12,
+    fontWeight: "800" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 1,
   },
-  waveBar: {
-    width: 4,
-    borderRadius: 2,
-    minHeight: 6,
+  memoryHint: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.35)",
+    fontStyle: "italic" as const,
+    marginBottom: 10,
   },
-  bottomControls: {
-    borderTopWidth: 1,
-    borderTopColor: SUBTLE_BORDER,
-    backgroundColor: "rgba(10, 10, 15, 0.95)",
+  memoryInputRow: {
+    marginBottom: 10,
+  },
+  memoryTextInput: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    color: "#FFFFFF",
+    fontSize: 13,
     paddingHorizontal: 12,
-    paddingTop: 10,
+    paddingVertical: 10,
+    minHeight: 60,
+    textAlignVertical: "top" as const,
   },
-  inputRow: {
+  memoryActionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 10,
+  },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  catChipActive: {
+    backgroundColor: "rgba(0, 243, 255, 0.15)",
+    borderColor: CYAN,
+  },
+  catChipText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: "600" as const,
+    textTransform: "capitalize" as const,
+  },
+  catChipTextActive: {
+    color: CYAN,
+  },
+  saveMemoryBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: CYAN,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  saveMemoryBtnText: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 0.5,
+  },
+  memoryItem: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+  },
+  memoryItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  memCatBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  memCatText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+  },
+  memContent: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 17,
+  },
+  memDate: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.2)",
+    marginTop: 6,
+  },
+  emptyMemText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.25)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 16,
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingTop: 8,
     gap: 8,
+    backgroundColor: "rgba(5, 5, 8, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: PANEL_BORDER,
+  },
+  micBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 243, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micBtnActive: {
+    backgroundColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: RED,
   },
   textInput: {
     flex: 1,
-    height: 44,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    color: "#fff",
-    fontSize: 14,
+    height: 40,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
-    borderColor: SUBTLE_BORDER,
+    borderColor: "rgba(0, 243, 255, 0.1)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    color: "#FFFFFF",
+    fontSize: 13,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(66, 133, 244, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.3)",
-  },
-  micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: GEMINI_BLUE,
-    backgroundColor: "transparent",
-  },
-  micButtonActive: {
-    backgroundColor: GEMINI_RED,
-    borderColor: GEMINI_RED,
   },
 });

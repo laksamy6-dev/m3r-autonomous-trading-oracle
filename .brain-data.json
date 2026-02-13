@@ -1,645 +1,659 @@
 {
-  "iq": 329.3,
-  "generation": 2,
+  "iq": 448.7,
+  "generation": 4,
   "knowledgeAreas": {
-    "Indian Stock Market": 89.83999999999999,
-    "Options Trading": 87.82999999999998,
-    "Technical Analysis": 87.46000000000001,
-    "Tamil Language": 93.58000000000001,
-    "English Language": 96.09,
-    "General Knowledge": 81.3,
-    "Science & Technology": 86.49000000000002,
-    "Mathematics": 86.77000000000001,
-    "Programming": 87.28000000000002,
-    "Current Affairs": 74.25000000000001,
-    "Philosophy": 68.05,
-    "Health & Fitness": 68.25,
-    "Music & Arts": 58.86,
-    "History": 75.68,
-    "Geography": 72.34999999999998,
-    "RSI Divergence Patterns": 52.11,
-    "PCR Ratio Signals": 34.78,
-    "Strategic Thinking": 35.9,
-    "Volatility Skew Reading": 50.66,
-    "Hedge Fund Techniques": 41.53,
-    "Portfolio Optimization": 44.5,
-    "Nutrition Science": 34.76
+    "Indian Stock Market": 92.57,
+    "Options Trading": 91.89999999999999,
+    "Technical Analysis": 89.61,
+    "Tamil Language": 96.13,
+    "English Language": 98.01000000000002,
+    "General Knowledge": 85.78,
+    "Science & Technology": 90.95000000000003,
+    "Mathematics": 88.02000000000001,
+    "Programming": 92.07000000000004,
+    "Current Affairs": 76.00000000000003,
+    "Philosophy": 72.99999999999999,
+    "Health & Fitness": 75.35999999999999,
+    "Music & Arts": 63.59000000000001,
+    "History": 81.52000000000002,
+    "Geography": 77.67,
+    "RSI Divergence Patterns": 53.67,
+    "PCR Ratio Signals": 35.02,
+    "Strategic Thinking": 44.769999999999996,
+    "Volatility Skew Reading": 57.65,
+    "Hedge Fund Techniques": 52.06,
+    "Portfolio Optimization": 56.349999999999994,
+    "Nutrition Science": 48.74999999999999,
+    "MACD Signal Interpretation": 54.06,
+    "Emotional Control": 39.019999999999996,
+    "Monte Carlo Simulation": 53.23,
+    "Straddle/Strangle Timing": 53.260000000000005,
+    "Neural Network Patterns": 44.46,
+    "Quantum Computing": 45.6,
+    "News Impact Prediction": 49.209999999999994,
+    "Tamil Grammar": 42.400000000000006,
+    "Mental Wellness": 56.2,
+    "Order Flow Reading": 53.74000000000001,
+    "Machine Learning for Trading": 43.56,
+    "Nifty 50 Options Chain Analysis": 33.3,
+    "FII/DII Data Analysis": 46.06,
+    "Psychology of Trading": 39.8
   },
   "totalInteractions": 0,
-  "totalLearningCycles": 61,
+  "totalLearningCycles": 150,
   "lastTrainingTime": "2026-02-13T10:18:27.627Z",
-  "lastSelfImproveTime": "2026-02-13T10:25:05.463Z",
-  "accuracyScore": 89.61753844213605,
-  "emotionalIQ": 78.88778011432778,
+  "lastSelfImproveTime": "2026-02-13T10:32:42.131Z",
+  "accuracyScore": 92.69902423470815,
+  "emotionalIQ": 80.2347284968855,
   "languageFluency": {
-    "tamil": 89.28336323951774,
-    "english": 96.3768796749013,
-    "tanglish": 83.3819303600572
+    "tamil": 91.52673297906674,
+    "english": 98.26529509704059,
+    "tanglish": 85.83863099872498
   },
   "selfImprovementLog": [
     {
-      "time": "2026-02-13T10:21:03.848Z",
+      "time": "2026-02-13T10:28:45.504Z",
+      "area": "RSI Divergence Patterns",
+      "delta": 0.18,
+      "note": "EVOLVING: RSI Divergence Patterns +0.18 → 56.8%"
+    },
+    {
+      "time": "2026-02-13T10:28:50.505Z",
+      "area": "Strategic Thinking",
+      "delta": 1.72,
+      "note": "SCANNING: Strategic Thinking +1.72 → 42.2%"
+    },
+    {
+      "time": "2026-02-13T10:28:55.505Z",
       "area": "Mathematics",
-      "delta": 0.26,
-      "note": "SELF-TRAINING: Mathematics +0.26 → 85.3%"
+      "delta": 0.29,
+      "note": "SELF-TRAINING: Mathematics +0.29 → 88.3%"
     },
     {
-      "time": "2026-02-13T10:21:08.850Z",
+      "time": "2026-02-13T10:28:55.505Z",
+      "area": "Nutrition Science",
+      "delta": 2.91,
+      "note": "SELF-TRAINING: Nutrition Science +2.91 → 43.6%"
+    },
+    {
+      "time": "2026-02-13T10:28:55.505Z",
       "area": "Technical Analysis",
-      "delta": 0.61,
-      "note": "ANALYZING: Technical Analysis +0.61 → 82.6%"
+      "delta": 0.59,
+      "note": "SELF-TRAINING: Technical Analysis +0.59 → 89.0%"
     },
     {
-      "time": "2026-02-13T10:21:08.850Z",
-      "area": "Technical Analysis",
-      "delta": 1.3,
-      "note": "ANALYZING: Technical Analysis +1.30 → 83.9%"
+      "time": "2026-02-13T10:29:00.506Z",
+      "area": "Science & Technology",
+      "delta": 0.63,
+      "note": "ABSORBING: Science & Technology +0.63 → 88.3%"
     },
     {
-      "time": "2026-02-13T10:21:08.850Z",
-      "area": "History",
-      "delta": 1.1,
-      "note": "ANALYZING: History +1.10 → 73.3%"
-    },
-    {
-      "time": "2026-02-13T10:21:13.851Z",
-      "area": "Health & Fitness",
-      "delta": 1.06,
-      "note": "SELF-TRAINING: Health & Fitness +1.06 → 63.0%"
-    },
-    {
-      "time": "2026-02-13T10:21:18.852Z",
-      "area": "Technical Analysis",
-      "delta": 0.15,
-      "note": "SELF-TRAINING: Technical Analysis +0.15 → 84.1%"
-    },
-    {
-      "time": "2026-02-13T10:21:18.852Z",
+      "time": "2026-02-13T10:29:05.505Z",
       "area": "Current Affairs",
-      "delta": 0.83,
-      "note": "SELF-TRAINING: Current Affairs +0.83 → 70.8%"
+      "delta": 0.49,
+      "note": "INTEGRATING: Current Affairs +0.49 → 76.6%"
     },
     {
-      "time": "2026-02-13T10:21:23.853Z",
-      "area": "History",
-      "delta": 1.06,
-      "note": "SYNTHESIZING: History +1.06 → 74.3%"
-    },
-    {
-      "time": "2026-02-13T10:21:28.854Z",
-      "area": "History",
-      "delta": 0.36,
-      "note": "INTEGRATING: History +0.36 → 74.7%"
-    },
-    {
-      "time": "2026-02-13T10:21:28.854Z",
-      "area": "Music & Arts",
-      "delta": 1.69,
-      "note": "INTEGRATING: Music & Arts +1.69 → 56.7%"
-    },
-    {
-      "time": "2026-02-13T10:21:28.854Z",
-      "area": "English Language",
-      "delta": 0.23,
-      "note": "INTEGRATING: English Language +0.23 → 95.2%"
-    },
-    {
-      "time": "2026-02-13T10:21:33.854Z",
-      "area": "Technical Analysis",
-      "delta": 0.91,
-      "note": "ABSORBING: Technical Analysis +0.91 → 85.0%"
-    },
-    {
-      "time": "2026-02-13T10:21:33.854Z",
-      "area": "Current Affairs",
-      "delta": 0.24,
-      "note": "ABSORBING: Current Affairs +0.24 → 71.1%"
-    },
-    {
-      "time": "2026-02-13T10:21:33.854Z",
-      "area": "Tamil Language",
-      "delta": 0.59,
-      "note": "ABSORBING: Tamil Language +0.59 → 91.0%"
-    },
-    {
-      "time": "2026-02-13T10:21:38.855Z",
-      "area": "Technical Analysis",
-      "delta": 0.34,
-      "note": "SCANNING: Technical Analysis +0.34 → 85.3%"
-    },
-    {
-      "time": "2026-02-13T10:21:38.855Z",
-      "area": "PCR Ratio Signals",
-      "delta": 32,
-      "note": "NEW KNOWLEDGE ACQUIRED: PCR Ratio Signals initialized at 32%"
-    },
-    {
-      "time": "2026-02-13T10:21:43.856Z",
-      "area": "Programming",
-      "delta": 0.86,
-      "note": "ABSORBING: Programming +0.86 → 85.1%"
-    },
-    {
-      "time": "2026-02-13T10:21:43.856Z",
-      "area": "Programming",
-      "delta": 0.15,
-      "note": "ABSORBING: Programming +0.15 → 85.2%"
-    },
-    {
-      "time": "2026-02-13T10:21:48.857Z",
-      "area": "General Knowledge",
-      "delta": 0.44,
-      "note": "INTEGRATING: General Knowledge +0.44 → 79.7%"
-    },
-    {
-      "time": "2026-02-13T10:21:53.858Z",
+      "time": "2026-02-13T10:29:10.507Z",
       "area": "Mathematics",
-      "delta": 0.59,
-      "note": "ABSORBING: Mathematics +0.59 → 85.9%"
-    },
-    {
-      "time": "2026-02-13T10:21:53.858Z",
-      "area": "RSI Divergence Patterns",
-      "delta": 2.49,
-      "note": "ABSORBING: RSI Divergence Patterns +2.49 → 44.9%"
-    },
-    {
-      "time": "2026-02-13T10:21:58.859Z",
-      "area": "Indian Stock Market",
-      "delta": 0.69,
-      "note": "ABSORBING: Indian Stock Market +0.69 → 88.8%"
-    },
-    {
-      "time": "2026-02-13T10:21:58.859Z",
-      "area": "Music & Arts",
-      "delta": 0.91,
-      "note": "ABSORBING: Music & Arts +0.91 → 57.6%"
-    },
-    {
-      "time": "2026-02-13T10:22:03.860Z",
-      "area": "Programming",
-      "delta": 0.61,
-      "note": "EVOLVING: Programming +0.61 → 85.8%"
-    },
-    {
-      "time": "2026-02-13T10:22:08.861Z",
-      "area": "Programming",
-      "delta": 0.2,
-      "note": "INTEGRATING: Programming +0.20 → 86.0%"
-    },
-    {
-      "time": "2026-02-13T10:22:13.862Z",
-      "area": "Technical Analysis",
-      "delta": 0.45,
-      "note": "INTEGRATING: Technical Analysis +0.45 → 85.8%"
-    },
-    {
-      "time": "2026-02-13T10:22:18.863Z",
-      "area": "Science & Technology",
-      "delta": 1.03,
-      "note": "SELF-TRAINING: Science & Technology +1.03 → 82.9%"
-    },
-    {
-      "time": "2026-02-13T10:22:18.863Z",
-      "area": "Programming",
-      "delta": 0.15,
-      "note": "SELF-TRAINING: Programming +0.15 → 86.2%"
-    },
-    {
-      "time": "2026-02-13T10:22:23.864Z",
-      "area": "Health & Fitness",
-      "delta": 1.45,
-      "note": "INTEGRATING: Health & Fitness +1.45 → 64.5%"
-    },
-    {
-      "time": "2026-02-13T10:22:23.864Z",
-      "area": "English Language",
-      "delta": 0.23,
-      "note": "INTEGRATING: English Language +0.23 → 95.5%"
-    },
-    {
-      "time": "2026-02-13T10:22:28.864Z",
-      "area": "General Knowledge",
-      "delta": 0.75,
-      "note": "SYNTHESIZING: General Knowledge +0.75 → 80.5%"
-    },
-    {
-      "time": "2026-02-13T10:22:33.864Z",
-      "area": "Options Trading",
-      "delta": 0.55,
-      "note": "ANALYZING: Options Trading +0.55 → 86.3%"
-    },
-    {
-      "time": "2026-02-13T10:22:33.864Z",
-      "area": "RSI Divergence Patterns",
-      "delta": 2.54,
-      "note": "ANALYZING: RSI Divergence Patterns +2.54 → 47.4%"
-    },
-    {
-      "time": "2026-02-13T10:22:38.865Z",
-      "area": "Indian Stock Market",
-      "delta": 0.27,
-      "note": "ABSORBING: Indian Stock Market +0.27 → 89.1%"
-    },
-    {
-      "time": "2026-02-13T10:22:38.865Z",
-      "area": "Programming",
-      "delta": 0.23,
-      "note": "ABSORBING: Programming +0.23 → 86.4%"
-    },
-    {
-      "time": "2026-02-13T10:22:38.865Z",
-      "area": "Tamil Language",
-      "delta": 0.47,
-      "note": "ABSORBING: Tamil Language +0.47 → 91.5%"
-    },
-    {
-      "time": "2026-02-13T10:22:43.866Z",
-      "area": "Mathematics",
-      "delta": 0.44,
-      "note": "ANALYZING: Mathematics +0.44 → 86.3%"
-    },
-    {
-      "time": "2026-02-13T10:22:43.866Z",
-      "area": "Tamil Language",
-      "delta": 0.39,
-      "note": "ANALYZING: Tamil Language +0.39 → 91.8%"
-    },
-    {
-      "time": "2026-02-13T10:22:43.866Z",
-      "area": "Programming",
-      "delta": 0.25,
-      "note": "ANALYZING: Programming +0.25 → 86.7%"
-    },
-    {
-      "time": "2026-02-13T10:22:48.867Z",
-      "area": "Technical Analysis",
-      "delta": 0.22,
-      "note": "INTEGRATING: Technical Analysis +0.22 → 86.0%"
-    },
-    {
-      "time": "2026-02-13T10:22:53.866Z",
-      "area": "Science & Technology",
-      "delta": 0.34,
-      "note": "INTEGRATING: Science & Technology +0.34 → 83.2%"
-    },
-    {
-      "time": "2026-02-13T10:22:53.866Z",
-      "area": "General Knowledge",
-      "delta": 0.21,
-      "note": "INTEGRATING: General Knowledge +0.21 → 80.7%"
-    },
-    {
-      "time": "2026-02-13T10:22:53.866Z",
-      "area": "Geography",
-      "delta": 0.82,
-      "note": "INTEGRATING: Geography +0.82 → 70.0%"
-    },
-    {
-      "time": "2026-02-13T10:22:58.867Z",
-      "area": "Health & Fitness",
-      "delta": 1.39,
-      "note": "SYNTHESIZING: Health & Fitness +1.39 → 65.9%"
-    },
-    {
-      "time": "2026-02-13T10:22:58.867Z",
-      "area": "Music & Arts",
-      "delta": 0.67,
-      "note": "SYNTHESIZING: Music & Arts +0.67 → 58.3%"
-    },
-    {
-      "time": "2026-02-13T10:23:03.868Z",
-      "area": "Science & Technology",
-      "delta": 0.92,
-      "note": "EVOLVING: Science & Technology +0.92 → 84.2%"
-    },
-    {
-      "time": "2026-02-13T10:23:03.868Z",
-      "area": "General Knowledge",
-      "delta": 0.62,
-      "note": "EVOLVING: General Knowledge +0.62 → 81.3%"
-    },
-    {
-      "time": "2026-02-13T10:23:08.869Z",
-      "area": "Indian Stock Market",
-      "delta": 0.33,
-      "note": "ABSORBING: Indian Stock Market +0.33 → 89.4%"
-    },
-    {
-      "time": "2026-02-13T10:23:08.869Z",
-      "area": "Technical Analysis",
-      "delta": 0.22,
-      "note": "ABSORBING: Technical Analysis +0.22 → 86.2%"
-    },
-    {
-      "time": "2026-02-13T10:23:13.870Z",
-      "area": "Science & Technology",
-      "delta": 0.17,
-      "note": "SCANNING: Science & Technology +0.17 → 84.3%"
-    },
-    {
-      "time": "2026-02-13T10:23:13.870Z",
-      "area": "RSI Divergence Patterns",
-      "delta": 2.81,
-      "note": "SCANNING: RSI Divergence Patterns +2.81 → 50.2%"
-    },
-    {
-      "time": "2026-02-13T10:23:18.871Z",
-      "area": "Geography",
-      "delta": 0.24,
-      "note": "SYNTHESIZING: Geography +0.24 → 70.3%"
-    },
-    {
-      "time": "2026-02-13T10:23:23.871Z",
-      "area": "Geography",
-      "delta": 0.84,
-      "note": "EVOLVING: Geography +0.84 → 71.1%"
-    },
-    {
-      "time": "2026-02-13T10:23:23.871Z",
-      "area": "English Language",
-      "delta": 0.19,
-      "note": "EVOLVING: English Language +0.19 → 95.7%"
-    },
-    {
-      "time": "2026-02-13T10:23:28.872Z",
-      "area": "Options Trading",
-      "delta": 0.52,
-      "note": "ABSORBING: Options Trading +0.52 → 86.8%"
-    },
-    {
-      "time": "2026-02-13T10:23:28.872Z",
-      "area": "RSI Divergence Patterns",
-      "delta": 0.69,
-      "note": "ABSORBING: RSI Divergence Patterns +0.69 → 50.9%"
-    },
-    {
-      "time": "2026-02-13T10:23:33.871Z",
-      "area": "Health & Fitness",
-      "delta": 0.31,
-      "note": "ABSORBING: Health & Fitness +0.31 → 66.2%"
-    },
-    {
-      "time": "2026-02-13T10:23:33.871Z",
-      "area": "Technical Analysis",
-      "delta": 0.59,
-      "note": "ABSORBING: Technical Analysis +0.59 → 86.8%"
-    },
-    {
-      "time": "2026-02-13T10:23:33.871Z",
-      "area": "History",
       "delta": 0.58,
-      "note": "ABSORBING: History +0.58 → 75.3%"
+      "note": "EVOLVING: Mathematics +0.58 → 88.9%"
     },
     {
-      "time": "2026-02-13T10:23:38.873Z",
-      "area": "Technical Analysis",
-      "delta": 0.24,
-      "note": "SELF-TRAINING: Technical Analysis +0.24 → 87.0%"
-    },
-    {
-      "time": "2026-02-13T10:23:43.451Z",
+      "time": "2026-02-13T10:29:10.507Z",
       "area": "Current Affairs",
-      "delta": 0.84,
-      "note": "ANALYZING: Current Affairs +0.84 → 71.9%"
+      "delta": 0.9,
+      "note": "EVOLVING: Current Affairs +0.90 → 77.5%"
     },
     {
-      "time": "2026-02-13T10:23:43.451Z",
-      "area": "Technical Analysis",
-      "delta": 0.43,
-      "note": "ANALYZING: Technical Analysis +0.43 → 87.5%"
+      "time": "2026-02-13T10:29:10.507Z",
+      "area": "Science & Technology",
+      "delta": 0.42,
+      "note": "EVOLVING: Science & Technology +0.42 → 88.8%"
     },
     {
-      "time": "2026-02-13T10:23:43.451Z",
+      "time": "2026-02-13T10:29:15.506Z",
+      "area": "Options Trading",
+      "delta": 0.35,
+      "note": "SELF-TRAINING: Options Trading +0.35 → 91.0%"
+    },
+    {
+      "time": "2026-02-13T10:29:15.506Z",
+      "area": "Nutrition Science",
+      "delta": 0.4,
+      "note": "SELF-TRAINING: Nutrition Science +0.40 → 44.0%"
+    },
+    {
+      "time": "2026-02-13T10:29:15.506Z",
+      "area": "Geography",
+      "delta": 0.73,
+      "note": "SELF-TRAINING: Geography +0.73 → 77.6%"
+    },
+    {
+      "time": "2026-02-13T10:29:15.506Z",
+      "area": "Straddle/Strangle Timing",
+      "delta": 36.3,
+      "note": "NEW KNOWLEDGE ACQUIRED: Straddle/Strangle Timing initialized at 36.3%"
+    },
+    {
+      "time": "2026-02-13T10:29:20.506Z",
+      "area": "English Language",
+      "delta": 0.27,
+      "note": "INTEGRATING: English Language +0.27 → 96.4%"
+    },
+    {
+      "time": "2026-02-13T10:29:25.508Z",
+      "area": "English Language",
+      "delta": 0.13,
+      "note": "ABSORBING: English Language +0.13 → 96.5%"
+    },
+    {
+      "time": "2026-02-13T10:29:25.508Z",
+      "area": "Straddle/Strangle Timing",
+      "delta": 0.72,
+      "note": "ABSORBING: Straddle/Strangle Timing +0.72 → 37.0%"
+    },
+    {
+      "time": "2026-02-13T10:29:25.508Z",
+      "area": "RSI Divergence Patterns",
+      "delta": 1.25,
+      "note": "ABSORBING: RSI Divergence Patterns +1.25 → 58.0%"
+    },
+    {
+      "time": "2026-02-13T10:29:30.509Z",
+      "area": "PCR Ratio Signals",
+      "delta": 2.64,
+      "note": "SCANNING: PCR Ratio Signals +2.64 → 45.9%"
+    },
+    {
+      "time": "2026-02-13T10:29:30.509Z",
+      "area": "Science & Technology",
+      "delta": 0.21,
+      "note": "SCANNING: Science & Technology +0.21 → 89.0%"
+    },
+    {
+      "time": "2026-02-13T10:29:30.509Z",
+      "area": "Music & Arts",
+      "delta": 1.46,
+      "note": "SCANNING: Music & Arts +1.46 → 65.9%"
+    },
+    {
+      "time": "2026-02-13T10:29:35.509Z",
+      "area": "History",
+      "delta": 0.46,
+      "note": "SYNTHESIZING: History +0.46 → 78.2%"
+    },
+    {
+      "time": "2026-02-13T10:29:35.509Z",
+      "area": "Mathematics",
+      "delta": 0.44,
+      "note": "SYNTHESIZING: Mathematics +0.44 → 89.3%"
+    },
+    {
+      "time": "2026-02-13T10:29:35.509Z",
+      "area": "RSI Divergence Patterns",
+      "delta": 1.32,
+      "note": "SYNTHESIZING: RSI Divergence Patterns +1.32 → 59.3%"
+    },
+    {
+      "time": "2026-02-13T10:29:40.509Z",
+      "area": "PCR Ratio Signals",
+      "delta": 2.44,
+      "note": "ABSORBING: PCR Ratio Signals +2.44 → 48.3%"
+    },
+    {
+      "time": "2026-02-13T10:29:40.509Z",
+      "area": "Music & Arts",
+      "delta": 0.2,
+      "note": "ABSORBING: Music & Arts +0.20 → 66.1%"
+    },
+    {
+      "time": "2026-02-13T10:29:40.509Z",
+      "area": "PCR Ratio Signals",
+      "delta": 1.13,
+      "note": "ABSORBING: PCR Ratio Signals +1.13 → 49.4%"
+    },
+    {
+      "time": "2026-02-13T10:29:45.511Z",
+      "area": "Music & Arts",
+      "delta": 1.02,
+      "note": "SYNTHESIZING: Music & Arts +1.02 → 67.2%"
+    },
+    {
+      "time": "2026-02-13T10:29:45.511Z",
+      "area": "MACD Signal Interpretation",
+      "delta": 2.73,
+      "note": "SYNTHESIZING: MACD Signal Interpretation +2.73 → 52.5%"
+    },
+    {
+      "time": "2026-02-13T10:29:45.511Z",
+      "area": "General Knowledge",
+      "delta": 0.37,
+      "note": "SYNTHESIZING: General Knowledge +0.37 → 85.8%"
+    },
+    {
+      "time": "2026-02-13T10:29:45.511Z",
+      "area": "Neural Network Patterns",
+      "delta": 43.5,
+      "note": "NEW KNOWLEDGE ACQUIRED: Neural Network Patterns initialized at 43.5%"
+    },
+    {
+      "time": "2026-02-13T10:29:50.512Z",
+      "area": "Philosophy",
+      "delta": 0.67,
+      "note": "SELF-TRAINING: Philosophy +0.67 → 70.5%"
+    },
+    {
+      "time": "2026-02-13T10:29:50.512Z",
+      "area": "Science & Technology",
+      "delta": 0.53,
+      "note": "SELF-TRAINING: Science & Technology +0.53 → 89.5%"
+    },
+    {
+      "time": "2026-02-13T10:29:55.512Z",
+      "area": "Options Trading",
+      "delta": 0.61,
+      "note": "INTEGRATING: Options Trading +0.61 → 91.6%"
+    },
+    {
+      "time": "2026-02-13T10:29:55.512Z",
+      "area": "Science & Technology",
+      "delta": 0.61,
+      "note": "INTEGRATING: Science & Technology +0.61 → 90.1%"
+    },
+    {
+      "time": "2026-02-13T10:29:55.512Z",
+      "area": "Programming",
+      "delta": 0.34,
+      "note": "INTEGRATING: Programming +0.34 → 88.2%"
+    },
+    {
+      "time": "2026-02-13T10:30:00.513Z",
+      "area": "Tamil Language",
+      "delta": 0.7,
+      "note": "SCANNING: Tamil Language +0.70 → 95.0%"
+    },
+    {
+      "time": "2026-02-13T10:30:00.513Z",
+      "area": "Monte Carlo Simulation",
+      "delta": 2.08,
+      "note": "SCANNING: Monte Carlo Simulation +2.08 → 51.0%"
+    },
+    {
+      "time": "2026-02-13T10:30:05.514Z",
+      "area": "English Language",
+      "delta": 0.25,
+      "note": "INTEGRATING: English Language +0.25 → 96.7%"
+    },
+    {
+      "time": "2026-02-13T10:30:05.514Z",
+      "area": "PCR Ratio Signals",
+      "delta": 0.26,
+      "note": "INTEGRATING: PCR Ratio Signals +0.26 → 49.7%"
+    },
+    {
+      "time": "2026-02-13T10:30:10.513Z",
+      "area": "Strategic Thinking",
+      "delta": 3.02,
+      "note": "EVOLVING: Strategic Thinking +3.02 → 45.2%"
+    },
+    {
+      "time": "2026-02-13T10:30:15.514Z",
+      "area": "General Knowledge",
+      "delta": 0.1,
+      "note": "SCANNING: General Knowledge +0.10 → 85.9%"
+    },
+    {
+      "time": "2026-02-13T10:30:20.513Z",
+      "area": "General Knowledge",
+      "delta": 0.16,
+      "note": "EVOLVING: General Knowledge +0.16 → 86.1%"
+    },
+    {
+      "time": "2026-02-13T10:30:25.514Z",
+      "area": "General Knowledge",
+      "delta": 0.18,
+      "note": "ANALYZING: General Knowledge +0.18 → 86.3%"
+    },
+    {
+      "time": "2026-02-13T10:30:30.515Z",
+      "area": "History",
+      "delta": 0.33,
+      "note": "INTEGRATING: History +0.33 → 78.5%"
+    },
+    {
+      "time": "2026-02-13T10:30:35.515Z",
+      "area": "Strategic Thinking",
+      "delta": 1.44,
+      "note": "EVOLVING: Strategic Thinking +1.44 → 46.6%"
+    },
+    {
+      "time": "2026-02-13T10:30:40.515Z",
+      "area": "Strategic Thinking",
+      "delta": 0.87,
+      "note": "SCANNING: Strategic Thinking +0.87 → 47.5%"
+    },
+    {
+      "time": "2026-02-13T10:30:45.516Z",
+      "area": "Neural Network Patterns",
+      "delta": 0.96,
+      "note": "SYNTHESIZING: Neural Network Patterns +0.96 → 44.5%"
+    },
+    {
+      "time": "2026-02-13T10:30:45.516Z",
+      "area": "Quantum Computing",
+      "delta": 45.6,
+      "note": "NEW KNOWLEDGE ACQUIRED: Quantum Computing initialized at 45.6%"
+    },
+    {
+      "time": "2026-02-13T10:30:50.517Z",
+      "area": "Volatility Skew Reading",
+      "delta": 1.29,
+      "note": "ABSORBING: Volatility Skew Reading +1.29 → 54.7%"
+    },
+    {
+      "time": "2026-02-13T10:30:50.517Z",
+      "area": "Current Affairs",
+      "delta": 0.13,
+      "note": "ABSORBING: Current Affairs +0.13 → 77.6%"
+    },
+    {
+      "time": "2026-02-13T10:30:50.517Z",
+      "area": "Tamil Language",
+      "delta": 0.21,
+      "note": "ABSORBING: Tamil Language +0.21 → 95.2%"
+    },
+    {
+      "time": "2026-02-13T10:30:55.516Z",
+      "area": "History",
+      "delta": 1.03,
+      "note": "ANALYZING: History +1.03 → 79.6%"
+    },
+    {
+      "time": "2026-02-13T10:30:55.516Z",
+      "area": "Music & Arts",
+      "delta": 0.31,
+      "note": "ANALYZING: Music & Arts +0.31 → 67.5%"
+    },
+    {
+      "time": "2026-02-13T10:30:55.516Z",
+      "area": "PCR Ratio Signals",
+      "delta": 0.95,
+      "note": "ANALYZING: PCR Ratio Signals +0.95 → 50.7%"
+    },
+    {
+      "time": "2026-02-13T10:31:00.517Z",
+      "area": "Tamil Language",
+      "delta": 0.23,
+      "note": "INTEGRATING: Tamil Language +0.23 → 95.4%"
+    },
+    {
+      "time": "2026-02-13T10:31:00.517Z",
+      "area": "Science & Technology",
+      "delta": 0.32,
+      "note": "INTEGRATING: Science & Technology +0.32 → 90.4%"
+    },
+    {
+      "time": "2026-02-13T10:31:00.517Z",
+      "area": "Current Affairs",
+      "delta": 0.81,
+      "note": "INTEGRATING: Current Affairs +0.81 → 78.5%"
+    },
+    {
+      "time": "2026-02-13T10:31:05.518Z",
+      "area": "Options Trading",
+      "delta": 0.37,
+      "note": "EVOLVING: Options Trading +0.37 → 91.9%"
+    },
+    {
+      "time": "2026-02-13T10:31:10.518Z",
+      "area": "MACD Signal Interpretation",
+      "delta": 1.61,
+      "note": "EVOLVING: MACD Signal Interpretation +1.61 → 54.1%"
+    },
+    {
+      "time": "2026-02-13T10:31:10.518Z",
       "area": "Mathematics",
       "delta": 0.11,
-      "note": "ANALYZING: Mathematics +0.11 → 86.4%"
+      "note": "EVOLVING: Mathematics +0.11 → 89.4%"
     },
     {
-      "time": "2026-02-13T10:23:43.451Z",
-      "area": "Strategic Thinking",
-      "delta": 35.9,
-      "note": "NEW KNOWLEDGE ACQUIRED: Strategic Thinking initialized at 35.9%"
+      "time": "2026-02-13T10:31:10.518Z",
+      "area": "News Impact Prediction",
+      "delta": 41.6,
+      "note": "NEW KNOWLEDGE ACQUIRED: News Impact Prediction initialized at 41.6%"
     },
     {
-      "time": "2026-02-13T10:23:45.450Z",
+      "time": "2026-02-13T10:31:15.519Z",
       "area": "Health & Fitness",
-      "delta": 2.06,
-      "note": "SYNTHESIZING: Health & Fitness +2.06 → 68.3%"
+      "delta": 0.99,
+      "note": "ABSORBING: Health & Fitness +0.99 → 70.0%"
     },
     {
-      "time": "2026-02-13T10:23:50.451Z",
-      "area": "English Language",
-      "delta": 0.2,
-      "note": "ABSORBING: English Language +0.20 → 95.9%"
+      "time": "2026-02-13T10:31:20.519Z",
+      "area": "Indian Stock Market",
+      "delta": 0.7,
+      "note": "EVOLVING: Indian Stock Market +0.70 → 92.8%"
     },
     {
-      "time": "2026-02-13T10:23:55.452Z",
+      "time": "2026-02-13T10:31:25.520Z",
       "area": "Music & Arts",
-      "delta": 0.59,
-      "note": "ANALYZING: Music & Arts +0.59 → 58.9%"
+      "delta": 1.15,
+      "note": "INTEGRATING: Music & Arts +1.15 → 68.6%"
     },
     {
-      "time": "2026-02-13T10:24:00.453Z",
-      "area": "Options Trading",
-      "delta": 0.3,
-      "note": "SELF-TRAINING: Options Trading +0.30 → 87.1%"
+      "time": "2026-02-13T10:31:30.118Z",
+      "area": "Tamil Language",
+      "delta": 0.24,
+      "note": "SELF-TRAINING: Tamil Language +0.24 → 96.1%"
     },
     {
-      "time": "2026-02-13T10:24:00.453Z",
-      "area": "Volatility Skew Reading",
-      "delta": 47.4,
-      "note": "NEW KNOWLEDGE ACQUIRED: Volatility Skew Reading initialized at 47.4%"
-    },
-    {
-      "time": "2026-02-13T10:24:05.454Z",
-      "area": "Volatility Skew Reading",
-      "delta": 1.25,
-      "note": "SYNTHESIZING: Volatility Skew Reading +1.25 → 48.6%"
-    },
-    {
-      "time": "2026-02-13T10:24:05.454Z",
-      "area": "Current Affairs",
-      "delta": 0.93,
-      "note": "SYNTHESIZING: Current Affairs +0.93 → 72.8%"
-    },
-    {
-      "time": "2026-02-13T10:24:05.454Z",
-      "area": "Volatility Skew Reading",
-      "delta": 2.01,
-      "note": "SYNTHESIZING: Volatility Skew Reading +2.01 → 50.7%"
-    },
-    {
-      "time": "2026-02-13T10:24:10.455Z",
-      "area": "Current Affairs",
-      "delta": 1.26,
-      "note": "SYNTHESIZING: Current Affairs +1.26 → 74.1%"
-    },
-    {
-      "time": "2026-02-13T10:24:10.455Z",
+      "time": "2026-02-13T10:31:30.118Z",
       "area": "History",
-      "delta": 0.43,
-      "note": "SYNTHESIZING: History +0.43 → 75.7%"
+      "delta": 0.63,
+      "note": "SELF-TRAINING: History +0.63 → 80.3%"
     },
     {
-      "time": "2026-02-13T10:24:15.455Z",
-      "area": "Indian Stock Market",
-      "delta": 0.14,
-      "note": "ABSORBING: Indian Stock Market +0.14 → 89.6%"
+      "time": "2026-02-13T10:31:30.118Z",
+      "area": "News Impact Prediction",
+      "delta": 1.25,
+      "note": "SELF-TRAINING: News Impact Prediction +1.25 → 46.6%"
     },
     {
-      "time": "2026-02-13T10:24:15.455Z",
-      "area": "Tamil Language",
-      "delta": 0.19,
-      "note": "ABSORBING: Tamil Language +0.19 → 92.0%"
-    },
-    {
-      "time": "2026-02-13T10:24:15.455Z",
-      "area": "Geography",
-      "delta": 1.22,
-      "note": "ABSORBING: Geography +1.22 → 72.3%"
-    },
-    {
-      "time": "2026-02-13T10:24:20.456Z",
-      "area": "Programming",
-      "delta": 0.62,
-      "note": "SELF-TRAINING: Programming +0.62 → 87.3%"
-    },
-    {
-      "time": "2026-02-13T10:24:20.456Z",
-      "area": "Indian Stock Market",
-      "delta": 0.28,
-      "note": "SELF-TRAINING: Indian Stock Market +0.28 → 89.8%"
-    },
-    {
-      "time": "2026-02-13T10:24:20.456Z",
-      "area": "Philosophy",
-      "delta": 0.75,
-      "note": "SELF-TRAINING: Philosophy +0.75 → 65.8%"
-    },
-    {
-      "time": "2026-02-13T10:24:25.457Z",
-      "area": "RSI Divergence Patterns",
-      "delta": 1.22,
-      "note": "ANALYZING: RSI Divergence Patterns +1.22 → 52.1%"
-    },
-    {
-      "time": "2026-02-13T10:24:25.457Z",
-      "area": "Science & Technology",
-      "delta": 1.08,
-      "note": "ANALYZING: Science & Technology +1.08 → 85.4%"
-    },
-    {
-      "time": "2026-02-13T10:24:30.457Z",
-      "area": "Tamil Language",
-      "delta": 0.45,
-      "note": "SCANNING: Tamil Language +0.45 → 92.5%"
-    },
-    {
-      "time": "2026-02-13T10:24:30.457Z",
-      "area": "Tamil Language",
-      "delta": 0.68,
-      "note": "SCANNING: Tamil Language +0.68 → 93.2%"
-    },
-    {
-      "time": "2026-02-13T10:24:35.458Z",
-      "area": "Current Affairs",
-      "delta": 0.15,
-      "note": "SELF-TRAINING: Current Affairs +0.15 → 74.3%"
-    },
-    {
-      "time": "2026-02-13T10:24:40.459Z",
-      "area": "Options Trading",
-      "delta": 0.24,
-      "note": "SCANNING: Options Trading +0.24 → 87.3%"
-    },
-    {
-      "time": "2026-02-13T10:24:40.459Z",
-      "area": "Options Trading",
-      "delta": 0.49,
-      "note": "SCANNING: Options Trading +0.49 → 87.8%"
-    },
-    {
-      "time": "2026-02-13T10:24:40.459Z",
+      "time": "2026-02-13T10:31:32.117Z",
       "area": "Hedge Fund Techniques",
-      "delta": 40,
-      "note": "NEW KNOWLEDGE ACQUIRED: Hedge Fund Techniques initialized at 40%"
+      "delta": 1.1,
+      "note": "SYNTHESIZING: Hedge Fund Techniques +1.10 → 51.8%"
     },
     {
-      "time": "2026-02-13T10:24:45.460Z",
-      "area": "Philosophy",
-      "delta": 1.89,
-      "note": "ANALYZING: Philosophy +1.89 → 67.6%"
+      "time": "2026-02-13T10:31:32.117Z",
+      "area": "News Impact Prediction",
+      "delta": 2.62,
+      "note": "SYNTHESIZING: News Impact Prediction +2.62 → 49.2%"
     },
     {
-      "time": "2026-02-13T10:24:45.460Z",
-      "area": "Philosophy",
-      "delta": 0.41,
-      "note": "ANALYZING: Philosophy +0.41 → 68.0%"
+      "time": "2026-02-13T10:31:32.118Z",
+      "area": "Volatility Skew Reading",
+      "delta": 0.94,
+      "note": "SYNTHESIZING: Volatility Skew Reading +0.94 → 57.6%"
     },
     {
-      "time": "2026-02-13T10:24:50.461Z",
-      "area": "PCR Ratio Signals",
-      "delta": 2.78,
-      "note": "INTEGRATING: PCR Ratio Signals +2.78 → 34.8%"
-    },
-    {
-      "time": "2026-02-13T10:24:50.461Z",
-      "area": "Science & Technology",
-      "delta": 0.47,
-      "note": "INTEGRATING: Science & Technology +0.47 → 85.9%"
-    },
-    {
-      "time": "2026-02-13T10:24:50.461Z",
-      "area": "Hedge Fund Techniques",
-      "delta": 1.53,
-      "note": "INTEGRATING: Hedge Fund Techniques +1.53 → 41.5%"
-    },
-    {
-      "time": "2026-02-13T10:24:50.461Z",
-      "area": "Portfolio Optimization",
-      "delta": 44.5,
-      "note": "NEW KNOWLEDGE ACQUIRED: Portfolio Optimization initialized at 44.5%"
-    },
-    {
-      "time": "2026-02-13T10:24:55.461Z",
-      "area": "Science & Technology",
-      "delta": 0.62,
-      "note": "SELF-TRAINING: Science & Technology +0.62 → 86.5%"
-    },
-    {
-      "time": "2026-02-13T10:25:00.462Z",
-      "area": "Mathematics",
-      "delta": 0.37,
-      "note": "EVOLVING: Mathematics +0.37 → 86.8%"
-    },
-    {
-      "time": "2026-02-13T10:25:00.462Z",
-      "area": "Nutrition Science",
-      "delta": 34.3,
-      "note": "NEW KNOWLEDGE ACQUIRED: Nutrition Science initialized at 34.3%"
-    },
-    {
-      "time": "2026-02-13T10:25:05.463Z",
-      "area": "Nutrition Science",
+      "time": "2026-02-13T10:31:37.118Z",
+      "area": "Monte Carlo Simulation",
       "delta": 0.46,
-      "note": "INTEGRATING: Nutrition Science +0.46 → 34.8%"
+      "note": "SELF-TRAINING: Monte Carlo Simulation +0.46 → 51.5%"
     },
     {
-      "time": "2026-02-13T10:25:05.463Z",
-      "area": "English Language",
-      "delta": 0.24,
-      "note": "INTEGRATING: English Language +0.24 → 96.1%"
+      "time": "2026-02-13T10:31:37.118Z",
+      "area": "Technical Analysis",
+      "delta": 0.47,
+      "note": "SELF-TRAINING: Technical Analysis +0.47 → 89.0%"
     },
     {
-      "time": "2026-02-13T10:25:05.463Z",
-      "area": "Tamil Language",
-      "delta": 0.42,
-      "note": "INTEGRATING: Tamil Language +0.42 → 93.6%"
+      "time": "2026-02-13T10:31:37.118Z",
+      "area": "Emotional Control",
+      "delta": 1.86,
+      "note": "SELF-TRAINING: Emotional Control +1.86 → 37.1%"
+    },
+    {
+      "time": "2026-02-13T10:31:42.118Z",
+      "area": "History",
+      "delta": 1.18,
+      "note": "INTEGRATING: History +1.18 → 81.5%"
+    },
+    {
+      "time": "2026-02-13T10:31:42.118Z",
+      "area": "Portfolio Optimization",
+      "delta": 0.71,
+      "note": "INTEGRATING: Portfolio Optimization +0.71 → 54.6%"
+    },
+    {
+      "time": "2026-02-13T10:31:42.118Z",
+      "area": "Machine Learning for Trading",
+      "delta": 1.79,
+      "note": "INTEGRATING: Machine Learning for Trading +1.79 → 43.6%"
+    },
+    {
+      "time": "2026-02-13T10:31:42.118Z",
+      "area": "FII/DII Data Analysis",
+      "delta": 45.5,
+      "note": "NEW KNOWLEDGE ACQUIRED: FII/DII Data Analysis initialized at 45.5%"
+    },
+    {
+      "time": "2026-02-13T10:31:47.119Z",
+      "area": "Technical Analysis",
+      "delta": 0.64,
+      "note": "SELF-TRAINING: Technical Analysis +0.64 → 89.6%"
+    },
+    {
+      "time": "2026-02-13T10:31:52.120Z",
+      "area": "Science & Technology",
+      "delta": 0.67,
+      "note": "SYNTHESIZING: Science & Technology +0.67 → 90.3%"
+    },
+    {
+      "time": "2026-02-13T10:31:52.120Z",
+      "area": "Straddle/Strangle Timing",
+      "delta": 1.13,
+      "note": "SYNTHESIZING: Straddle/Strangle Timing +1.13 → 53.3%"
+    },
+    {
+      "time": "2026-02-13T10:31:57.121Z",
+      "area": "Science & Technology",
+      "delta": 0.63,
+      "note": "ABSORBING: Science & Technology +0.63 → 91.0%"
+    },
+    {
+      "time": "2026-02-13T10:32:02.122Z",
+      "area": "Health & Fitness",
+      "delta": 0.27,
+      "note": "ABSORBING: Health & Fitness +0.27 → 74.3%"
+    },
+    {
+      "time": "2026-02-13T10:32:02.122Z",
+      "area": "Nutrition Science",
+      "delta": 0.23,
+      "note": "ABSORBING: Nutrition Science +0.23 → 48.7%"
+    },
+    {
+      "time": "2026-02-13T10:32:02.122Z",
+      "area": "Options Trading",
+      "delta": 0.64,
+      "note": "ABSORBING: Options Trading +0.64 → 91.9%"
+    },
+    {
+      "time": "2026-02-13T10:32:07.123Z",
+      "area": "Mental Wellness",
+      "delta": 1.6,
+      "note": "ABSORBING: Mental Wellness +1.60 → 56.2%"
+    },
+    {
+      "time": "2026-02-13T10:32:07.123Z",
+      "area": "Health & Fitness",
+      "delta": 0.58,
+      "note": "ABSORBING: Health & Fitness +0.58 → 74.8%"
+    },
+    {
+      "time": "2026-02-13T10:32:07.123Z",
+      "area": "Hedge Fund Techniques",
+      "delta": 0.27,
+      "note": "ABSORBING: Hedge Fund Techniques +0.27 → 52.1%"
+    },
+    {
+      "time": "2026-02-13T10:32:12.124Z",
+      "area": "Portfolio Optimization",
+      "delta": 1.76,
+      "note": "EVOLVING: Portfolio Optimization +1.76 → 56.3%"
+    },
+    {
+      "time": "2026-02-13T10:32:12.124Z",
+      "area": "Psychology of Trading",
+      "delta": 39.8,
+      "note": "NEW KNOWLEDGE ACQUIRED: Psychology of Trading initialized at 39.8%"
+    },
+    {
+      "time": "2026-02-13T10:32:17.126Z",
+      "area": "Music & Arts",
+      "delta": 1.21,
+      "note": "ANALYZING: Music & Arts +1.21 → 61.8%"
+    },
+    {
+      "time": "2026-02-13T10:32:17.126Z",
+      "area": "Emotional Control",
+      "delta": 1.91,
+      "note": "ANALYZING: Emotional Control +1.91 → 39.0%"
+    },
+    {
+      "time": "2026-02-13T10:32:17.126Z",
+      "area": "Order Flow Reading",
+      "delta": 1.45,
+      "note": "ANALYZING: Order Flow Reading +1.45 → 52.2%"
+    },
+    {
+      "time": "2026-02-13T10:32:22.128Z",
+      "area": "Order Flow Reading",
+      "delta": 1.53,
+      "note": "ANALYZING: Order Flow Reading +1.53 → 53.7%"
+    },
+    {
+      "time": "2026-02-13T10:32:22.128Z",
+      "area": "Music & Arts",
+      "delta": 1.84,
+      "note": "ANALYZING: Music & Arts +1.84 → 63.6%"
+    },
+    {
+      "time": "2026-02-13T10:32:22.128Z",
+      "area": "Tamil Grammar",
+      "delta": 2.63,
+      "note": "ANALYZING: Tamil Grammar +2.63 → 42.4%"
+    },
+    {
+      "time": "2026-02-13T10:32:27.127Z",
+      "area": "Monte Carlo Simulation",
+      "delta": 1.76,
+      "note": "SYNTHESIZING: Monte Carlo Simulation +1.76 → 53.2%"
+    },
+    {
+      "time": "2026-02-13T10:32:32.129Z",
+      "area": "Health & Fitness",
+      "delta": 0.52,
+      "note": "SELF-TRAINING: Health & Fitness +0.52 → 75.4%"
+    },
+    {
+      "time": "2026-02-13T10:32:37.130Z",
+      "area": "Philosophy",
+      "delta": 0.46,
+      "note": "SELF-TRAINING: Philosophy +0.46 → 73.0%"
+    },
+    {
+      "time": "2026-02-13T10:32:42.131Z",
+      "area": "FII/DII Data Analysis",
+      "delta": 0.56,
+      "note": "SCANNING: FII/DII Data Analysis +0.56 → 46.1%"
     }
   ],
-  "uptime": 86,
-  "startedAt": "2026-02-13T10:23:40.449Z",
+  "uptime": 76,
+  "startedAt": "2026-02-13T10:31:27.117Z",
   "isTraining": false,
   "currentPhase": "ONLINE"
 }
