@@ -375,7 +375,7 @@ export default function WelcomeScreen() {
         <View style={styles.arcReactorWrap}>
           <Animated.View style={[styles.arcGlow, pulseStyle]} />
           <Image 
-            source={require("@/assets/images/logo.png")} 
+            source={require("@/assets/images/m3r-logo.png")} 
             style={styles.logo} 
             resizeMode="contain"
           />
@@ -421,7 +421,7 @@ export default function WelcomeScreen() {
       <View style={styles.arcReactorWrap}>
         <Animated.View style={[styles.arcGlow, pulseStyle]} />
         <Image 
-          source={require("@/assets/images/logo.png")} 
+          source={require("@/assets/images/m3r-logo.png")} 
           style={styles.logo} 
           resizeMode="contain"
         />

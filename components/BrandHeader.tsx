@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View, Platform, Image } from "react-native";
 
-const CYAN = "#00F3FF";
+const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
 const JARVIS_VERSION = "v8.0.1";
 
@@ -25,9 +25,9 @@ export default function BrandHeader() {
   return (
     <View style={s.container}>
       <View style={s.row1}>
-        <Image 
-          source={require("@/assets/images/logo.png")} 
-          style={s.logo} 
+        <Image
+          source={require("@/assets/images/m3r-logo.png")}
+          style={s.logo}
           resizeMode="contain"
         />
         <View style={s.brandCol}>
@@ -73,7 +73,7 @@ const s = StyleSheet.create({
   container: {
     backgroundColor: "rgba(5, 5, 8, 0.95)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 243, 255, 0.12)",
+    borderBottomColor: "rgba(0, 212, 255, 0.12)",
     paddingHorizontal: 8,
     paddingTop: 4,
     paddingBottom: 5,
@@ -86,27 +86,27 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   logo: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 4,
   },
   brandCol: {
     alignItems: "flex-start",
   },
   brandName: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "DMSans_700Bold",
-    color: CYAN,
-    letterSpacing: 2,
-    ...Platform.select({
-      web: { textShadow: "0 0 8px rgba(0, 243, 255, 0.5)" },
-    }),
+    color: "#FFFFFF",
+    letterSpacing: 4,
+    textShadowColor: CYAN,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   brandSub: {
     fontSize: 7,
-    fontFamily: "DMSans_700Bold",
-    color: "#FFFFFF",
+    fontFamily: "DMSans_500Medium",
+    color: "rgba(255,255,255,0.5)",
     letterSpacing: 1,
-    opacity: 0.8,
   },
   row2: {
     flexDirection: "row",
@@ -119,9 +119,9 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(0, 243, 255, 0.06)",
+    backgroundColor: "rgba(0, 212, 255, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(0, 243, 255, 0.12)",
+    borderColor: "rgba(0, 212, 255, 0.12)",
     borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 1,
