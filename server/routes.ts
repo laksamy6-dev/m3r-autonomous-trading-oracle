@@ -35,7 +35,7 @@ const savedVault = loadVaultFromFile();
 
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
-let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
+let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
 
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
