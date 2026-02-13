@@ -1047,10 +1047,11 @@ export default function BotScreen() {
                 <MaterialCommunityIcons name="sitemap" size={14} color={CYAN} />
                 <Text style={nStyles.sectionTitle}>NEURAL CATEGORY MAP</Text>
               </View>
-              {Object.entries(brainStatus.categoryScores || {}).map(([cat, score]) => {
+              {Object.entries(brainStatus.categoryScores || {}).map(([cat, scoreData]) => {
                 const catInfo = CATEGORY_ICONS[cat] || { icon: "brain", color: CYAN };
+                const score = typeof scoreData === "object" && scoreData !== null ? (scoreData as any).avg || 0 : (scoreData as number);
                 return (
-                  <CategoryNeuralMap key={cat} name={cat} score={score as number} catInfo={catInfo} />
+                  <CategoryNeuralMap key={cat} name={cat} score={score} catInfo={catInfo} />
                 );
               })}
               {!brainStatus.categoryScores && Object.entries(brainStatus.knowledgeAreas)

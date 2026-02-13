@@ -4,9 +4,32 @@
 
 MarketMind is an Indian stock market analysis app built with Expo (React Native) on the frontend and Express.js on the backend. It focuses on Nifty 50 options trading, AI-powered stock analysis, portfolio management, and volatility-based trading strategies. The app supports dual-mode operation: LIVE trading via Upstox broker API (real market data + real order execution) and PAPER/SIM mode with simulated mock data. AI integrations (OpenAI) power chat-based analysis and options trading recommendations.
 
+## Legal & Copyright
+
+- **Company**: M3R INNOVATIVE FINTECH SOLUTIONS
+- **Founder & Sole Proprietor**: MANIKANDAN RAJENDRAN
+- **Legal Email**: laksamy6@gmail.com
+- **Copyright**: © 2025 M3R Innovative Fintech Solutions. All Rights Reserved.
+- **Legal Protection**: Indian Copyright Act 1957, IT Act 2000, IPC, WIPO/Berne Convention
+- **Exclusive Rights**: ONLY MANIKANDAN RAJENDRAN has rights to modify, update, distribute, or license this software
+- **Security Headers**: All API responses include X-Copyright, X-Creator, X-Legal-Contact, X-Frame-Options (DENY), CSP, XSS Protection
+
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language. Tamil speaker. Prefers M3R branding throughout (no Gemini references). Wants institutional-level AI trading intelligence that can think independently and find profit opportunities beyond standard rules.
+
+## M3R AI Brain Engine
+
+- **Engine**: M3R Self-Evolving Brain v2.0 with 200+ knowledge domains
+- **Learning**: Continuous 24/7 self-improvement every 5 seconds
+- **IQ System**: Dynamic IQ calculation based on domain coverage, learning cycles, interactions
+- **Power Levels**: EVOLVING → ADVANCED → SUPER → HYPER → ULTRA → OMEGA
+- **11 Knowledge Categories**: MARKET_CORE, GLOBAL_MARKETS, PRICE_DRIVERS, FLOW_ANALYSIS, MACRO_ECONOMY, OPTIONS_MASTERY, AI_PREDICTION, WORLD_EVENTS, CYBERSECURITY, SOFTWARE_DEV, POLITICS_ECONOMY
+- **10 Learning Strategies**: DEEP_FOCUS, CROSS_DOMAIN_SYNTHESIS, WEAK_AREA_BOOST, CATEGORY_MASTERY, INSTITUTIONAL_PATTERN, RULE_BREAKING_DISCOVERY, SYNAPSE_CHAIN_REACTION, NEURAL_REINFORCEMENT, CONTRARIAN_ANALYSIS, MARKET_EDGE_HUNT
+- **20 Brain Phases**: NEURAL_SCAN, DEEP_ABSORB, SYNAPSE_FIRE, CORTEX_SYNC, QUANTUM_LEARN, etc.
+- **Cross-Domain Synthesis**: High-scoring domains boost each other through synergy
+- **Persistence**: Brain state saved to both disk (.brain-data.json) and PostgreSQL database
+- **API**: `/api/brain/status`, `/api/brain/train`, `/api/brain/stats`, `/api/brain/memory/*`
 
 ## System Architecture
 
@@ -29,6 +52,12 @@ Preferred communication style: Simple, everyday language.
   - Auth state managed in `contexts/AuthContext.tsx` (isVisitor, isOwner, showWelcome, selectedLanguage)
   - Welcome/intro screen in `components/WelcomeScreen.tsx` with typing animation, TTS voice, arc reactor animation
 - **Auto Trading**: Bot page (`app/(tabs)/bot.tsx`) includes position monitoring (3s polling), emergency exit modal (-15% P&L, 30s countdown), auto profit booking modal (+80% P&L, 30s countdown), JARVIS voice narration for all auto-actions
+- **Bot Page Brain Tab**: Redesigned as JARVIS Neural Lab with:
+  - NeuralCore component (3 concentric animated rings, power-level colored)
+  - HexStatCard grid (6 hexagonal stat cards)
+  - CategoryNeuralMap (11 categories with colored icons and progress bars)
+  - NeuralPathwayFeed (timeline of live learning events)
+  - Copyright footer bar
 
 ### Backend (Express.js)
 
@@ -38,10 +67,17 @@ Preferred communication style: Simple, everyday language.
   - `POST /api/analyze` — AI-powered stock analysis using OpenAI
   - `POST /api/options-chat` — Options trading bot chat (streaming SSE)
   - `POST /api/chat` — General AI chat (streaming SSE)
+  - `POST /api/m3r/chat` — M3R AI personal assistant chat (streaming SSE)
+  - `POST /api/m3r/voice` — M3R AI voice input processing
+  - `GET /api/m3r/status` — M3R AI status check
+  - `GET /api/brain/status` — Full brain status with categories, IQ, power level
+  - `POST /api/brain/train` — Trigger manual training cycle
+  - `GET /api/system/copyright` — Full legal/copyright information
   - Conversation CRUD endpoints for chat history
   - Image generation endpoints
   - Audio/voice chat endpoints
-- **AI Integration**: OpenAI SDK configured via Replit AI Integrations environment variables (`AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`). Used for stock analysis, options trading advice, and general market chat.
+- **AI Integration**: OpenAI SDK configured via Replit AI Integrations. M3R personal AI uses Gemini API (`GEMINI_API_KEY`).
+- **Security Middleware**: All responses include copyright headers, CSP, frame protection, XSS protection, referrer policy
 - **CORS**: Dynamic origin allowlist based on Replit environment variables, plus localhost for development.
 - **Static Serving**: In production, serves pre-built Expo web assets. In development, proxies to Expo's Metro bundler.
 
@@ -53,9 +89,11 @@ Preferred communication style: Simple, everyday language.
   - `users` — id (UUID), username, password
   - `conversations` — id (serial), title, created_at
   - `messages` — id (serial), conversation_id (FK), role, content, created_at
+  - `brain_state` — id (1), iq, generation, knowledge_areas (JSON), language_fluency (JSON), etc.
+  - `memories` — id (serial), category, content, importance, tags, created_at
 - **Current Storage**: `server/storage.ts` uses in-memory storage (`MemStorage`) for users. Chat storage (`server/replit_integrations/chat/storage.ts`) uses Drizzle/Postgres.
 - **Migration**: Drizzle Kit with `drizzle-kit push` command. Config in `drizzle.config.ts`.
-- **Note**: The database connection requires `DATABASE_URL` environment variable. The `server/db.ts` file (not shown but referenced) handles the connection.
+- **Note**: The database connection requires `DATABASE_URL` environment variable. The `server/db.ts` file handles the connection.
 
 ### Replit Integrations
 
@@ -71,12 +109,24 @@ Client-side integration files are in `.replit_integration_files/client/replit_in
 
 - **Dev Mode**: Two processes — `expo:dev` (Metro bundler for mobile/web) and `server:dev` (Express API with tsx)
 - **Production Build**: `expo:static:build` generates static web assets, `server:build` bundles server with esbuild, `server:prod` runs the production server
-- **Environment Variables**: `EXPO_PUBLIC_DOMAIN` for API URL construction, `DATABASE_URL` for Postgres, `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL` for AI, optional `GEMINI_API_KEY`, `UPSTOX_API_KEY`, `UPSTOX_API_SECRET` for future integrations
+- **Environment Variables**: `EXPO_PUBLIC_DOMAIN` for API URL construction, `DATABASE_URL` for Postgres, `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL` for AI, `GEMINI_API_KEY` for M3R personal AI, `UPSTOX_API_KEY`, `UPSTOX_SECRET_KEY`, `UPSTOX_ACCESS_TOKEN` for live trading
 
 ## External Dependencies
 
 - **OpenAI API** (via Replit AI Integrations): Powers all AI features — stock analysis, options trading bot, general chat, image generation, and voice/audio processing. Configured through `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL`.
-- **PostgreSQL**: Primary database for chat conversations/messages and user data. Connected via `DATABASE_URL` environment variable.
+- **Gemini API** (M3R Personal AI): Powers the M3R personal AI assistant on the Bot page. Uses `GEMINI_API_KEY` with gemini-2.5-flash model.
+- **PostgreSQL**: Primary database for chat conversations/messages, user data, brain state, and memories. Connected via `DATABASE_URL` environment variable.
 - **Upstox API** (fully integrated): Live trading via OAuth authentication. Provides real-time option chains, spot prices, positions, holdings, fund balance, and order placement. Access tokens expire daily — user must re-authenticate each trading day via Settings page. Environment variables: `UPSTOX_API_KEY`, `UPSTOX_SECRET_KEY`, `UPSTOX_ACCESS_TOKEN`. Backend endpoints: `/api/upstox/status`, `/api/upstox/option-chain`, `/api/upstox/profile`, `/api/upstox/positions`, `/api/upstox/holdings`, `/api/upstox/funds`, `/api/upstox/auth`, `/api/upstox/callback`, `/api/order/place`.
-- **Gemini API** (referenced but not actively used): `GEMINI_API_KEY` environment variable exists but no active integration found.
 - **AsyncStorage**: On-device persistence for watchlist and portfolio (no server sync).
+
+## Recent Changes (Feb 13, 2026)
+
+- Expanded brain engine to 200+ knowledge domains across 11 categories
+- Added 10 learning strategies: INSTITUTIONAL_PATTERN, RULE_BREAKING_DISCOVERY, CROSS_DOMAIN_SYNTHESIS, etc.
+- Enhanced brain learning: 3-8 areas per cycle, cross-domain synergy, weak-area boosting
+- Removed all "Gemini" branding — renamed to M3R throughout entire codebase
+- Updated copyright to M3R INNOVATIVE FINTECH SOLUTIONS with legal email laksamy6@gmail.com
+- Added comprehensive security headers middleware (CSP, X-Frame-Options DENY, XSS Protection)
+- Added `/api/system/copyright` endpoint with full legal information
+- Redesigned Bot page Brain tab as JARVIS Neural Lab with NeuralCore, HexStatCards, CategoryNeuralMap, NeuralPathwayFeed
+- All system prompts updated with M3R Innovative Fintech Solutions branding

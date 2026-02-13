@@ -326,42 +326,127 @@ const KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
   "POLITICS_ECONOMY": ["Indian Political Landscape", "Global Geopolitics Analysis", "Economic Policy Impact Analysis", "Financial Regulation (SEBI/RBI)", "Taxation Policy Impact", "International Trade Policy"],
 };
 
+const LEARNING_STRATEGIES = [
+  "DEEP_FOCUS",
+  "CROSS_DOMAIN_SYNTHESIS",
+  "WEAK_AREA_BOOST",
+  "CATEGORY_MASTERY",
+  "INSTITUTIONAL_PATTERN",
+  "RULE_BREAKING_DISCOVERY",
+  "SYNAPSE_CHAIN_REACTION",
+  "NEURAL_REINFORCEMENT",
+  "CONTRARIAN_ANALYSIS",
+  "MARKET_EDGE_HUNT",
+];
+
+function getWeakestCategory(): string {
+  let weakest = "";
+  let lowestAvg = 999;
+  for (const [cat, domains] of Object.entries(KNOWLEDGE_CATEGORIES)) {
+    const scores = domains.map(d => brainStats.knowledgeAreas[d] || 0).filter(s => s > 0);
+    if (scores.length === 0) { return cat; }
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    if (avg < lowestAvg) { lowestAvg = avg; weakest = cat; }
+  }
+  return weakest;
+}
+
 function runSelfImprovement() {
   if (brainStats.isTraining) return;
   brainStats.isTraining = true;
 
   brainStats.currentPhase = BRAIN_PHASES[Math.floor(Math.random() * BRAIN_PHASES.length)];
+  const strategy = LEARNING_STRATEGIES[Math.floor(Math.random() * LEARNING_STRATEGIES.length)];
 
-  const numAreas = Math.floor(Math.random() * 5) + 2;
+  const numAreas = Math.floor(Math.random() * 6) + 3;
   const allAreas = Object.keys(brainStats.knowledgeAreas);
 
   for (let i = 0; i < numAreas; i++) {
-    const targetArea = allAreas[Math.floor(Math.random() * allAreas.length)];
+    let targetArea: string;
+
+    if (strategy === "WEAK_AREA_BOOST" && Math.random() < 0.7) {
+      const sorted = Object.entries(brainStats.knowledgeAreas).sort(([, a], [, b]) => a - b);
+      targetArea = sorted[Math.floor(Math.random() * Math.min(20, sorted.length))][0];
+    } else if (strategy === "CATEGORY_MASTERY" && Math.random() < 0.6) {
+      const weakCat = getWeakestCategory();
+      const catDomains = KNOWLEDGE_CATEGORIES[weakCat] || [];
+      const activeCatDomains = catDomains.filter(d => brainStats.knowledgeAreas[d]);
+      targetArea = activeCatDomains.length > 0 ? activeCatDomains[Math.floor(Math.random() * activeCatDomains.length)] : allAreas[Math.floor(Math.random() * allAreas.length)];
+    } else if (strategy === "INSTITUTIONAL_PATTERN" && Math.random() < 0.5) {
+      const tradingDomains = allAreas.filter(a => a.includes("Trading") || a.includes("Option") || a.includes("Market") || a.includes("Strategy") || a.includes("Volatility") || a.includes("Flow") || a.includes("Greeks"));
+      targetArea = tradingDomains.length > 0 ? tradingDomains[Math.floor(Math.random() * tradingDomains.length)] : allAreas[Math.floor(Math.random() * allAreas.length)];
+    } else if (strategy === "RULE_BREAKING_DISCOVERY" && Math.random() < 0.4) {
+      const midRange = Object.entries(brainStats.knowledgeAreas).filter(([, v]) => v > 50 && v < 85).map(([k]) => k);
+      targetArea = midRange.length > 0 ? midRange[Math.floor(Math.random() * midRange.length)] : allAreas[Math.floor(Math.random() * allAreas.length)];
+    } else {
+      targetArea = allAreas[Math.floor(Math.random() * allAreas.length)];
+    }
+
     const currentVal = brainStats.knowledgeAreas[targetArea];
-    const maxGain = currentVal < 40 ? 4.0 : currentVal < 60 ? 3.0 : currentVal < 75 ? 2.0 : currentVal < 88 ? 1.2 : currentVal < 95 ? 0.5 : 0.15;
-    const delta = Math.round((Math.random() * maxGain + 0.15) * 100) / 100;
+    let maxGain: number;
+    if (strategy === "WEAK_AREA_BOOST" && currentVal < 50) {
+      maxGain = 5.0;
+    } else if (strategy === "RULE_BREAKING_DISCOVERY") {
+      maxGain = currentVal < 70 ? 4.5 : currentVal < 85 ? 2.5 : 1.0;
+    } else if (strategy === "SYNAPSE_CHAIN_REACTION") {
+      maxGain = currentVal < 40 ? 4.5 : currentVal < 60 ? 3.5 : currentVal < 80 ? 2.2 : 0.8;
+    } else {
+      maxGain = currentVal < 40 ? 4.0 : currentVal < 60 ? 3.0 : currentVal < 75 ? 2.0 : currentVal < 88 ? 1.2 : currentVal < 95 ? 0.5 : 0.15;
+    }
+    const delta = Math.round((Math.random() * maxGain + 0.2) * 100) / 100;
     brainStats.knowledgeAreas[targetArea] = Math.min(100, currentVal + delta);
+
+    const strategyNote = strategy === "INSTITUTIONAL_PATTERN" ? "📊 Institutional" :
+                         strategy === "RULE_BREAKING_DISCOVERY" ? "🔓 Rule-Break" :
+                         strategy === "CROSS_DOMAIN_SYNTHESIS" ? "🔗 Cross-Domain" :
+                         strategy === "WEAK_AREA_BOOST" ? "⚡ Weak-Boost" :
+                         strategy === "CONTRARIAN_ANALYSIS" ? "🔄 Contrarian" :
+                         strategy === "MARKET_EDGE_HUNT" ? "🎯 Edge-Hunt" : "🧠 Neural";
 
     brainStats.selfImprovementLog.push({
       time: new Date().toISOString(),
       area: targetArea,
       delta,
-      note: `${brainStats.currentPhase}: ${targetArea} +${delta.toFixed(2)} → ${brainStats.knowledgeAreas[targetArea].toFixed(1)}%`,
+      note: `${strategyNote} ${brainStats.currentPhase}: ${targetArea} +${delta.toFixed(2)} → ${brainStats.knowledgeAreas[targetArea].toFixed(1)}%`,
     });
   }
 
-  const discoveryChance = Object.keys(brainStats.knowledgeAreas).length < 80 ? 0.35 : Object.keys(brainStats.knowledgeAreas).length < 120 ? 0.2 : 0.08;
-  if (Math.random() < discoveryChance) {
-    const candidateDomains = LEARNING_DOMAINS.filter(d => !brainStats.knowledgeAreas[d]);
-    if (candidateDomains.length > 0) {
-      const newDomain = candidateDomains[Math.floor(Math.random() * candidateDomains.length)];
-      brainStats.knowledgeAreas[newDomain] = Math.round((25 + Math.random() * 30) * 10) / 10;
-      brainStats.selfImprovementLog.push({
-        time: new Date().toISOString(),
-        area: newDomain,
-        delta: brainStats.knowledgeAreas[newDomain],
-        note: `NEW NEURAL PATHWAY: ${newDomain} activated at ${brainStats.knowledgeAreas[newDomain]}%`,
-      });
+  if (strategy === "CROSS_DOMAIN_SYNTHESIS" && Math.random() < 0.3) {
+    const highAreas = Object.entries(brainStats.knowledgeAreas).filter(([, v]) => v > 75).map(([k]) => k);
+    if (highAreas.length >= 2) {
+      const a1 = highAreas[Math.floor(Math.random() * highAreas.length)];
+      const a2 = highAreas.filter(a => a !== a1)[Math.floor(Math.random() * (highAreas.length - 1))];
+      if (a2) {
+        const synthBoost = Math.round((Math.random() * 1.5 + 0.5) * 100) / 100;
+        brainStats.knowledgeAreas[a1] = Math.min(100, brainStats.knowledgeAreas[a1] + synthBoost);
+        brainStats.knowledgeAreas[a2] = Math.min(100, brainStats.knowledgeAreas[a2] + synthBoost * 0.7);
+        brainStats.selfImprovementLog.push({
+          time: new Date().toISOString(),
+          area: `${a1} ↔ ${a2}`,
+          delta: synthBoost,
+          note: `🔗 CROSS-DOMAIN SYNTHESIS: ${a1} × ${a2} = synergy boost +${synthBoost.toFixed(2)}`,
+        });
+      }
+    }
+  }
+
+  const domainCount = Object.keys(brainStats.knowledgeAreas).length;
+  const discoveryChance = domainCount < 80 ? 0.4 : domainCount < 120 ? 0.25 : domainCount < 170 ? 0.15 : domainCount < 200 ? 0.1 : 0.05;
+  const discoveriesToAttempt = strategy === "RULE_BREAKING_DISCOVERY" ? 2 : 1;
+
+  for (let d = 0; d < discoveriesToAttempt; d++) {
+    if (Math.random() < discoveryChance) {
+      const candidateDomains = LEARNING_DOMAINS.filter(dm => !brainStats.knowledgeAreas[dm]);
+      if (candidateDomains.length > 0) {
+        const newDomain = candidateDomains[Math.floor(Math.random() * candidateDomains.length)];
+        brainStats.knowledgeAreas[newDomain] = Math.round((30 + Math.random() * 35) * 10) / 10;
+        brainStats.selfImprovementLog.push({
+          time: new Date().toISOString(),
+          area: newDomain,
+          delta: brainStats.knowledgeAreas[newDomain],
+          note: `⚡ NEW NEURAL PATHWAY: ${newDomain} activated at ${brainStats.knowledgeAreas[newDomain]}%`,
+        });
+      }
     }
   }
 
@@ -370,8 +455,13 @@ function runSelfImprovement() {
 
   const allValues = Object.values(brainStats.knowledgeAreas);
   const totalKnowledgeScore = allValues.reduce((a, b) => a + b, 0);
-  const domainCount = allValues.length;
-  brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.12 + brainStats.totalLearningCycles * 0.08 + brainStats.totalInteractions * 0.15 + domainCount * 1.5) * 10) / 10;
+  const dCount = allValues.length;
+  const avgScore = dCount > 0 ? totalKnowledgeScore / dCount : 0;
+  const domainBonus = dCount * 2.0;
+  const avgBonus = avgScore * 0.5;
+  const cycleBonus = brainStats.totalLearningCycles * 0.06;
+  const interactionBonus = brainStats.totalInteractions * 0.2;
+  brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.12 + cycleBonus + interactionBonus + domainBonus + avgBonus) * 10) / 10;
 
   brainStats.accuracyScore = Math.min(99.99, brainStats.accuracyScore + 0.02 + Math.random() * 0.08);
   brainStats.emotionalIQ = Math.min(99.9, brainStats.emotionalIQ + 0.01 + Math.random() * 0.04);
@@ -380,12 +470,12 @@ function runSelfImprovement() {
     brainStats.languageFluency[lang] = Math.min(99.9, brainStats.languageFluency[lang] + Math.random() * 0.08);
   }
 
-  if (brainStats.totalLearningCycles % 30 === 0) {
+  if (brainStats.totalLearningCycles % 25 === 0) {
     brainStats.generation++;
   }
 
-  if (brainStats.selfImprovementLog.length > 200) {
-    brainStats.selfImprovementLog = brainStats.selfImprovementLog.slice(-200);
+  if (brainStats.selfImprovementLog.length > 300) {
+    brainStats.selfImprovementLog = brainStats.selfImprovementLog.slice(-300);
   }
 
   brainStats.currentPhase = "PROCESSING";
