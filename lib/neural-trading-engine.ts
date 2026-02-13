@@ -2153,8 +2153,8 @@ function generateSyntheticPriceHistory(chain: OptionChainData): number[] {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ZERO-LOSS STRATEGY — 2 Green Candle Confirmation Entry
-// Brokerage: Rs.200 | Min Profit: Rs.300 | Min Target: Rs.500
+// ZERO-LOSS STRATEGY — 2 Green Candle + ATR Stop Loss + Kiss Pattern
+// Brokerage: Rs.200 | Min Profit: Rs.500 | Min Target: Rs.700 | Loss Alert: Rs.300
 // ═══════════════════════════════════════════════════════════════════
 
 export interface ZeroLossStrategy {
@@ -2171,18 +2171,36 @@ export interface ZeroLossStrategy {
   exitLogic: string;
   safetyStatus: "SAFE_ENTRY" | "WAIT_FOR_CONFIRMATION" | "DANGER_ZONE" | "PROFIT_ZONE";
   reasoning: string[];
+  atrValue: number;
+  atrStopLoss: number;
+  lossAlertThreshold: number;
+  kissPattern: KissPatternResult;
 }
 
-let recentCandles: { open: number; close: number; time: number }[] = [];
+export interface KissPatternResult {
+  detected: boolean;
+  phase: "NONE" | "DROPPING" | "BOTTOMED" | "RECOVERING" | "KISS_BOUNCE";
+  dropDepth: number;
+  bounceStrength: number;
+  shouldBookProfit: boolean;
+  description: string;
+}
+
+let recentCandles: { open: number; close: number; high: number; low: number; time: number }[] = [];
 let lastCandleTime = 0;
+
+let premiumHistory: { premium: number; time: number }[] = [];
 
 function detectGreenCandles(spotPrice: number): number {
   const now = Date.now();
   if (now - lastCandleTime > 3000) {
+    const range = spotPrice * 0.002;
     const open = spotPrice * (1 - (Math.random() * 0.002));
     const close = spotPrice;
-    recentCandles.push({ open, close, time: now });
-    if (recentCandles.length > 20) recentCandles = recentCandles.slice(-20);
+    const high = Math.max(open, close) + Math.random() * range * 0.5;
+    const low = Math.min(open, close) - Math.random() * range * 0.5;
+    recentCandles.push({ open, close, high, low, time: now });
+    if (recentCandles.length > 30) recentCandles = recentCandles.slice(-30);
     lastCandleTime = now;
   }
 
@@ -2197,6 +2215,82 @@ function detectGreenCandles(spotPrice: number): number {
   return consecutive;
 }
 
+function calculateATR(candles: typeof recentCandles, period: number = 14): number {
+  if (candles.length < 2) return 0;
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevClose = candles[i - 1].close;
+    const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+    trueRanges.push(tr);
+  }
+  const usePeriod = Math.min(period, trueRanges.length);
+  const recentTRs = trueRanges.slice(-usePeriod);
+  return recentTRs.reduce((s, v) => s + v, 0) / recentTRs.length;
+}
+
+export function trackPremiumForKiss(premium: number) {
+  premiumHistory.push({ premium, time: Date.now() });
+  if (premiumHistory.length > 60) premiumHistory = premiumHistory.slice(-60);
+}
+
+export function detectKissPattern(currentPremium: number, entryPremium: number): KissPatternResult {
+  if (premiumHistory.length < 5) {
+    return { detected: false, phase: "NONE", dropDepth: 0, bounceStrength: 0, shouldBookProfit: false, description: "Not enough data for pattern detection" };
+  }
+
+  const recent = premiumHistory.slice(-20);
+  let lowestPremium = currentPremium;
+  let lowestIdx = recent.length - 1;
+  let peakBeforeDrop = entryPremium;
+
+  for (let i = 0; i < recent.length; i++) {
+    if (recent[i].premium < lowestPremium) {
+      lowestPremium = recent[i].premium;
+      lowestIdx = i;
+    }
+    if (i < lowestIdx && recent[i].premium > peakBeforeDrop) {
+      peakBeforeDrop = recent[i].premium;
+    }
+  }
+
+  const dropDepth = peakBeforeDrop > 0 ? ((peakBeforeDrop - lowestPremium) / peakBeforeDrop) * 100 : 0;
+  const bounceFromLow = lowestPremium > 0 ? ((currentPremium - lowestPremium) / lowestPremium) * 100 : 0;
+  const isRecoveredAboveEntry = currentPremium >= entryPremium;
+
+  let phase: KissPatternResult["phase"] = "NONE";
+  let shouldBookProfit = false;
+  let description = "";
+
+  if (dropDepth < 3) {
+    phase = "NONE";
+    description = "No significant price movement detected";
+  } else if (currentPremium <= lowestPremium * 1.01) {
+    phase = "DROPPING";
+    description = `Price dropping - down ${dropDepth.toFixed(1)}% from peak. Hold and watch.`;
+  } else if (bounceFromLow > 2 && bounceFromLow < 8 && !isRecoveredAboveEntry) {
+    phase = "BOTTOMED";
+    description = `Price bottomed and starting to recover. Bounce: ${bounceFromLow.toFixed(1)}% from low.`;
+  } else if (bounceFromLow >= 8 && !isRecoveredAboveEntry) {
+    phase = "RECOVERING";
+    description = `Strong recovery underway! Up ${bounceFromLow.toFixed(1)}% from bottom. Approaching entry price.`;
+  } else if (bounceFromLow >= 5 && isRecoveredAboveEntry) {
+    phase = "KISS_BOUNCE";
+    shouldBookProfit = true;
+    description = `KISS PATTERN! Price dropped ${dropDepth.toFixed(1)}%, bounced ${bounceFromLow.toFixed(1)}%, now above entry. BOOK PROFIT NOW!`;
+  }
+
+  return {
+    detected: phase === "KISS_BOUNCE",
+    phase,
+    dropDepth: Math.round(dropDepth * 10) / 10,
+    bounceStrength: Math.round(bounceFromLow * 10) / 10,
+    shouldBookProfit,
+    description,
+  };
+}
+
 function computeZeroLossStrategy(
   chain: OptionChainData,
   decision: NeuralDecision,
@@ -2205,13 +2299,18 @@ function computeZeroLossStrategy(
   cognitive: CognitiveAlphaState
 ): ZeroLossStrategy {
   const BROKERAGE = 200;
-  const MIN_PROFIT = 300;
+  const MIN_PROFIT = 500;
   const MIN_TARGET = BROKERAGE + MIN_PROFIT;
   const GREEN_CANDLES_NEEDED = 2;
+  const LOSS_ALERT_THRESHOLD = 300;
 
   const greenCandles = detectGreenCandles(chain.spotPrice);
   const entryConfirmed = greenCandles >= GREEN_CANDLES_NEEDED;
   const reasoning: string[] = [];
+
+  const atrValue = calculateATR(recentCandles);
+  const atrMultiplier = 1.5;
+  const atrStopLoss = Math.round(atrValue * atrMultiplier * 100) / 100;
 
   const premium = decision.premium;
   const lotSize = 75;
@@ -2221,6 +2320,8 @@ function computeZeroLossStrategy(
   const riskRewardRatio = estimatedPnl > 0 ? estimatedPnl / BROKERAGE : 0;
 
   const canBookProfit = estimatedPnl >= MIN_PROFIT;
+
+  const kissPattern = detectKissPattern(premium, premium);
 
   if (greenCandles >= GREEN_CANDLES_NEEDED) {
     reasoning.push(`${greenCandles} consecutive green candles detected - Entry CONFIRMED`);
@@ -2237,8 +2338,13 @@ function computeZeroLossStrategy(
   }
 
   reasoning.push(`Brokerage: Rs.${BROKERAGE} | Min Profit Target: Rs.${MIN_PROFIT} | Total Min: Rs.${MIN_TARGET}`);
+  reasoning.push(`ATR Value: ${atrValue.toFixed(2)} | ATR Stop Loss: ${atrStopLoss.toFixed(2)} pts | Loss Alert: Rs.${LOSS_ALERT_THRESHOLD}`);
   reasoning.push(`Need premium gain of Rs.${targetPremiumGain.toFixed(2)} per lot (${lotSize} qty) to cover brokerage + profit`);
   reasoning.push(`Estimated PnL at target: Rs.${estimatedPnl.toFixed(0)} | Risk:Reward = 1:${riskRewardRatio.toFixed(1)}`);
+
+  if (kissPattern.phase !== "NONE") {
+    reasoning.push(`Kiss Pattern: ${kissPattern.description}`);
+  }
 
   if (monteCarlo.ceWinProb > 65 || monteCarlo.peWinProb > 65) {
     reasoning.push(`Monte Carlo gives ${Math.max(monteCarlo.ceWinProb, monteCarlo.peWinProb)}% win probability - favorable odds`);
@@ -2258,10 +2364,10 @@ function computeZeroLossStrategy(
   }
 
   const entryLogic = entryConfirmed && !entropy.isTrapZone
-    ? `ENTER ${decision.action.replace("BUY_", "")} after ${greenCandles} green candles confirmed. Target Rs.${MIN_TARGET}+ profit.`
+    ? `ENTER ${decision.action.replace("BUY_", "")} after ${greenCandles} green candles confirmed. Target Rs.${MIN_TARGET}+ profit. ATR SL: ${atrStopLoss.toFixed(2)}`
     : `WAIT - Need ${GREEN_CANDLES_NEEDED - greenCandles} more green candle(s). ${entropy.isTrapZone ? "TRAP ZONE ACTIVE - DO NOT ENTER." : ""}`;
 
-  const exitLogic = `Book at Rs.${MIN_TARGET}+ gain (Rs.${BROKERAGE} brokerage + Rs.${MIN_PROFIT} profit). Trail stop to breakeven after Rs.${MIN_PROFIT} gain.`;
+  const exitLogic = `Book at Rs.${MIN_TARGET}+ gain (Rs.${BROKERAGE} brokerage + Rs.${MIN_PROFIT} profit). ATR trailing stop: ${atrStopLoss.toFixed(2)} pts. Kiss bounce = immediate profit book. Loss alert at Rs.${LOSS_ALERT_THRESHOLD}.`;
 
   return {
     brokerageCost: BROKERAGE,
@@ -2277,6 +2383,10 @@ function computeZeroLossStrategy(
     exitLogic,
     safetyStatus,
     reasoning,
+    atrValue: Math.round(atrValue * 100) / 100,
+    atrStopLoss,
+    lossAlertThreshold: LOSS_ALERT_THRESHOLD,
+    kissPattern,
   };
 }
 
