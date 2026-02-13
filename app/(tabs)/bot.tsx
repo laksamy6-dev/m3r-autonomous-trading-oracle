@@ -72,6 +72,27 @@ interface ActivePosition {
   exitPremium: number | null;
   exitTime: string | null;
   exitReason: string | null;
+  atrStopLoss?: number;
+  kissPhase?: string;
+  lossAlerted?: boolean;
+}
+
+interface TradingSummary {
+  hasActivePosition: boolean;
+  activeCount: number;
+  exitedCount: number;
+  totalActivePnl: number;
+  totalExitedPnl: number;
+  totalPnl: number;
+  wins: number;
+  losses: number;
+  lossAlert: boolean;
+  kissDetected: boolean;
+  lossAlertThreshold: number;
+  minProfitTarget: number;
+  activePositions: ActivePosition[];
+  canTakeNewTrade: boolean;
+  recentOrders: any[];
 }
 
 type VoiceStatus = "ready" | "listening" | "processing" | "speaking";
@@ -340,6 +361,8 @@ function BotScreenInner() {
   const [emergencyPosition, setEmergencyPosition] = useState<ActivePosition | null>(null);
   const [profitPosition, setProfitPosition] = useState<ActivePosition | null>(null);
   const [countdown, setCountdown] = useState(30);
+  const [tradingSummary, setTradingSummary] = useState<TradingSummary | null>(null);
+  const [orderBookChecked, setOrderBookChecked] = useState(false);
 
   const [marketCommentary, setMarketCommentary] = useState(false);
 
@@ -435,17 +458,57 @@ function BotScreenInner() {
   }
 
   useEffect(() => {
+    const fetchTradingSummary = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/trading/summary`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setTradingSummary(data);
+        if (!orderBookChecked) {
+          setOrderBookChecked(true);
+          const statusMsg = data.hasActivePosition
+            ? `ORDER BOOK CHECK\n\nActive Position Found: ${data.activeCount} trade(s)\nTotal P&L: Rs.${data.totalPnl.toFixed(2)}\nWins: ${data.wins} | Losses: ${data.losses}\n${data.lossAlert ? "WARNING: Loss exceeds Rs.300 threshold!" : "Status: Normal"}\n\nSequential mode: Cannot enter new trade until current exits.`
+            : `ORDER BOOK CHECK\n\nNo active positions. Ready to trade.\nToday's P&L: Rs.${data.totalPnl.toFixed(2)}\nWins: ${data.wins} | Losses: ${data.losses}\nMin Profit Target: Rs.${data.minProfitTarget}\nLoss Alert: Rs.${data.lossAlertThreshold}\n\nJARVIS is monitoring. You may enter a trade.`;
+          setMessages((prev) => [...prev, { id: genId(), role: "assistant" as const, content: statusMsg }]);
+        }
+      } catch {}
+    };
+    fetchTradingSummary();
+  }, [orderBookChecked]);
+
+  useEffect(() => {
     const pollPositions = async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/positions/active`);
+        const res = await globalThis.fetch(`${baseUrl}api/trading/summary`);
         if (!res.ok) return;
         const data = await res.json();
-        setActivePositions(data.positions || []);
+        setTradingSummary(data);
+        setActivePositions(data.activePositions || []);
 
         if (!emergencyModalVisible && !profitModalVisible) {
-          for (const pos of (data.positions || []) as ActivePosition[]) {
+          for (const pos of (data.activePositions || []) as ActivePosition[]) {
             if (alertedPositionsRef.current.has(pos.id)) continue;
+
+            if (pos.lossAlerted && pos.pnl <= -300) {
+              alertedPositionsRef.current.add(pos.id);
+              setEmergencyPosition(pos);
+              setEmergencyModalVisible(true);
+              startCountdown(pos, "ATR_STOP_LOSS");
+              jarvisSpeak("Sir, loss alert! Rs.300 threshold breached. ATR stop loss active.");
+              break;
+            }
+
+            if (pos.kissPhase === "KISS_BOUNCE" && pos.pnl > 0) {
+              alertedPositionsRef.current.add(pos.id);
+              setProfitPosition(pos);
+              setProfitModalVisible(true);
+              startCountdown(pos, "KISS_PATTERN_PROFIT");
+              jarvisSpeak("Sir, kiss pattern detected! Price bounced back above entry. Booking profit.");
+              break;
+            }
+
             if (pos.pnlPercent <= -15) {
               alertedPositionsRef.current.add(pos.id);
               setEmergencyPosition(pos);
@@ -491,6 +554,7 @@ function BotScreenInner() {
   useEffect(() => {
     if (!autoTradeMode || !engineOutput) return;
     if (activePositions.length > 0) return;
+    if (tradingSummary && !tradingSummary.canTakeNewTrade) return;
     if (autoTradeEntryRef.current) return;
     const action = engineOutput.decision.action;
     const confidence = engineOutput.decision.confidence;
@@ -1061,6 +1125,38 @@ function BotScreenInner() {
           </View>
         )}
 
+        {tradingSummary && (
+          <View style={autoStyles.summaryBar}>
+            <View style={autoStyles.summaryItem}>
+              <Text style={autoStyles.summaryLabel}>TODAY P&L</Text>
+              <Text style={[autoStyles.summaryValue, { color: tradingSummary.totalPnl >= 0 ? NEON_GREEN : Colors.dark.red }]}>
+                {tradingSummary.totalPnl >= 0 ? "+" : ""}Rs.{tradingSummary.totalPnl.toFixed(0)}
+              </Text>
+            </View>
+            <View style={autoStyles.summaryDivider} />
+            <View style={autoStyles.summaryItem}>
+              <Text style={autoStyles.summaryLabel}>W/L</Text>
+              <Text style={autoStyles.summaryValue}>{tradingSummary.wins}/{tradingSummary.losses}</Text>
+            </View>
+            <View style={autoStyles.summaryDivider} />
+            <View style={autoStyles.summaryItem}>
+              <Text style={autoStyles.summaryLabel}>STATUS</Text>
+              <Text style={[autoStyles.summaryValue, { color: tradingSummary.canTakeNewTrade ? NEON_GREEN : Colors.dark.gold, fontSize: 10 }]}>
+                {tradingSummary.canTakeNewTrade ? "READY" : "IN TRADE"}
+              </Text>
+            </View>
+            {tradingSummary.lossAlert && (
+              <>
+                <View style={autoStyles.summaryDivider} />
+                <View style={autoStyles.summaryItem}>
+                  <Ionicons name="warning" size={12} color={Colors.dark.red} />
+                  <Text style={[autoStyles.summaryValue, { color: Colors.dark.red, fontSize: 9 }]}>LOSS ALERT</Text>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {activePositions.length > 0 && (
           <View style={autoStyles.positionPanel}>
             <Pressable
@@ -1086,6 +1182,11 @@ function BotScreenInner() {
             </Pressable>
             {positionPanelOpen && activePositions.map((pos) => {
               const pnlColor = pos.pnl >= 0 ? NEON_GREEN : Colors.dark.red;
+              const kissColor = pos.kissPhase === "KISS_BOUNCE" ? NEON_GREEN
+                : pos.kissPhase === "RECOVERING" ? Colors.dark.gold
+                : pos.kissPhase === "DROPPING" ? Colors.dark.red
+                : pos.kissPhase === "BOTTOMED" ? "#FF8C00"
+                : Colors.dark.textMuted;
               return (
                 <View key={pos.id} style={autoStyles.positionRow}>
                   <View style={autoStyles.positionLeft}>
@@ -1093,8 +1194,22 @@ function BotScreenInner() {
                       {pos.type} {pos.strike}
                     </Text>
                     <Text style={autoStyles.positionPremiums}>
-                      Entry: Rs.{pos.entryPremium.toFixed(2)} | Current: Rs.{pos.currentPremium.toFixed(2)}
+                      Entry: Rs.{pos.entryPremium.toFixed(2)} | Now: Rs.{pos.currentPremium.toFixed(2)}
                     </Text>
+                    <View style={autoStyles.atrRow}>
+                      {pos.atrStopLoss !== undefined && (
+                        <Text style={autoStyles.atrText}>
+                          ATR SL: Rs.{pos.atrStopLoss.toFixed(2)}
+                        </Text>
+                      )}
+                      {pos.kissPhase && pos.kissPhase !== "NONE" && (
+                        <View style={[autoStyles.kissBadge, { borderColor: kissColor }]}>
+                          <Text style={[autoStyles.kissText, { color: kissColor }]}>
+                            {pos.kissPhase === "KISS_BOUNCE" ? "KISS!" : pos.kissPhase}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                   <View style={autoStyles.positionRight}>
                     <Text style={[autoStyles.positionPnl, { color: pnlColor }]}>
@@ -1103,6 +1218,11 @@ function BotScreenInner() {
                     <Text style={[autoStyles.positionPnlPct, { color: pnlColor }]}>
                       {pos.pnlPercent >= 0 ? "+" : ""}{pos.pnlPercent.toFixed(1)}%
                     </Text>
+                    {pos.lossAlerted && (
+                      <View style={autoStyles.lossAlertBadge}>
+                        <Ionicons name="alert-circle" size={10} color={Colors.dark.red} />
+                      </View>
+                    )}
                   </View>
                 </View>
               );
@@ -1278,7 +1398,9 @@ function BotScreenInner() {
                   Rs.{emergencyPosition.pnl.toFixed(2)} ({emergencyPosition.pnlPercent.toFixed(1)}%)
                 </Text>
                 <Text style={autoStyles.modalJarvisMsg}>
-                  Sir, your position is in loss. Shall I exit?
+                  {emergencyPosition.lossAlerted 
+                    ? `Sir, loss Rs.${Math.abs(emergencyPosition.pnl).toFixed(0)} exceeds Rs.300 threshold.\nATR Stop Loss: Rs.${emergencyPosition.atrStopLoss?.toFixed(2) || "N/A"}\nShall I exit?`
+                    : "Sir, your position is in loss. Shall I exit?"}
                 </Text>
                 <View style={autoStyles.countdownCircle}>
                   <Text style={autoStyles.countdownNumber}>{countdown}</Text>
@@ -1329,7 +1451,9 @@ function BotScreenInner() {
                   +Rs.{profitPosition.pnl.toFixed(2)} (+{profitPosition.pnlPercent.toFixed(1)}%)
                 </Text>
                 <Text style={autoStyles.modalJarvisMsg}>
-                  Sir, 80% profit reached! Shall I book?
+                  {profitPosition.kissPhase === "KISS_BOUNCE"
+                    ? "Sir, Kiss Pattern detected! Price dropped and bounced back above entry. Perfect time to book profit!"
+                    : "Sir, 80% profit reached! Shall I book?"}
                 </Text>
                 <View style={[autoStyles.countdownCircle, { borderColor: NEON_GREEN }]}>
                   <Text style={[autoStyles.countdownNumber, { color: NEON_GREEN }]}>{countdown}</Text>
@@ -1361,9 +1485,45 @@ function BotScreenInner() {
 }
 
 const autoStyles = StyleSheet.create({
-  positionPanel: {
+  summaryBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginHorizontal: 16,
     marginTop: 44,
+    marginBottom: 4,
+    backgroundColor: "rgba(17, 24, 39, 0.95)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    zIndex: 10,
+  },
+  summaryItem: {
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  summaryLabel: {
+    fontSize: 8,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  summaryValue: {
+    fontSize: 12,
+    fontFamily: "DMSans_700Bold",
+    color: Colors.dark.text,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.dark.border,
+  },
+  positionPanel: {
+    marginHorizontal: 16,
+    marginTop: 4,
     marginBottom: 4,
     backgroundColor: "rgba(17, 24, 39, 0.95)",
     borderRadius: 12,
@@ -1436,6 +1596,32 @@ const autoStyles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "DMSans_600SemiBold",
     marginTop: 1,
+  },
+  atrRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 3,
+  },
+  atrText: {
+    fontSize: 9,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.gold,
+    letterSpacing: 0.3,
+  },
+  kissBadge: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  kissText: {
+    fontSize: 8,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  lossAlertBadge: {
+    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
