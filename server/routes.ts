@@ -1798,14 +1798,52 @@ Provide the full 10-section comprehensive analysis now.`;
     pnl: number;
     pnlPercent: number;
     entryTime: string;
-    status: "ACTIVE" | "EXITED" | "AUTO_EXITED" | "PROFIT_BOOKED";
+    status: "ACTIVE" | "EXITED" | "AUTO_EXITED" | "PROFIT_BOOKED" | "ATR_STOPPED" | "KISS_PROFIT";
     exitPremium: number | null;
     exitTime: string | null;
     exitReason: string | null;
+    premiumHistory: number[];
+    peakPremium: number;
+    lowestPremium: number;
+    atrStopLoss: number;
+    kissPhase: "NONE" | "DROPPING" | "BOTTOMED" | "RECOVERING" | "KISS_BOUNCE";
+    lossAlerted: boolean;
   }
 
   const activePositions: ActivePosition[] = [];
   let positionSimInterval: ReturnType<typeof setInterval> | null = null;
+
+  const LOSS_ALERT_THRESHOLD = 300;
+  const MIN_PROFIT_TARGET = 500;
+  const LOT_SIZE = 25;
+
+  function calculatePositionATR(history: number[]): number {
+    if (history.length < 3) return 0;
+    const trs: number[] = [];
+    for (let i = 1; i < history.length; i++) {
+      trs.push(Math.abs(history[i] - history[i - 1]));
+    }
+    const period = Math.min(14, trs.length);
+    const recentTRs = trs.slice(-period);
+    return recentTRs.reduce((s, v) => s + v, 0) / recentTRs.length;
+  }
+
+  function detectPositionKissPattern(pos: ActivePosition): { phase: string; shouldBook: boolean; description: string } {
+    const history = pos.premiumHistory;
+    if (history.length < 5) return { phase: "NONE", shouldBook: false, description: "Insufficient data" };
+
+    const dropFromPeak = pos.peakPremium > 0 ? ((pos.peakPremium - pos.lowestPremium) / pos.peakPremium) * 100 : 0;
+    const bounceFromLow = pos.lowestPremium > 0 ? ((pos.currentPremium - pos.lowestPremium) / pos.lowestPremium) * 100 : 0;
+    const aboveEntry = pos.currentPremium >= pos.entryPremium;
+
+    if (dropFromPeak < 3) return { phase: "NONE", shouldBook: false, description: "No significant drop" };
+    if (pos.currentPremium <= pos.lowestPremium * 1.01) return { phase: "DROPPING", shouldBook: false, description: `Dropping - ${dropFromPeak.toFixed(1)}% from peak` };
+    if (bounceFromLow > 2 && bounceFromLow < 8 && !aboveEntry) return { phase: "BOTTOMED", shouldBook: false, description: `Bottoming out, bounce ${bounceFromLow.toFixed(1)}%` };
+    if (bounceFromLow >= 8 && !aboveEntry) return { phase: "RECOVERING", shouldBook: false, description: `Recovering +${bounceFromLow.toFixed(1)}% from low` };
+    if (bounceFromLow >= 5 && aboveEntry) return { phase: "KISS_BOUNCE", shouldBook: true, description: `KISS BOUNCE! Drop ${dropFromPeak.toFixed(1)}%, bounced ${bounceFromLow.toFixed(1)}%, above entry - BOOK PROFIT!` };
+
+    return { phase: "NONE", shouldBook: false, description: "Monitoring..." };
+  }
 
   function simulatePositionPriceMovement() {
     for (const pos of activePositions) {
@@ -1814,9 +1852,66 @@ Provide the full 10-section comprehensive analysis now.`;
       const volatility = (Math.random() - 0.5) * pos.entryPremium * 0.04;
       pos.currentPremium = Math.max(0.5, pos.currentPremium + drift + volatility);
       pos.currentPremium = parseFloat(pos.currentPremium.toFixed(2));
-      const lotSize = 25;
-      pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
+      pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
       pos.pnlPercent = parseFloat((((pos.currentPremium - pos.entryPremium) / pos.entryPremium) * 100).toFixed(2));
+
+      pos.premiumHistory.push(pos.currentPremium);
+      if (pos.premiumHistory.length > 60) pos.premiumHistory = pos.premiumHistory.slice(-60);
+      if (pos.currentPremium > pos.peakPremium) pos.peakPremium = pos.currentPremium;
+      if (pos.currentPremium < pos.lowestPremium) pos.lowestPremium = pos.currentPremium;
+
+      const atr = calculatePositionATR(pos.premiumHistory);
+      if (atr > 0) {
+        pos.atrStopLoss = parseFloat((pos.entryPremium - atr * 1.5).toFixed(2));
+      }
+
+      const kiss = detectPositionKissPattern(pos);
+      pos.kissPhase = kiss.phase as ActivePosition["kissPhase"];
+
+      if (pos.pnl <= -LOSS_ALERT_THRESHOLD && !pos.lossAlerted) {
+        pos.lossAlerted = true;
+        console.log(`[ATR ALERT] Position ${pos.id}: Loss Rs.${Math.abs(pos.pnl)} exceeds Rs.${LOSS_ALERT_THRESHOLD} threshold!`);
+      }
+
+      if (atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
+        pos.exitPremium = pos.currentPremium;
+        pos.exitTime = new Date().toISOString();
+        pos.exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss})`;
+        pos.status = "ATR_STOPPED";
+        pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
+        console.log(`[ATR EXIT] Position ${pos.id} stopped at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
+
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+        if (tgToken && tgChatId) {
+          const msg = `🛑 ATR STOP LOSS\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nP&L: Rs.${pos.pnl}\nATR SL: ${pos.atrStopLoss}`;
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+          }).catch(() => {});
+        }
+      }
+
+      if (kiss.shouldBook && pos.pnl > 0) {
+        pos.exitPremium = pos.currentPremium;
+        pos.exitTime = new Date().toISOString();
+        pos.exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
+        pos.status = "KISS_PROFIT";
+        pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
+        console.log(`[KISS PROFIT] Position ${pos.id} booked at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
+
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+        if (tgToken && tgChatId) {
+          const msg = `💋 KISS PATTERN PROFIT!\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nP&L: Rs.${pos.pnl}\n${kiss.description}`;
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+          }).catch(() => {});
+        }
+      }
     }
   }
 
@@ -1853,20 +1948,68 @@ Provide the full 10-section comprehensive analysis now.`;
     res.json({ positions: active, autoTradeMode });
   });
 
+  app.get("/api/trading/summary", (_req, res) => {
+    const active = activePositions.filter(p => p.status === "ACTIVE");
+    const exited = activePositions.filter(p => p.status !== "ACTIVE");
+    const totalActivePnl = active.reduce((s, p) => s + p.pnl, 0);
+    const totalExitedPnl = exited.reduce((s, p) => s + p.pnl, 0);
+    const totalPnl = totalActivePnl + totalExitedPnl;
+    const wins = exited.filter(p => p.pnl > 0).length;
+    const losses = exited.filter(p => p.pnl <= 0).length;
+    const hasActivePosition = active.length > 0;
+    const lossAlert = active.some(p => p.pnl <= -LOSS_ALERT_THRESHOLD);
+    const kissDetected = active.some(p => p.kissPhase === "KISS_BOUNCE");
+
+    const activeDetails = active.map(p => ({
+      id: p.id,
+      type: p.type,
+      strike: p.strike,
+      lots: p.lots,
+      entryPremium: p.entryPremium,
+      currentPremium: p.currentPremium,
+      pnl: p.pnl,
+      pnlPercent: p.pnlPercent,
+      atrStopLoss: p.atrStopLoss,
+      kissPhase: p.kissPhase,
+      lossAlerted: p.lossAlerted,
+      target: p.target,
+      stopLoss: p.stopLoss,
+    }));
+
+    res.json({
+      hasActivePosition,
+      activeCount: active.length,
+      exitedCount: exited.length,
+      totalActivePnl: parseFloat(totalActivePnl.toFixed(2)),
+      totalExitedPnl: parseFloat(totalExitedPnl.toFixed(2)),
+      totalPnl: parseFloat(totalPnl.toFixed(2)),
+      wins,
+      losses,
+      lossAlert,
+      kissDetected,
+      lossAlertThreshold: LOSS_ALERT_THRESHOLD,
+      minProfitTarget: MIN_PROFIT_TARGET,
+      activePositions: activeDetails,
+      canTakeNewTrade: !hasActivePosition,
+      recentOrders: orderBook.slice(-5).reverse(),
+    });
+  });
+
   app.post("/api/positions/open", (req, res) => {
     const { type, strike, lots, premium, target, stopLoss, pin } = req.body;
     if (!autoTradeMode && pin !== currentPin) {
       return res.status(403).json({ error: "Invalid PIN" });
     }
+    const entryPrem = Number(premium);
     const position: ActivePosition = {
       id: `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
       type: type as "CE" | "PE",
       strike: Number(strike),
       lots: Number(lots || 1),
-      entryPremium: Number(premium),
-      currentPremium: Number(premium),
-      target: Number(target || premium * 1.8),
-      stopLoss: Number(stopLoss || premium * 0.7),
+      entryPremium: entryPrem,
+      currentPremium: entryPrem,
+      target: Number(target || entryPrem * 1.8),
+      stopLoss: Number(stopLoss || entryPrem * 0.7),
       pnl: 0,
       pnlPercent: 0,
       entryTime: new Date().toISOString(),
@@ -1874,6 +2017,12 @@ Provide the full 10-section comprehensive analysis now.`;
       exitPremium: null,
       exitTime: null,
       exitReason: null,
+      premiumHistory: [entryPrem],
+      peakPremium: entryPrem,
+      lowestPremium: entryPrem,
+      atrStopLoss: entryPrem * 0.85,
+      kissPhase: "NONE",
+      lossAlerted: false,
     };
     activePositions.push(position);
     startPositionSimulation();
@@ -1903,9 +2052,13 @@ Provide the full 10-section comprehensive analysis now.`;
     pos.exitPremium = pos.currentPremium;
     pos.exitTime = new Date().toISOString();
     pos.exitReason = reason || "Manual exit";
-    pos.status = reason === "AUTO_STOP_LOSS" ? "AUTO_EXITED" : reason === "AUTO_PROFIT_BOOK" ? "PROFIT_BOOKED" : "EXITED";
+    pos.status = reason === "AUTO_STOP_LOSS" ? "AUTO_EXITED" 
+      : reason === "AUTO_PROFIT_BOOK" ? "PROFIT_BOOKED" 
+      : reason === "ATR_STOP_LOSS" ? "ATR_STOPPED"
+      : reason === "KISS_PATTERN_PROFIT" ? "KISS_PROFIT"
+      : "EXITED";
 
-    const lotSize = 25;
+    const lotSize = LOT_SIZE;
     const finalPnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
     pos.pnl = finalPnl;
 
