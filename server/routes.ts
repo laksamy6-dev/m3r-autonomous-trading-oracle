@@ -3,10 +3,43 @@ import { createServer, type Server } from "node:http";
 import OpenAI, { toFile } from "openai";
 import express from "express";
 import { Buffer } from "node:buffer";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-let upstoxApiKey = process.env.UPSTOX_API_KEY;
-let upstoxApiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
-let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
+const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
+
+function loadVaultFromFile(): Record<string, string> {
+  try {
+    if (fs.existsSync(VAULT_FILE_PATH)) {
+      const raw = fs.readFileSync(VAULT_FILE_PATH, "utf-8");
+      const data = JSON.parse(raw);
+      console.log("[VAULT] Loaded saved tokens from disk");
+      return data;
+    }
+  } catch (err) {
+    console.error("[VAULT] Error loading vault file:", err);
+  }
+  return {};
+}
+
+function saveVaultToFile(data: Record<string, string>) {
+  try {
+    fs.writeFileSync(VAULT_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+    console.log("[VAULT] Tokens saved to disk");
+  } catch (err) {
+    console.error("[VAULT] Error saving vault file:", err);
+  }
+}
+
+const savedVault = loadVaultFromFile();
+
+let upstoxApiKey = savedVault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
+let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
+
+if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
+if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
+if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
 
 interface TradeProposal {
   id: string;
@@ -622,7 +655,15 @@ Based on this data, give me:
         break;
     }
 
-    console.log(`[VAULT] Key ${keyId} updated by user`);
+    const currentVault = loadVaultFromFile();
+    if (trimmedValue) {
+      currentVault[keyId] = trimmedValue;
+    } else {
+      delete currentVault[keyId];
+    }
+    saveVaultToFile(currentVault);
+
+    console.log(`[VAULT] Key ${keyId} updated by user (saved to disk)`);
     res.json({ success: true, keyId, hasValue: !!trimmedValue });
   });
 
@@ -662,7 +703,11 @@ Based on this data, give me:
         break;
     }
 
-    console.log(`[VAULT] Key ${keyId} deleted by user`);
+    const currentVault = loadVaultFromFile();
+    delete currentVault[keyId];
+    saveVaultToFile(currentVault);
+
+    console.log(`[VAULT] Key ${keyId} deleted by user (removed from disk)`);
     res.json({ success: true, keyId, deleted: true });
   });
 
