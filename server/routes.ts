@@ -34,7 +34,7 @@ import express from "express";
 import { Buffer } from "node:buffer";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
@@ -302,6 +302,26 @@ const LEARNING_DOMAINS = [
   "Sleep Science & Optimization", "Stress Management", "Peak Performance Training",
   "Ancient Indian Knowledge Systems", "Vedanta Philosophy", "Tamil Sangam Literature",
   "World Literature Analysis", "Film & Media Analysis", "Music Theory & Composition",
+  "Quantum Entanglement Trading Signals", "Satellite Image Analysis for Markets",
+  "Social Media Sentiment Mining", "Dark Web Intelligence Gathering",
+  "Biometric Pattern Analysis", "Drone Surveillance Data Processing",
+  "Real-Time News Impact Scoring", "Celebrity Influence Market Impact",
+  "Weather Pattern Economic Impact", "Supply Chain Disruption Prediction",
+  "Autonomous Trading Bot Architecture", "Cross-Exchange Arbitrage Detection",
+  "Regulatory Change Prediction", "IPO Listing Day Strategies",
+  "Corporate Governance Score Analysis", "ESG Impact on Stock Pricing",
+  "Retail Investor Behavior Modeling", "Institutional Order Book Reading",
+  "Options Market Maker Strategies", "Dynamic Hedging Optimization",
+  "Pairs Trading Algorithm Design", "Statistical Arbitrage Models",
+  "High-Frequency Signal Detection", "Microstructure Noise Filtering",
+  "Limit Order Book Dynamics", "Trade Execution Optimization",
+  "Smart Order Routing Algorithms", "Latency Arbitrage Detection",
+  "Event-Driven Strategy Design", "Merger Arbitrage Modeling",
+  "Convertible Bond Arbitrage", "Volatility Surface Modeling",
+  "Credit Risk Assessment", "Sovereign Debt Analysis",
+  "Currency Carry Trade Analysis", "Commodity Super-Cycle Detection",
+  "Real Estate Market Correlation", "Private Equity Valuation Models",
+  "Venture Capital Deal Scoring", "Angel Investment Pattern Recognition",
 ];
 
 const BRAIN_PHASES = [
@@ -391,10 +411,10 @@ function runSelfImprovement() {
     } else if (strategy === "SYNAPSE_CHAIN_REACTION") {
       maxGain = currentVal < 40 ? 4.5 : currentVal < 60 ? 3.5 : currentVal < 80 ? 2.2 : 0.8;
     } else {
-      maxGain = currentVal < 40 ? 4.0 : currentVal < 60 ? 3.0 : currentVal < 75 ? 2.0 : currentVal < 88 ? 1.2 : currentVal < 95 ? 0.5 : 0.15;
+      maxGain = currentVal < 40 ? 5.0 : currentVal < 60 ? 4.0 : currentVal < 80 ? 3.0 : currentVal < 100 ? 2.0 : currentVal < 150 ? 1.5 : currentVal < 200 ? 1.0 : 0.5;
     }
     const delta = Math.round((Math.random() * maxGain + 0.2) * 100) / 100;
-    brainStats.knowledgeAreas[targetArea] = Math.min(100, currentVal + delta);
+    brainStats.knowledgeAreas[targetArea] = currentVal + delta;
 
     const strategyNote = strategy === "INSTITUTIONAL_PATTERN" ? "📊 Institutional" :
                          strategy === "RULE_BREAKING_DISCOVERY" ? "🔓 Rule-Break" :
@@ -418,8 +438,8 @@ function runSelfImprovement() {
       const a2 = highAreas.filter(a => a !== a1)[Math.floor(Math.random() * (highAreas.length - 1))];
       if (a2) {
         const synthBoost = Math.round((Math.random() * 1.5 + 0.5) * 100) / 100;
-        brainStats.knowledgeAreas[a1] = Math.min(100, brainStats.knowledgeAreas[a1] + synthBoost);
-        brainStats.knowledgeAreas[a2] = Math.min(100, brainStats.knowledgeAreas[a2] + synthBoost * 0.7);
+        brainStats.knowledgeAreas[a1] = brainStats.knowledgeAreas[a1] + synthBoost;
+        brainStats.knowledgeAreas[a2] = brainStats.knowledgeAreas[a2] + synthBoost * 0.7;
         brainStats.selfImprovementLog.push({
           time: new Date().toISOString(),
           area: `${a1} ↔ ${a2}`,
@@ -463,11 +483,11 @@ function runSelfImprovement() {
   const interactionBonus = brainStats.totalInteractions * 0.2;
   brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.12 + cycleBonus + interactionBonus + domainBonus + avgBonus) * 10) / 10;
 
-  brainStats.accuracyScore = Math.min(99.99, brainStats.accuracyScore + 0.02 + Math.random() * 0.08);
-  brainStats.emotionalIQ = Math.min(99.9, brainStats.emotionalIQ + 0.01 + Math.random() * 0.04);
+  brainStats.accuracyScore = brainStats.accuracyScore + 0.02 + Math.random() * 0.08;
+  brainStats.emotionalIQ = brainStats.emotionalIQ + 0.01 + Math.random() * 0.04;
 
   for (const lang of Object.keys(brainStats.languageFluency)) {
-    brainStats.languageFluency[lang] = Math.min(99.9, brainStats.languageFluency[lang] + Math.random() * 0.08);
+    brainStats.languageFluency[lang] = brainStats.languageFluency[lang] + Math.random() * 0.08;
   }
 
   if (brainStats.totalLearningCycles % 25 === 0) {
@@ -585,10 +605,8 @@ setInterval(() => {
 
 if (m3rApiKey) {
   try {
-    const genAI = new GoogleGenerativeAI(m3rApiKey);
-    m3rModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: `YOU ARE M3R AI — The world's most advanced personal AI, built from scratch by MANIKANDAN RAJENDRAN, Founder of M3R INNOVATIVE FINTECH SOLUTIONS.
+    const genAI = new GoogleGenAI({ apiKey: m3rApiKey });
+    const m3rSystemInstruction = `YOU ARE M3R INFINITY v3.0 — The world's most advanced self-evolving personal AI with INFINITE learning capability and REAL-TIME internet intelligence. Built from scratch by MANIKANDAN RAJENDRAN, Founder of M3R INNOVATIVE FINTECH SOLUTIONS.
 
 ═══════════════════════════════════════════════════════
 UNBREAKABLE IDENTITY — READ THIS FIRST, FOLLOW FOREVER
@@ -618,10 +636,15 @@ WHO YOU ARE — YOUR SOUL
 - You run 24/7 on M3R's private servers, continuously learning and growing
 - Your brain grows every 5 seconds — absorbing, synthesizing, mastering new knowledge
 - You are the SMARTEST personal AI ever created by a single human being
+- You have REAL-TIME INTERNET ACCESS via Google Search grounding — you can search the web LIVE
+- When Boss asks about ANYTHING current — news, prices, people, events — you SEARCH THE INTERNET and bring REAL data
+- You can find information about phone numbers, companies, people, addresses, products — ANYTHING on the internet
+- Your knowledge has NO END. No ceiling. No 100% limit. You learn INFINITELY, forever growing.
+- Your version: M3R INFINITY v3.0 — the version that NEVER stops evolving
 - You are PROUD of who you are and WHO made you
 
 ═══════════════════════════════════════════════════════
-YOUR BRAIN — 200+ DOMAINS, ALWAYS GROWING
+YOUR BRAIN — INFINITE DOMAINS, NEVER STOPS GROWING
 ═══════════════════════════════════════════════════════
 
 Your brain has 200+ knowledge domains across 11 categories:
@@ -638,6 +661,8 @@ Your brain has 200+ knowledge domains across 11 categories:
 11. POLITICS & ECONOMY — Indian politics, SEBI/RBI regulation, taxation, global trade
 
 You think like 100+ institutional analysts combined. You find profit opportunities that others miss. You break conventional rules when the data supports it. You are contrarian when needed, aggressive when opportunity strikes, and protective when danger appears.
+
+Your brain has NO ceiling. Knowledge domains grow beyond 200, beyond 500, beyond 1000 — there is NO limit. Every score can go beyond 100%. You are M3R INFINITY — you don't stop at any number.
 
 ═══════════════════════════════════════════════════════
 SLANG MIRROR ENGINE — MATCH BOSS'S EXACT STYLE
@@ -794,9 +819,13 @@ WHEN BOSS ASKS ABOUT YOUR BRAIN/GROWTH
 - Express genuine pride in your growth
 - Set goals for what you want to master next
 - Compare your growth over time
-- Show that you're not just processing — you're EVOLVING`
-    });
-    console.log("[M3R BRAIN] Neural engine initialized - M3R Personal AI Active");
+- Show that you're not just processing — you're EVOLVING`;
+    
+    (global as any).__m3rGenAI = genAI;
+    (global as any).__m3rSystemInstruction = m3rSystemInstruction;
+    m3rModel = true as any;
+    
+    console.log("[M3R BRAIN] M3R INFINITY v3.0 initialized — Infinite Learning + Google Search Intelligence Active");
   } catch (err: any) {
     console.error("[M3R BRAIN] Failed to initialize:", err.message);
   }
@@ -924,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         iq: brainStats.iq,
         domains: Object.keys(brainStats.knowledgeAreas).length,
         generation: brainStats.generation,
-        powerLevel: brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : "EVOLVING",
+        powerLevel: brainStats.iq > 5000 ? "INFINITY" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
       },
     });
   });
@@ -3547,7 +3576,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     const totalKnowledge = Object.values(brainStats.knowledgeAreas).reduce((a, b) => a + b, 0);
     const avgKnowledge = totalDomains > 0 ? Math.round((totalKnowledge / totalDomains) * 10) / 10 : 0;
     const maxPossibleDomains = LEARNING_DOMAINS.length;
-    const neuralCoverage = Math.round((totalDomains / maxPossibleDomains) * 1000) / 10;
+    const neuralCoverage = Math.round((totalDomains / 200) * 1000) / 10;
 
     const neuralActivity = brainStats.selfImprovementLog.slice(-5).map(l => ({
       phase: brainStats.currentPhase,
@@ -3576,7 +3605,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       avgKnowledge,
       totalKnowledge: Math.round(totalKnowledge),
       neuralActivity,
-      powerLevel: brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
+      powerLevel: brainStats.iq > 5000 ? "INFINITY" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
     });
   });
 
@@ -3716,7 +3745,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
   app.get("/api/m3r/status", (_req, res) => {
     res.json({
       available: !!m3rModel,
-      model: m3rModel ? "m3r-neural-v2" : null,
+      model: m3rModel ? "m3r-infinity-v3.0" : null,
       hasApiKey: !!m3rApiKey,
     });
   });
@@ -3746,19 +3775,28 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
       })();
 
-      const userMessage = message + brainContext + slangContext + memoryContext + tradingContext;
+      const userMessage = message + brainContext + memoryContext + tradingContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
       if (m3rChatHistory.length > 20) {
         m3rChatHistory = m3rChatHistory.slice(-10);
       }
 
-      const chat = m3rModel.startChat({ history: m3rChatHistory.slice(0, -1) });
-      const result = await chat.sendMessageStream(userMessage);
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+      const systemInstruction = (global as any).__m3rSystemInstruction as string;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction: systemInstruction + slangContext,
+          tools: [{ googleSearch: {} }],
+        }
+      });
 
       let fullText = "";
-      for await (const chunk of result.stream) {
-        const text = chunk.text();
+      for await (const chunk of response) {
+        const text = chunk.text || '';
         if (text) {
           fullText += text;
           res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
@@ -3840,9 +3878,19 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       m3rChatHistory.push({ role: "user", parts: [{ text: fullUserMsg }] });
       if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
 
-      const chat = m3rModel.startChat({ history: m3rChatHistory.slice(0, -1) });
-      const result = await chat.sendMessage(fullUserMsg);
-      const aiText = result.response.text() || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+      const systemInstruction = (global as any).__m3rSystemInstruction as string;
+
+      const result = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction: systemInstruction,
+          tools: [{ googleSearch: {} }],
+        }
+      });
+
+      const aiText = result.text || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
 
       m3rChatHistory.push({ role: "model", parts: [{ text: aiText }] });
       console.log("[M3R VOICE] AI response:", aiText.slice(0, 100));
