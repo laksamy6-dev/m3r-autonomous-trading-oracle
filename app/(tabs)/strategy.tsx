@@ -55,6 +55,7 @@ import {
   NeuroQuantumFusion,
 } from "@/lib/neural-trading-engine";
 import { generateOptionChain } from "@/lib/options";
+import { fetchLiveOptionChain } from "@/lib/live-market";
 import Colors from "@/constants/colors";
 import BrandHeader from "@/components/BrandHeader";
 
@@ -247,6 +248,7 @@ function StrategyScreenInner() {
   const [thinking, setThinking] = useState<ThinkingEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [isLiveData, setIsLiveData] = useState(false);
   const thinkingRef = useRef<ScrollView>(null);
 
   const [brain, setBrain] = useState<JarvisBrainState | null>(null);
@@ -347,8 +349,9 @@ function StrategyScreenInner() {
     }, 800);
   }, []);
 
-  const runEngine = useCallback(() => {
-    const chain = generateOptionChain();
+  const runEngine = useCallback(async () => {
+    const { chain, isLive } = await fetchLiveOptionChain();
+    setIsLiveData(isLive);
     const result = runNeuralEngine(chain);
     setOutput(result);
 

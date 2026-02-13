@@ -41,6 +41,7 @@ import {
   TradeRecord,
 } from "@/lib/paper-trading";
 import { generateOptionChain } from "@/lib/options";
+import { fetchLiveOptionChain } from "@/lib/live-market";
 import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
@@ -85,6 +86,7 @@ export default function PortfolioScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("DASHBOARD");
   const [refreshing, setRefreshing] = useState(false);
+  const [isLiveData, setIsLiveData] = useState(false);
 
   const [fundAccount, setFundAccount] = useState<FundAccount | null>(null);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
@@ -126,9 +128,10 @@ export default function PortfolioScreen() {
   useFocusEffect(
     useCallback(() => {
       loadAll();
-      const interval = setInterval(() => {
-        const chain = generateOptionChain();
+      const interval = setInterval(async () => {
+        const { chain, isLive } = await fetchLiveOptionChain();
         chainRef.current = chain;
+        setIsLiveData(isLive);
         setPositions((prev) => {
           if (prev.length === 0) return prev;
           return updatePositionPremiums(prev, chain.spotPrice);
@@ -140,7 +143,9 @@ export default function PortfolioScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    chainRef.current = generateOptionChain();
+    const { chain, isLive } = await fetchLiveOptionChain();
+    chainRef.current = chain;
+    setIsLiveData(isLive);
     await loadAll();
     setRefreshing(false);
   }, [loadAll]);
@@ -206,9 +211,10 @@ export default function PortfolioScreen() {
     loadAll();
   };
 
-  const openOrderModal = () => {
-    const chain = generateOptionChain();
+  const openOrderModal = async () => {
+    const { chain, isLive } = await fetchLiveOptionChain();
     chainRef.current = chain;
+    setIsLiveData(isLive);
     const atmStrike = chain.atmStrike;
     setOrderStrike(atmStrike);
     const atmOpt = chain.options.find((o) => o.strikePrice === atmStrike);
