@@ -286,7 +286,7 @@ export default function AIScreen() {
   const [executeLots, setExecuteLots] = useState("1");
   const [executePremium, setExecutePremium] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
-  const [geminiStatus, setGeminiStatus] = useState<{ available: boolean } | null>(null);
+  const [m3rStatus, setM3rStatus] = useState<{ available: boolean } | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const logScrollRef = useRef<ScrollView>(null);
@@ -332,17 +332,17 @@ export default function AIScreen() {
   }, []);
 
   useEffect(() => {
-    const checkGemini = async () => {
+    const checkM3r = async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/gemini/status`);
+        const res = await globalThis.fetch(`${baseUrl}api/m3r/status`);
         if (res.ok) {
           const data = await res.json();
-          setGeminiStatus(data);
+          setM3rStatus(data);
         }
       } catch {}
     };
-    checkGemini();
+    checkM3r();
   }, []);
 
   useEffect(() => {
@@ -905,15 +905,15 @@ export default function AIScreen() {
           <MaterialCommunityIcons
             name="robot-outline"
             size={10}
-            color={geminiStatus?.available ? NEON_GREEN : "#64748B"}
+            color={m3rStatus?.available ? NEON_GREEN : "#64748B"}
           />
           <Text
             style={[
               s.statusLabel,
-              { color: geminiStatus?.available ? NEON_GREEN : "#64748B" },
+              { color: m3rStatus?.available ? NEON_GREEN : "#64748B" },
             ]}
           >
-            GEMINI {geminiStatus?.available ? "ON" : "OFF"}
+            M3R {m3rStatus?.available ? "ON" : "OFF"}
           </Text>
         </View>
         <View style={s.statusDivider} />

@@ -390,7 +390,7 @@ export default function BotScreen() {
 
       try {
         const baseUrl = getApiUrl();
-        const response = await fetch(`${baseUrl}api/gemini/chat`, {
+        const response = await fetch(`${baseUrl}api/m3r/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text.trim() }),
@@ -602,7 +602,7 @@ export default function BotScreen() {
 
     try {
       const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/gemini/voice`, {
+      const res = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64 }),
