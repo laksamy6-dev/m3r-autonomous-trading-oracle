@@ -191,6 +191,8 @@ export default function AIScreen() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("ready");
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
+  const [tradingSummary, setTradingSummary] = useState<any>(null);
   const [logs, setLogs] = useState<{ text: string; type: "info" | "success" | "warning" | "ai" }[]>([
     { text: "Neural Architecture v8.0 Loaded", type: "success" },
     { text: "JARVIS AI Core: ONLINE", type: "ai" },
@@ -212,6 +214,29 @@ export default function AIScreen() {
     setLogs(prev => [...prev.slice(-20), { text, type }]);
     setTimeout(() => logScrollRef.current?.scrollToEnd({ animated: true }), 50);
   }
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const [statusRes, summaryRes] = await Promise.all([
+          globalThis.fetch(`${baseUrl}api/upstox/status`),
+          globalThis.fetch(`${baseUrl}api/trading/summary`).catch(() => null),
+        ]);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setUpstoxStatus(statusData);
+        }
+        if (summaryRes && summaryRes.ok) {
+          const summaryData = await summaryRes.json();
+          setTradingSummary(summaryData);
+        }
+      } catch {}
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   function jarvisSpeak(text: string) {
     if (!autoSpeak) return;
@@ -514,6 +539,39 @@ export default function AIScreen() {
         <Text style={s.bossName}>BOSS MANIKANDAN</Text>
       </View>
 
+      <View style={s.statusDashboard}>
+        <View style={s.statusItem}>
+          <View style={[s.statusDot, { backgroundColor: upstoxStatus.connected ? NEON_GREEN : "#EF4444" }]} />
+          <Text style={[s.statusLabel, { color: upstoxStatus.connected ? NEON_GREEN : "#EF4444" }]}>
+            {upstoxStatus.connected ? "LIVE" : upstoxStatus.configured ? "DISCONNECTED" : "NOT CONFIGURED"}
+          </Text>
+        </View>
+        <View style={s.statusDivider} />
+        <View style={s.statusItem}>
+          <Ionicons name="server-outline" size={10} color={upstoxStatus.configured ? CYAN : "#64748B"} />
+          <Text style={[s.statusLabel, { color: upstoxStatus.configured ? CYAN : "#64748B" }]}>
+            UPSTOX {upstoxStatus.configured ? "READY" : "NO KEYS"}
+          </Text>
+        </View>
+        <View style={s.statusDivider} />
+        <View style={s.statusItem}>
+          <Ionicons name="pulse" size={10} color={tradingSummary?.hasActivePosition ? NEON_GREEN : "#64748B"} />
+          <Text style={[s.statusLabel, { color: tradingSummary?.hasActivePosition ? NEON_GREEN : "#64748B" }]}>
+            {tradingSummary?.hasActivePosition ? `${tradingSummary.activeCount} TRADE${tradingSummary.activeCount > 1 ? "S" : ""}` : "NO TRADES"}
+          </Text>
+        </View>
+        {tradingSummary && (
+          <>
+            <View style={s.statusDivider} />
+            <View style={s.statusItem}>
+              <Text style={[s.statusLabel, { color: (tradingSummary.totalPnl || 0) >= 0 ? NEON_GREEN : "#EF4444" }]}>
+                P&L: {"\u20B9"}{(tradingSummary.totalPnl || 0).toFixed(0)}
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+
       <View style={s.voiceSection}>
         <View style={s.waveRow}>
           {Array.from({ length: 7 }).map((_, i) => (
@@ -688,6 +746,38 @@ const cs = StyleSheet.create({
 });
 
 const s = StyleSheet.create({
+  statusDashboard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,243,255,0.1)",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  statusItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 1,
+  },
+  statusDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "rgba(100,116,139,0.3)",
+  },
   container: {
     flex: 1,
     backgroundColor: DEEP_BLACK,
