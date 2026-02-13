@@ -6,6 +6,7 @@ import { Buffer } from "node:buffer";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import pg from "pg";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
@@ -278,6 +279,86 @@ setTimeout(() => {
     runSelfImprovement();
   }, 2000);
 }, 1000);
+
+const dbPool = process.env.DATABASE_URL
+  ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 5 })
+  : null;
+
+async function saveBrainToDb() {
+  if (!dbPool) return;
+  try {
+    await dbPool.query(
+      `INSERT INTO brain_state (id, iq, generation, total_interactions, total_learning_cycles, accuracy_score, emotional_iq, knowledge_areas, language_fluency, updated_at)
+       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       ON CONFLICT (id) DO UPDATE SET iq=$1, generation=$2, total_interactions=$3, total_learning_cycles=$4, accuracy_score=$5, emotional_iq=$6, knowledge_areas=$7, language_fluency=$8, updated_at=NOW()`,
+      [brainStats.iq, brainStats.generation, brainStats.totalInteractions, brainStats.totalLearningCycles,
+       brainStats.accuracyScore, brainStats.emotionalIQ, JSON.stringify(brainStats.knowledgeAreas), JSON.stringify(brainStats.languageFluency)]
+    );
+  } catch (e: any) { console.error("[BRAIN DB] Save failed:", e.message); }
+}
+
+async function loadBrainFromDb() {
+  if (!dbPool) return;
+  try {
+    const result = await dbPool.query("SELECT * FROM brain_state WHERE id = 1");
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      brainStats.iq = row.iq;
+      brainStats.generation = row.generation;
+      brainStats.totalInteractions = row.total_interactions;
+      brainStats.totalLearningCycles = row.total_learning_cycles;
+      brainStats.accuracyScore = row.accuracy_score;
+      brainStats.emotionalIQ = row.emotional_iq;
+      if (row.knowledge_areas && typeof row.knowledge_areas === "object") {
+        Object.assign(brainStats.knowledgeAreas, row.knowledge_areas);
+      }
+      if (row.language_fluency && typeof row.language_fluency === "object") {
+        Object.assign(brainStats.languageFluency, row.language_fluency);
+      }
+      console.log("[BRAIN DB] Loaded brain from database. IQ:", brainStats.iq, "Gen:", brainStats.generation);
+    }
+  } catch (e: any) { console.error("[BRAIN DB] Load failed:", e.message); }
+}
+
+async function saveMemory(content: string, category: string = "general", importance: number = 5, tags: string[] = []) {
+  if (!dbPool) return null;
+  try {
+    const result = await dbPool.query(
+      `INSERT INTO brain_memories (category, content, importance, source, tags, never_forget)
+       VALUES ($1, $2, $3, 'boss_command', $4, true) RETURNING id`,
+      [category, content, importance, tags]
+    );
+    console.log("[MEMORY] Saved permanent memory #" + result.rows[0].id + ": " + content.slice(0, 60));
+    return result.rows[0].id;
+  } catch (e: any) {
+    console.error("[MEMORY] Save failed:", e.message);
+    return null;
+  }
+}
+
+async function getAllMemories(): Promise<Array<{ id: number; category: string; content: string; importance: number; created_at: string; tags: string[] }>> {
+  if (!dbPool) return [];
+  try {
+    const result = await dbPool.query("SELECT * FROM brain_memories ORDER BY importance DESC, created_at DESC");
+    return result.rows;
+  } catch (e: any) {
+    console.error("[MEMORY] Fetch failed:", e.message);
+    return [];
+  }
+}
+
+async function getMemoriesForContext(): Promise<string> {
+  const memories = await getAllMemories();
+  if (memories.length === 0) return "";
+  const memLines = memories.slice(0, 30).map(m => `- [${m.category}] ${m.content}`).join("\n");
+  return `\n[BOSS'S PERMANENT MEMORIES - NEVER FORGET THESE:\n${memLines}\n]`;
+}
+
+loadBrainFromDb();
+
+setInterval(() => {
+  saveBrainToDb();
+}, 60000);
 
 if (geminiApiKey) {
   try {
@@ -3073,6 +3154,36 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     res.json({ success: true, message: "Training cycle triggered" });
   });
 
+  app.post("/api/brain/memory/save", async (req, res) => {
+    try {
+      const { content, category, importance, tags } = req.body;
+      if (!content) return res.status(400).json({ error: "Content is required" });
+      const id = await saveMemory(content, category || "general", importance || 5, tags || []);
+      res.json({ success: true, id, message: "Memory saved permanently" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save memory" });
+    }
+  });
+
+  app.get("/api/brain/memory/list", async (_req, res) => {
+    try {
+      const memories = await getAllMemories();
+      res.json({ memories, count: memories.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch memories" });
+    }
+  });
+
+  app.delete("/api/brain/memory/:id", async (req, res) => {
+    try {
+      if (!dbPool) return res.status(503).json({ error: "Database not available" });
+      await dbPool.query("DELETE FROM brain_memories WHERE id = $1", [req.params.id]);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete memory" });
+    }
+  });
+
   app.get("/api/gemini/status", (_req, res) => {
     res.json({
       available: !!geminiModel,
@@ -3096,13 +3207,15 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
+      const memoryContext = await getMemoriesForContext();
+
       const tradingContext = (() => {
         const active = activePositions.filter(p => p.status === "ACTIVE");
         if (active.length === 0) return "";
         return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
       })();
 
-      const userMessage = message + brainContext + tradingContext;
+      const userMessage = message + brainContext + memoryContext + tradingContext;
       geminiChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
       if (geminiChatHistory.length > 20) {
@@ -3182,13 +3295,15 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
 
+      const memoryContext = await getMemoriesForContext();
+
       const tradingContext = (() => {
         const active = activePositions.filter(p => p.status === "ACTIVE");
         if (active.length === 0) return "";
         return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
       })();
 
-      const fullUserMsg = userText + brainContext + tradingContext;
+      const fullUserMsg = userText + brainContext + memoryContext + tradingContext;
       geminiChatHistory.push({ role: "user", parts: [{ text: fullUserMsg }] });
       if (geminiChatHistory.length > 20) geminiChatHistory = geminiChatHistory.slice(-10);
 
