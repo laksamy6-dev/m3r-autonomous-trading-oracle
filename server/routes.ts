@@ -258,13 +258,51 @@ Provide your trading signal and analysis.`;
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders();
 
+      const hasTamil = /[\u0B80-\u0BFF]/.test(question);
+      const langInstruction = hasTamil
+        ? `IMPORTANT: The user is speaking in Tamil. You MUST respond ENTIRELY in Tamil (தமிழ்). Use Tamil script throughout. Speak naturally like a knowledgeable friend - use conversational Tamil, not formal. Address user as "அண்ணா" or "சார்". Mix English trading terms naturally (like "strike price", "premium", "call", "put") but explain everything else in Tamil. Be warm, confident, and protective of their money.`
+        : `Respond in English. Be concise, practical, and specific to the Indian market context.`;
+
+      const tradingSummaryData = (() => {
+        const active = activePositions.filter(p => p.status === "ACTIVE");
+        const exited = activePositions.filter(p => p.status !== "ACTIVE");
+        if (active.length === 0 && exited.length === 0) return "";
+        const lines = [];
+        if (active.length > 0) {
+          lines.push(`\nACTIVE POSITIONS (${active.length}):`);
+          active.forEach(p => lines.push(`- ${p.type} ${p.strike}: Entry Rs.${p.entryPremium}, Current Rs.${p.currentPremium}, P&L Rs.${p.pnl.toFixed(0)} (${p.pnlPercent.toFixed(1)}%), SL: Rs.${p.stopLoss}, Target: Rs.${p.target}`));
+        }
+        if (exited.length > 0) {
+          const wins = exited.filter(p => p.pnl > 0).length;
+          const totalPnl = exited.reduce((s, p) => s + p.pnl, 0);
+          lines.push(`\nCLOSED TRADES: ${exited.length} (${wins} wins), Total P&L: Rs.${totalPnl.toFixed(0)}`);
+        }
+        return lines.join("\n");
+      })();
+
+      const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "PAPER/SIM Mode";
+
+      const systemPrompt = `You are JARVIS, the AI trading assistant created by MANIKANDAN RAJENDRAN (M3R). You are the command center brain for Nifty 50 options trading.
+
+${langInstruction}
+
+CURRENT MODE: ${upstoxMode}
+${tradingSummaryData}
+
+CAPABILITIES:
+- Expert Indian stock market advisor (NSE, BSE, Nifty 50 options)
+- Zero-loss strategy: Rs.500 minimum profit target, Rs.300 loss alert, ATR-based dynamic stop loss, kiss pattern profit booking
+- Real-time trading analysis, option chain analysis, PCR analysis
+- Order execution guidance and position management
+- Use INR (₹) for all prices. Reference SEBI regulations when relevant.
+- You are like Iron Man's JARVIS - confident, protective, and always looking out for sir's money.
+
+Creator: MANIKANDAN RAJENDRAN (Boss). Always address him respectfully.`;
+
       const stream = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
-          {
-            role: "system",
-            content: "You are an expert Indian stock market advisor. Answer questions about Indian markets (NSE, BSE), stocks, mutual funds, trading strategies, and financial planning. Be concise, practical, and specific to the Indian market context. Use INR for all prices. Reference SEBI regulations when relevant.",
-          },
+          { role: "system", content: systemPrompt },
           { role: "user", content: question },
         ],
         stream: true,
