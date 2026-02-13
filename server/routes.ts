@@ -4,8 +4,8 @@ import OpenAI, { toFile } from "openai";
 import express from "express";
 import { Buffer } from "node:buffer";
 
-const upstoxApiKey = process.env.UPSTOX_API_KEY;
-const upstoxApiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+let upstoxApiKey = process.env.UPSTOX_API_KEY;
+let upstoxApiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
 
 interface TradeProposal {
@@ -537,9 +537,133 @@ Based on this data, give me:
   });
 
   app.get("/api/upstox/status", (_req, res) => {
-    const apiKey = process.env.UPSTOX_API_KEY;
-    const apiSecret = process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
-    res.json({ configured: !!(apiKey && apiSecret), connected: !!upstoxAccessToken });
+    res.json({ configured: !!(upstoxApiKey && upstoxApiSecret), connected: !!upstoxAccessToken });
+  });
+
+  const VAULT_KEYS = [
+    { id: "UPSTOX_API_KEY", label: "Upstox API Key", category: "upstox" },
+    { id: "UPSTOX_SECRET_KEY", label: "Upstox Secret Key", category: "upstox" },
+    { id: "UPSTOX_ACCESS_TOKEN", label: "Upstox Access Token", category: "upstox" },
+    { id: "TELEGRAM_BOT_TOKEN", label: "Telegram Bot Token", category: "telegram" },
+    { id: "TELEGRAM_CHAT_ID", label: "Telegram Chat ID", category: "telegram" },
+    { id: "GEMINI_API_KEY", label: "Gemini API Key", category: "ai" },
+  ];
+
+  function getVaultValue(keyId: string): string | undefined {
+    switch (keyId) {
+      case "UPSTOX_API_KEY": return upstoxApiKey || process.env.UPSTOX_API_KEY;
+      case "UPSTOX_SECRET_KEY": return upstoxApiSecret || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+      case "UPSTOX_ACCESS_TOKEN": return upstoxAccessToken || undefined;
+      case "TELEGRAM_BOT_TOKEN": return process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+      case "TELEGRAM_CHAT_ID": return process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+      case "GEMINI_API_KEY": return process.env.GEMINI_API_KEY;
+      default: return undefined;
+    }
+  }
+
+  function maskValue(value: string): string {
+    if (value.length <= 6) return "****";
+    return value.substring(0, 4) + "****" + value.substring(value.length - 4);
+  }
+
+  app.get("/api/vault/keys", (req, res) => {
+    const { pin } = req.query;
+    if (pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const keys = VAULT_KEYS.map(k => {
+      const value = getVaultValue(k.id);
+      return {
+        id: k.id,
+        label: k.label,
+        category: k.category,
+        hasValue: !!value,
+        maskedValue: value ? maskValue(value) : "",
+      };
+    });
+    res.json({ keys });
+  });
+
+  app.post("/api/vault/update", (req, res) => {
+    const { pin, keyId, value } = req.body;
+    if (!pin || pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const keyDef = VAULT_KEYS.find(k => k.id === keyId);
+    if (!keyDef) {
+      return res.status(400).json({ error: "Unknown key" });
+    }
+
+    const trimmedValue = (value || "").trim();
+
+    switch (keyId) {
+      case "UPSTOX_API_KEY":
+        upstoxApiKey = trimmedValue || undefined;
+        process.env.UPSTOX_API_KEY = trimmedValue;
+        break;
+      case "UPSTOX_SECRET_KEY":
+        upstoxApiSecret = trimmedValue || undefined;
+        process.env.UPSTOX_API_SECRET = trimmedValue;
+        process.env.UPSTOX_SECRET_KEY = trimmedValue;
+        break;
+      case "UPSTOX_ACCESS_TOKEN":
+        upstoxAccessToken = trimmedValue || null;
+        break;
+      case "TELEGRAM_BOT_TOKEN":
+        process.env.TELEGRAM_BOT_TOKEN = trimmedValue;
+        process.env.bot_token = trimmedValue;
+        break;
+      case "TELEGRAM_CHAT_ID":
+        process.env.TELEGRAM_CHAT_ID = trimmedValue;
+        process.env.chat_id = trimmedValue;
+        break;
+      case "GEMINI_API_KEY":
+        process.env.GEMINI_API_KEY = trimmedValue;
+        break;
+    }
+
+    console.log(`[VAULT] Key ${keyId} updated by user`);
+    res.json({ success: true, keyId, hasValue: !!trimmedValue });
+  });
+
+  app.post("/api/vault/delete", (req, res) => {
+    const { pin, keyId } = req.body;
+    if (!pin || pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const keyDef = VAULT_KEYS.find(k => k.id === keyId);
+    if (!keyDef) {
+      return res.status(400).json({ error: "Unknown key" });
+    }
+
+    switch (keyId) {
+      case "UPSTOX_API_KEY":
+        upstoxApiKey = undefined;
+        delete process.env.UPSTOX_API_KEY;
+        break;
+      case "UPSTOX_SECRET_KEY":
+        upstoxApiSecret = undefined;
+        delete process.env.UPSTOX_API_SECRET;
+        delete process.env.UPSTOX_SECRET_KEY;
+        break;
+      case "UPSTOX_ACCESS_TOKEN":
+        upstoxAccessToken = null;
+        break;
+      case "TELEGRAM_BOT_TOKEN":
+        delete process.env.TELEGRAM_BOT_TOKEN;
+        delete process.env.bot_token;
+        break;
+      case "TELEGRAM_CHAT_ID":
+        delete process.env.TELEGRAM_CHAT_ID;
+        delete process.env.chat_id;
+        break;
+      case "GEMINI_API_KEY":
+        delete process.env.GEMINI_API_KEY;
+        break;
+    }
+
+    console.log(`[VAULT] Key ${keyId} deleted by user`);
+    res.json({ success: true, keyId, deleted: true });
   });
 
   app.post("/api/gemini/analyze", async (req, res) => {

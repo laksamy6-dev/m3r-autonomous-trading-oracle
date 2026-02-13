@@ -115,6 +115,12 @@ export default function SettingsScreen() {
   const [loginStats, setLoginStats] = useState<LoginStats | null>(null);
   const [loginFilter, setLoginFilter] = useState<"all" | "pin" | "visitor" | "failed">("all");
 
+  const [vaultKeys, setVaultKeys] = useState<Array<{ id: string; label: string; category: string; hasValue: boolean; maskedValue: string }>>([]);
+  const [vaultLoading, setVaultLoading] = useState(false);
+  const [vaultEditKey, setVaultEditKey] = useState<string | null>(null);
+  const [vaultEditValue, setVaultEditValue] = useState("");
+  const [vaultSaving, setVaultSaving] = useState(false);
+
   useEffect(() => {
     loadSettings();
     checkStatuses();
@@ -163,12 +169,78 @@ export default function SettingsScreen() {
     }
   }
 
+  async function fetchVaultKeys() {
+    setVaultLoading(true);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/vault/keys?pin=${savedPin}`);
+      if (res.ok) {
+        const data = await res.json();
+        setVaultKeys(data.keys || []);
+      }
+    } catch {} finally {
+      setVaultLoading(false);
+    }
+  }
+
+  async function saveVaultKey(keyId: string, value: string) {
+    setVaultSaving(true);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/vault/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: savedPin, keyId, value }),
+      });
+      if (res.ok) {
+        setVaultEditKey(null);
+        setVaultEditValue("");
+        fetchVaultKeys();
+        checkStatuses();
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Updated", `${keyId} saved successfully`);
+      } else {
+        Alert.alert("Error", "Failed to save key");
+      }
+    } catch {
+      Alert.alert("Error", "Network error");
+    } finally {
+      setVaultSaving(false);
+    }
+  }
+
+  async function deleteVaultKey(keyId: string) {
+    Alert.alert("Delete Key", `Remove ${keyId}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const baseUrl = getApiUrl();
+            const res = await globalThis.fetch(`${baseUrl}api/vault/delete`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: savedPin, keyId }),
+            });
+            if (res.ok) {
+              fetchVaultKeys();
+              checkStatuses();
+              if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+          } catch {}
+        },
+      },
+    ]);
+  }
+
   function verifyPin() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (pinInput === savedPin) {
       setPinVerified(true);
       setPinError(false);
       fetchLoginEvents();
+      fetchVaultKeys();
     } else {
       setPinError(true);
       setPinInput("");
@@ -546,6 +618,101 @@ export default function SettingsScreen() {
             <Text style={styles.actionButtonText}>Change PIN</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
           </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="lock-closed" size={16} color={Colors.dark.gold} />
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>SECRETS VAULT</Text>
+            </View>
+            <Pressable onPress={fetchVaultKeys} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, flexDirection: "row", alignItems: "center", gap: 4 }]}>
+              {vaultLoading ? <ActivityIndicator size="small" color={CYAN} /> : <Ionicons name="refresh" size={16} color={CYAN} />}
+            </Pressable>
+          </View>
+
+          <Text style={{ fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginBottom: 12 }}>
+            Manage API keys and tokens. Changes apply instantly.
+          </Text>
+
+          {(["upstox", "telegram", "ai"] as const).map(category => {
+            const catKeys = vaultKeys.filter(k => k.category === category);
+            if (catKeys.length === 0) return null;
+            const catLabel = category === "upstox" ? "Upstox Trading" : category === "telegram" ? "Telegram" : "AI Services";
+            const catIcon = category === "upstox" ? "trending-up" : category === "telegram" ? "paper-plane" : "sparkles";
+            const catColor = category === "upstox" ? NEON_GREEN : category === "telegram" ? "#0088CC" : CYAN;
+            return (
+              <View key={category} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Ionicons name={catIcon as any} size={14} color={catColor} />
+                  <Text style={{ fontSize: 12, fontFamily: "DMSans_600SemiBold", color: catColor, textTransform: "uppercase", letterSpacing: 0.5 }}>{catLabel}</Text>
+                </View>
+                {catKeys.map(k => (
+                  <View key={k.id} style={vaultStyles.keyCard}>
+                    <View style={vaultStyles.keyHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={vaultStyles.keyLabel}>{k.label}</Text>
+                        <Text style={vaultStyles.keyId}>{k.id}</Text>
+                      </View>
+                      <View style={[vaultStyles.statusDot, { backgroundColor: k.hasValue ? NEON_GREEN : Colors.dark.red }]} />
+                    </View>
+
+                    {vaultEditKey === k.id ? (
+                      <View style={vaultStyles.editContainer}>
+                        <TextInput
+                          style={vaultStyles.editInput}
+                          value={vaultEditValue}
+                          onChangeText={setVaultEditValue}
+                          placeholder={`Enter ${k.label}`}
+                          placeholderTextColor={Colors.dark.textMuted}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          secureTextEntry={k.id !== "TELEGRAM_CHAT_ID"}
+                        />
+                        <View style={vaultStyles.editActions}>
+                          <Pressable
+                            onPress={() => { setVaultEditKey(null); setVaultEditValue(""); }}
+                            style={({ pressed }) => [vaultStyles.editCancel, pressed && { opacity: 0.7 }]}
+                          >
+                            <Text style={vaultStyles.editCancelText}>Cancel</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => saveVaultKey(k.id, vaultEditValue)}
+                            disabled={vaultSaving || !vaultEditValue.trim()}
+                            style={({ pressed }) => [vaultStyles.editSave, pressed && { opacity: 0.7 }, (!vaultEditValue.trim()) && { opacity: 0.4 }]}
+                          >
+                            {vaultSaving ? <ActivityIndicator size="small" color="#000" /> : <Text style={vaultStyles.editSaveText}>Save</Text>}
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={vaultStyles.valueRow}>
+                        <Text style={vaultStyles.maskedValue} numberOfLines={1}>
+                          {k.hasValue ? k.maskedValue : "Not set"}
+                        </Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <Pressable
+                            onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); }}
+                            style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
+                          >
+                            <Ionicons name={k.hasValue ? "create-outline" : "add-circle-outline"} size={16} color={CYAN} />
+                          </Pressable>
+                          {k.hasValue && (
+                            <Pressable
+                              onPress={() => deleteVaultKey(k.id)}
+                              style={({ pressed }) => [vaultStyles.deleteBtn, pressed && { opacity: 0.7 }]}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={Colors.dark.red} />
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.section}>
@@ -1474,6 +1641,99 @@ const styles = StyleSheet.create({
   },
   modalConfirmText: {
     fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    color: "#000",
+  },
+});
+
+const vaultStyles = StyleSheet.create({
+  keyCard: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    padding: 12,
+    marginBottom: 8,
+  },
+  keyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  keyLabel: {
+    fontSize: 13,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.text,
+  },
+  keyId: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  valueRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  maskedValue: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: Colors.dark.textSecondary,
+    flex: 1,
+    marginRight: 8,
+  },
+  editBtn: {
+    padding: 4,
+  },
+  deleteBtn: {
+    padding: 4,
+  },
+  editContainer: {
+    marginTop: 4,
+  },
+  editInput: {
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontFamily: "DMSans_400Regular",
+    marginBottom: 8,
+  },
+  editActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  editCancel: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.card,
+  },
+  editCancelText: {
+    fontSize: 12,
+    fontFamily: "DMSans_600SemiBold",
+    color: Colors.dark.textMuted,
+  },
+  editSave: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#00D4FF",
+  },
+  editSaveText: {
+    fontSize: 12,
     fontFamily: "DMSans_700Bold",
     color: "#000",
   },
