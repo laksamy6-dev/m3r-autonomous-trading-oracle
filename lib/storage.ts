@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WatchlistItem, PortfolioHolding } from "./types";
 
-const WATCHLIST_KEY = "@marketmind_watchlist";
-const PORTFOLIO_KEY = "@marketmind_portfolio";
+const WATCHLIST_KEY = "@m3r_fintech_watchlist";
+const PORTFOLIO_KEY = "@m3r_fintech_portfolio";
 
 export async function getWatchlist(): Promise<WatchlistItem[]> {
   const data = await AsyncStorage.getItem(WATCHLIST_KEY);

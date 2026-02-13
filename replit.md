@@ -1,8 +1,8 @@
-# MarketMind
+# M3R Innovative Fintech Solutions
 
 ## Overview
 
-MarketMind is an Indian stock market analysis app built with Expo (React Native) on the frontend and Express.js on the backend. It focuses on Nifty 50 options trading, AI-powered stock analysis, portfolio management, and volatility-based trading strategies. The app supports dual-mode operation: LIVE trading via Upstox broker API (real market data + real order execution) and PAPER/SIM mode with simulated mock data. AI integrations (OpenAI) power chat-based analysis and options trading recommendations.
+M3R Fintech is an Indian stock market analysis app built with Expo (React Native) on the frontend and Express.js on the backend. It focuses on Nifty 50 options trading, AI-powered stock analysis, portfolio management, and volatility-based trading strategies. The app supports dual-mode operation: LIVE trading via Upstox broker API (real market data + real order execution) and PAPER/SIM mode with simulated mock data. AI integrations (OpenAI) power chat-based analysis and options trading recommendations.
 
 ## Legal & Copyright
 

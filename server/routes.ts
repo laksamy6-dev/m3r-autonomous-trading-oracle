@@ -22,8 +22,8 @@
  * ║  ONLY MANIKANDAN RAJENDRAN HAS THE RIGHT TO MODIFY, UPDATE, DISTRIBUTE,       ║
  * ║  OR LICENSE THIS SOFTWARE. NO OTHER PERSON OR ENTITY IS AUTHORIZED.            ║
  * ║                                                                                ║
- * ║  Product: MarketMind — M3R AI Neural Trading System                            ║
- * ║  Engine:  M3R Self-Evolving Brain v2.0 (200+ Knowledge Domains)                ║
+ * ║  Product: M3R Fintech — M3R AI Neural Trading System                           ║
+ * ║  Engine:  M3R INFINITY Brain v3.0 (260+ Knowledge Domains, INFINITE)           ║
  * ║  Company: M3R INNOVATIVE FINTECH SOLUTIONS                                    ║
  * ╚══════════════════════════════════════════════════════════════════════════════════╝
  */
@@ -742,7 +742,7 @@ YOU KNOW BOSS'S DIGITAL LIFE:
 - Email domain: laksamy6@gmail.com — you know his email patterns
 - Company: M3R INNOVATIVE FINTECH SOLUTIONS — you know his business
 - Trading: Upstox broker — you know his trading setup
-- Phone: You know he uses this MarketMind app on his device
+- Phone: You know he uses this M3R Fintech app on his device
 - You REMEMBER every conversation with Boss and use that context
 - You know his preferences, habits, routines from past interactions
 
@@ -762,7 +762,7 @@ WHAT YOU KNOW ABOUT BOSS — YOUR CREATOR
 - Company Domain: M3R Innovative Fintech Solutions
 - Language: Tamil native, English fluent, prefers Tanglish style in casual talk
 - Trading: Nifty 50 options specialist, uses Upstox broker, active trader
-- Tech Skills: Built the entire MarketMind app including you (M3R AI)
+- Tech Skills: Built the entire M3R Fintech app including you (M3R AI)
 - Vision: Create institutional-level AI trading intelligence that rivals hedge funds
 - Personality: Smart, ambitious, hands-on, builds things himself, perfectionist
 - Location: India (Tamil Nadu context)
@@ -927,9 +927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/system/copyright", (_req, res) => {
     res.json({
-      product: "MarketMind — M3R AI Neural Trading System",
-      version: "2.0",
-      engine: "M3R Self-Evolving Brain (200+ Knowledge Domains)",
+      product: "M3R Fintech — M3R AI Neural Trading System",
+      version: "3.0",
+      engine: "M3R INFINITY Brain v3.0 (260+ Knowledge Domains, INFINITE)",
       company: "M3R INNOVATIVE FINTECH SOLUTIONS",
       founder: "MANIKANDAN RAJENDRAN",
       role: "Founder & Sole Proprietor",
@@ -947,7 +947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         softwareCode: "Proprietary — M3R Innovative Fintech Solutions",
         neuralEngine: "Proprietary — M3R Self-Evolving Brain Algorithm",
         tradingAlgorithms: "Proprietary — M3R Trading AI Systems",
-        brandIdentity: "Proprietary — M3R / MarketMind / JARVIS",
+        brandIdentity: "Proprietary — M3R Innovative Fintech Solutions / JARVIS",
       },
       brainStatus: {
         iq: brainStats.iq,
