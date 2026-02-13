@@ -37,6 +37,7 @@ import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
 import { isTelegramConfigured, sendTelegramMessage, sendTradingAlert, getBotInfo } from "./telegram";
+import { initTelegramEngine } from "./telegram-engine";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
@@ -2171,50 +2172,16 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   });
 
 
-  let lastAlertedSession = "";
-  setInterval(async () => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-    if (!botToken || !chatId) return;
-
-    const now = new Date();
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const ist = new Date(utc + 5.5 * 60 * 60000);
-    const currentMins = ist.getHours() * 60 + ist.getMinutes();
-    const dayOfWeek = ist.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) return;
-
-    const dateKey = `${ist.getFullYear()}-${ist.getMonth()}-${ist.getDate()}`;
-    let alertType = "";
-
-    if (currentMins === 9 * 60 && lastAlertedSession !== `${dateKey}-PRE`) {
-      alertType = "PRE_MARKET"; lastAlertedSession = `${dateKey}-PRE`;
-    } else if (currentMins === 9 * 60 + 15 && lastAlertedSession !== `${dateKey}-OPEN`) {
-      alertType = "MARKET_OPEN"; lastAlertedSession = `${dateKey}-OPEN`;
-    } else if (currentMins === 15 * 60 + 30 && lastAlertedSession !== `${dateKey}-CLOSE`) {
-      alertType = "MARKET_CLOSE"; lastAlertedSession = `${dateKey}-CLOSE`;
-    }
-
-    if (alertType) {
-      try {
-        const fmt2 = (n: number) => n.toString().padStart(2, "0");
-        const uae = new Date(utc + 4 * 60 * 60000);
-        const istStr = `${fmt2(ist.getHours())}:${fmt2(ist.getMinutes())}`;
-        const uaeStr = `${fmt2(uae.getHours())}:${fmt2(uae.getMinutes())}`;
-        let msg = "";
-        if (alertType === "PRE_MARKET") msg = `*JARVIS - Pre-Market*\n\nPre-market started\nIST: ${istStr} | UAE: ${uaeStr}\nMarket opens at 09:15 IST / 07:45 UAE`;
-        else if (alertType === "MARKET_OPEN") msg = `*JARVIS - Market OPEN*\n\nNSE trading started\nIST: ${istStr} | UAE: ${uaeStr}\nSession: 09:15-15:30 IST`;
-        else if (alertType === "MARKET_CLOSE") msg = `*JARVIS - Market CLOSED*\n\nNSE session ended\nIST: ${istStr} | UAE: ${uaeStr}\nNext: Tomorrow 09:15 IST / 07:45 UAE`;
-
-        await globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "Markdown" }),
-        });
-        console.log(`[JARVIS] Auto-alert sent: ${alertType}`);
-      } catch (e) { console.error("[JARVIS] Auto-alert failed:", e); }
-    }
-  }, 60000);
+  initTelegramEngine(
+    () => brainStats,
+    () => ({
+      upstoxConnected: !!upstoxAccessToken,
+      upstoxApiKey: !!upstoxApiKey,
+      upstoxSecret: !!upstoxApiSecret,
+      telegramConfigured: isTelegramConfigured(),
+      geminiKey: !!process.env.GEMINI_API_KEY,
+    })
+  );
 
   function getTimeStrings() {
     const now = new Date();
