@@ -2,7 +2,7 @@
 
 ## Overview
 
-MarketMind is an Indian stock market analysis app built with Expo (React Native) on the frontend and Express.js on the backend. It focuses on Nifty 50 options trading, AI-powered stock analysis, portfolio management, and volatility-based trading strategies. The app uses simulated/mock stock data (hardcoded Indian stocks with random variations) rather than live market feeds, with AI integrations (OpenAI) for chat-based analysis and options trading recommendations.
+MarketMind is an Indian stock market analysis app built with Expo (React Native) on the frontend and Express.js on the backend. It focuses on Nifty 50 options trading, AI-powered stock analysis, portfolio management, and volatility-based trading strategies. The app supports dual-mode operation: LIVE trading via Upstox broker API (real market data + real order execution) and PAPER/SIM mode with simulated mock data. AI integrations (OpenAI) power chat-based analysis and options trading recommendations.
 
 ## User Preferences
 
@@ -18,8 +18,10 @@ Preferred communication style: Simple, everyday language.
 - **Local Storage**: `@react-native-async-storage/async-storage` for persisting watchlist and portfolio data on-device.
 - **Styling**: Dark theme only (light theme colors are identical to dark). Uses `DM Sans` font family loaded via `@expo-google-fonts/dm-sans`. All styling is inline `StyleSheet.create`.
 - **Platform Support**: iOS, Android, and Web. Platform-specific handling exists (e.g., haptics only on native, keyboard handling differences).
-- **Stock Data**: Mock data generated client-side in `lib/stocks.ts` with hardcoded Indian stocks and random price variations. Not connected to real market data APIs.
-- **Options Data**: Simulated option chain generation in `lib/options.ts` with mock OI, IV, Greeks, and PCR calculations.
+- **Stock Data**: Mock data generated client-side in `lib/stocks.ts` with hardcoded Indian stocks and random price variations. Falls back to this when Upstox is disconnected.
+- **Options Data**: Live option chain from Upstox API when connected; simulated option chain generation in `lib/options.ts` as fallback. Mock OI, IV, Greeks, and PCR calculations available offline.
+- **Live Market Utility**: `lib/live-market.ts` provides `fetchLiveOptionChain()`, `fetchUpstoxStatus()`, `clearUpstoxStatusCache()` for all pages to automatically detect and use live vs simulated data.
+- **Trading Mode**: Automatic LIVE/PAPER detection. LIVE badge (green) shown when Upstox connected with valid token; SIM badge (amber) shown otherwise. All pages (Options, Bot, Strategy, Portfolio) display current mode.
 - **Key Libraries**: expo-haptics, expo-image, expo-blur, expo-linear-gradient, react-native-reanimated, react-native-gesture-handler, react-native-keyboard-controller.
 - **Authentication**: PIN-based lock screen with dual-mode access:
   - **Owner Mode**: PIN entry (default 1234) → WelcomeScreen with personal greeting for Mr. Manikandan Rajendran + auto market analysis briefing with JARVIS voice
@@ -75,6 +77,6 @@ Client-side integration files are in `.replit_integration_files/client/replit_in
 
 - **OpenAI API** (via Replit AI Integrations): Powers all AI features — stock analysis, options trading bot, general chat, image generation, and voice/audio processing. Configured through `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL`.
 - **PostgreSQL**: Primary database for chat conversations/messages and user data. Connected via `DATABASE_URL` environment variable.
-- **Upstox API** (partially integrated): Environment variables exist (`UPSTOX_API_KEY`, `UPSTOX_API_SECRET`) for potential live market data integration, but currently unused beyond OAuth token storage.
+- **Upstox API** (fully integrated): Live trading via OAuth authentication. Provides real-time option chains, spot prices, positions, holdings, fund balance, and order placement. Access tokens expire daily — user must re-authenticate each trading day via Settings page. Environment variables: `UPSTOX_API_KEY`, `UPSTOX_SECRET_KEY`, `UPSTOX_ACCESS_TOKEN`. Backend endpoints: `/api/upstox/status`, `/api/upstox/option-chain`, `/api/upstox/profile`, `/api/upstox/positions`, `/api/upstox/holdings`, `/api/upstox/funds`, `/api/upstox/auth`, `/api/upstox/callback`, `/api/order/place`.
 - **Gemini API** (referenced but not actively used): `GEMINI_API_KEY` environment variable exists but no active integration found.
 - **AsyncStorage**: On-device persistence for watchlist and portfolio (no server sync).
