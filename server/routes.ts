@@ -36,6 +36,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
+import { isTelegramConfigured, sendTelegramMessage, sendTradingAlert, getBotInfo } from "./telegram";
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
@@ -956,6 +957,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         powerLevel: brainStats.iq > 5000 ? "INFINITY" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
       },
     });
+  });
+
+  app.get("/api/telegram/status", async (_req, res) => {
+    const configured = isTelegramConfigured();
+    if (!configured) {
+      return res.json({ configured: false, bot: null });
+    }
+    const bot = await getBotInfo();
+    res.json({ configured: true, bot });
+  });
+
+  app.post("/api/telegram/send", async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: "Message is required" });
+    const result = await sendTelegramMessage(message);
+    res.json(result);
+  });
+
+  app.post("/api/telegram/alert", async (req, res) => {
+    const { type, symbol, price, message, pnl } = req.body;
+    if (!message) return res.status(400).json({ error: "Message is required" });
+    const result = await sendTradingAlert({ type: type || "ALERT", symbol, price, message, pnl });
+    res.json(result);
+  });
+
+  app.post("/api/telegram/test", async (_req, res) => {
+    const result = await sendTradingAlert({
+      type: "INFO",
+      message: "M3R INFINITY v3.0 Telegram Bot Connected! 🚀\nTrading alerts will appear here.\n\n© M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN",
+    });
+    res.json(result);
   });
 
   app.post("/api/analyze", async (req, res) => {
