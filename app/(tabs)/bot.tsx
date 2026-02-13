@@ -986,7 +986,13 @@ function BotScreenInner() {
       <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>JARVIS</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={styles.headerTitle}>JARVIS</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: isLiveData ? "rgba(0,255,136,0.15)" : "rgba(245,158,11,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isLiveData ? "#00FF88" : "#F59E0B" }} />
+                <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: isLiveData ? "#00FF88" : "#F59E0B" }}>{isLiveData ? "LIVE" : "SIM"}</Text>
+              </View>
+            </View>
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
               <Text style={styles.statusText}>
