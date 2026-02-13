@@ -1,0 +1,50 @@
+{
+  "iq": 138.5,
+  "generation": 1,
+  "knowledgeAreas": {
+    "Indian Stock Market": 88,
+    "Options Trading": 85,
+    "Technical Analysis": 82,
+    "Tamil Language": 90.25,
+    "English Language": 95,
+    "General Knowledge": 78,
+    "Science & Technology": 80.43,
+    "Mathematics": 85,
+    "Programming": 82,
+    "Current Affairs": 70,
+    "Philosophy": 65,
+    "Health & Fitness": 60,
+    "Music & Arts": 55,
+    "History": 72,
+    "Geography": 68
+  },
+  "totalInteractions": 0,
+  "totalLearningCycles": 2,
+  "lastTrainingTime": "2026-02-13T10:18:27.627Z",
+  "lastSelfImproveTime": "2026-02-13T10:18:57.630Z",
+  "accuracyScore": 87.534,
+  "emotionalIQ": 78.0136,
+  "languageFluency": {
+    "tamil": 88,
+    "english": 95,
+    "tanglish": 82
+  },
+  "selfImprovementLog": [
+    {
+      "time": "2026-02-13T10:18:32.631Z",
+      "area": "Science & Technology",
+      "delta": 0.43,
+      "note": "Improved Science & Technology by +0.43 → 80.4%"
+    },
+    {
+      "time": "2026-02-13T10:18:57.630Z",
+      "area": "Tamil Language",
+      "delta": 0.25,
+      "note": "Improved Tamil Language by +0.25 → 90.3%"
+    }
+  ],
+  "uptime": 32,
+  "startedAt": "2026-02-13T10:18:27.628Z",
+  "isTraining": false,
+  "currentPhase": "IDLE"
+}
