@@ -479,7 +479,7 @@ function StrategyScreenInner() {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Ionicons name="shield-checkmark" size={12} color={CYAN} />
-            <Text style={styles.creatorText}>Created by MANIKANDAN RAJENDRAN</Text>
+            <Text style={styles.creatorText}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: isLiveData ? "rgba(0,255,136,0.15)" : "rgba(245,158,11,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isLiveData ? "#00FF88" : "#F59E0B" }} />

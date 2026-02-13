@@ -857,7 +857,7 @@ export default function SettingsScreen() {
           <View style={styles.aboutCard}>
             <Text style={styles.aboutTitle}>JARVIS Trading AI</Text>
             <Text style={styles.aboutVersion}>v8.0 Neuro-Quantum Engine</Text>
-            <Text style={styles.aboutCreator}>Created by MANIKANDAN RAJENDRAN</Text>
+            <Text style={styles.aboutCreator}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
             <Text style={styles.aboutDesc}>
               AI-powered Nifty 50 options trading assistant with 9 neural layers, Monte Carlo simulation, and zero-loss strategy.
             </Text>

@@ -67,6 +67,13 @@ interface BrainStatus {
     delta: number;
     note: string;
   }>;
+  categoryScores?: Record<string, number>;
+  totalDomains?: number;
+  neuralCoverage?: number;
+  avgKnowledge?: number;
+  totalKnowledge?: number;
+  neuralActivity?: string;
+  powerLevel?: string;
 }
 
 interface Memory {
@@ -121,94 +128,142 @@ function PulsingDot({ color }: { color: string }) {
   );
 }
 
-function BrainOrb({
+const CATEGORY_ICONS: Record<string, { icon: string; color: string }> = {
+  MARKET_CORE: { icon: "chart-line", color: "#00F3FF" },
+  GLOBAL_MARKETS: { icon: "earth", color: "#3B82F6" },
+  PRICE_DRIVERS: { icon: "chart-bell-curve-cumulative", color: "#F59E0B" },
+  FLOW_ANALYSIS: { icon: "swap-horizontal-bold", color: "#39FF14" },
+  MACRO_ECONOMY: { icon: "bank", color: "#A855F7" },
+  OPTIONS_MASTERY: { icon: "chart-box-outline", color: "#EF4444" },
+  AI_PREDICTION: { icon: "robot", color: "#EC4899" },
+  WORLD_EVENTS: { icon: "newspaper-variant-outline", color: "#F97316" },
+  CYBERSECURITY: { icon: "shield-lock", color: "#06B6D4" },
+  SOFTWARE_DEV: { icon: "code-braces", color: "#8B5CF6" },
+  POLITICS_ECONOMY: { icon: "gavel", color: "#EAB308" },
+};
+
+const POWER_COLORS: Record<string, string> = {
+  EVOLVING: "#64748B",
+  ADVANCED: "#3B82F6",
+  SUPER: "#A855F7",
+  HYPER: "#F59E0B",
+  ULTRA: "#EF4444",
+  OMEGA: "#39FF14",
+};
+
+function NeuralCore({
   isTraining,
   phase,
+  iq,
+  powerLevel,
 }: {
   isTraining: boolean;
   phase: string;
+  iq: number;
+  powerLevel: string;
 }) {
-  const scale = useSharedValue(1);
-  const ringScale = useSharedValue(1);
-  const ringOpacity = useSharedValue(0.4);
+  const coreScale = useSharedValue(1);
+  const ring1Scale = useSharedValue(1);
+  const ring2Scale = useSharedValue(1);
+  const ring3Scale = useSharedValue(1);
+  const coreOpacity = useSharedValue(0.8);
+  const ring1Opacity = useSharedValue(0.3);
+  const ring2Opacity = useSharedValue(0.2);
+  const ring3Opacity = useSharedValue(0.1);
 
   useEffect(() => {
-    const duration = isTraining ? 600 : 1800;
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.06, {
-          duration,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        withTiming(0.96, {
-          duration,
-          easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      false
-    );
-    ringScale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, {
-          duration: duration * 1.2,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        withTiming(1.0, {
-          duration: duration * 1.2,
-          easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      false
-    );
-    ringOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, {
-          duration: duration * 0.8,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        withTiming(0.2, {
-          duration: duration * 0.8,
-          easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      false
-    );
-  }, [isTraining, scale, ringScale, ringOpacity]);
+    const d = isTraining ? 500 : 1500;
+    coreScale.value = withRepeat(withSequence(withTiming(1.08, { duration: d }), withTiming(0.94, { duration: d })), -1, false);
+    ring1Scale.value = withRepeat(withSequence(withTiming(1.12, { duration: d * 1.3 }), withTiming(0.95, { duration: d * 1.3 })), -1, false);
+    ring2Scale.value = withRepeat(withSequence(withTiming(1.18, { duration: d * 1.6 }), withTiming(0.92, { duration: d * 1.6 })), -1, false);
+    ring3Scale.value = withRepeat(withSequence(withTiming(1.25, { duration: d * 2 }), withTiming(0.9, { duration: d * 2 })), -1, false);
+    coreOpacity.value = withRepeat(withSequence(withTiming(1, { duration: d * 0.7 }), withTiming(0.6, { duration: d * 0.7 })), -1, false);
+    ring1Opacity.value = withRepeat(withSequence(withTiming(0.5, { duration: d }), withTiming(0.15, { duration: d })), -1, false);
+    ring2Opacity.value = withRepeat(withSequence(withTiming(0.35, { duration: d * 1.2 }), withTiming(0.08, { duration: d * 1.2 })), -1, false);
+    ring3Opacity.value = withRepeat(withSequence(withTiming(0.2, { duration: d * 1.5 }), withTiming(0.05, { duration: d * 1.5 })), -1, false);
+  }, [isTraining, coreScale, ring1Scale, ring2Scale, ring3Scale, coreOpacity, ring1Opacity, ring2Opacity, ring3Opacity]);
 
-  const orbStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const coreStyle = useAnimatedStyle(() => ({ transform: [{ scale: coreScale.value }], opacity: coreOpacity.value }));
+  const r1Style = useAnimatedStyle(() => ({ transform: [{ scale: ring1Scale.value }], opacity: ring1Opacity.value }));
+  const r2Style = useAnimatedStyle(() => ({ transform: [{ scale: ring2Scale.value }], opacity: ring2Opacity.value }));
+  const r3Style = useAnimatedStyle(() => ({ transform: [{ scale: ring3Scale.value }], opacity: ring3Opacity.value }));
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScale.value }],
-    opacity: ringOpacity.value,
-  }));
-
-  const ringColor = isTraining ? AMBER : CYAN;
+  const pColor = POWER_COLORS[powerLevel] || CYAN;
 
   return (
-    <View style={styles.brainOrbContainer}>
-      <Animated.View
-        style={[
-          styles.brainOrbRing,
-          { borderColor: ringColor },
-          ringStyle,
-        ]}
-      />
-      <Animated.View style={[styles.brainOrbCore, orbStyle]}>
-        <MaterialCommunityIcons name="brain" size={36} color={CYAN} />
+    <View style={nStyles.neuralCoreWrap}>
+      <Animated.View style={[nStyles.ring3, { borderColor: pColor }, r3Style]} />
+      <Animated.View style={[nStyles.ring2, { borderColor: pColor }, r2Style]} />
+      <Animated.View style={[nStyles.ring1, { borderColor: pColor }, r1Style]} />
+      <Animated.View style={[nStyles.coreCircle, { shadowColor: pColor }, coreStyle]}>
+        <MaterialCommunityIcons name="brain" size={32} color={pColor} />
       </Animated.View>
-      <Text
-        style={[
-          styles.brainOrbPhase,
-          { color: isTraining ? AMBER : CYAN },
-        ]}
-      >
-        {phase}
-      </Text>
+      <View style={nStyles.phaseTag}>
+        <PulsingDot color={isTraining ? AMBER : pColor} />
+        <Text style={[nStyles.phaseText, { color: isTraining ? AMBER : pColor }]}>{phase}</Text>
+      </View>
+    </View>
+  );
+}
+
+function HexStatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
+  return (
+    <View style={[nStyles.hexCard, { borderColor: color + "30" }]}>
+      <View style={[nStyles.hexIconWrap, { backgroundColor: color + "15" }]}>
+        <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+      </View>
+      <Text style={[nStyles.hexValue, { color }]}>{value}</Text>
+      <Text style={nStyles.hexLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function CategoryNeuralMap({ name, score, catInfo }: { name: string; score: number; catInfo: { icon: string; color: string } }) {
+  const pct = Math.min(100, Math.max(0, score));
+  return (
+    <View style={nStyles.catMapRow}>
+      <View style={[nStyles.catIconCircle, { backgroundColor: catInfo.color + "20", borderColor: catInfo.color + "40" }]}>
+        <MaterialCommunityIcons name={catInfo.icon as any} size={14} color={catInfo.color} />
+      </View>
+      <View style={nStyles.catMapInfo}>
+        <View style={nStyles.catMapHeader}>
+          <Text style={nStyles.catMapName}>{name.replace(/_/g, " ")}</Text>
+          <Text style={[nStyles.catMapScore, { color: catInfo.color }]}>{score.toFixed(1)}%</Text>
+        </View>
+        <View style={nStyles.catMapTrack}>
+          <View style={[nStyles.catMapFill, { width: `${pct}%`, backgroundColor: catInfo.color }]} />
+          <View style={[nStyles.catMapGlow, { width: `${pct}%`, backgroundColor: catInfo.color }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function NeuralPathwayFeed({ improvements }: { improvements: Array<{ time: string; area: string; delta: number; note: string }> }) {
+  return (
+    <View style={nStyles.pathwayFeed}>
+      {improvements.slice().reverse().slice(0, 12).map((imp, i) => {
+        const isPositive = imp.delta > 0;
+        return (
+          <View key={i} style={nStyles.pathwayItem}>
+            <View style={[nStyles.pathwayDot, { backgroundColor: isPositive ? NEON_GREEN : RED }]} />
+            <View style={nStyles.pathwayLine} />
+            <View style={nStyles.pathwayContent}>
+              <View style={nStyles.pathwayHeader}>
+                <Text style={nStyles.pathwayArea}>{imp.area}</Text>
+                <Text style={[nStyles.pathwayDelta, { color: isPositive ? NEON_GREEN : RED }]}>
+                  {isPositive ? "+" : ""}{imp.delta.toFixed(2)}
+                </Text>
+              </View>
+              <Text style={nStyles.pathwayNote} numberOfLines={1}>{imp.note}</Text>
+              <Text style={nStyles.pathwayTime}>{imp.time}</Text>
+            </View>
+          </View>
+        );
+      })}
+      {improvements.length === 0 && (
+        <Text style={nStyles.pathwayEmpty}>Neural pathways initializing...</Text>
+      )}
     </View>
   );
 }
@@ -842,7 +897,7 @@ export default function BotScreen() {
                 />
                 <Text style={styles.emptyTitle}>M3R AI Assistant</Text>
                 <Text style={styles.emptySubtitle}>
-                  Created by MANIKANDAN RAJENDRAN
+                  M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN
                 </Text>
                 <Text style={styles.emptyHint}>
                   உங்க personal assistant ready! எதையும் கேளுங்க...
