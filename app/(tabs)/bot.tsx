@@ -325,7 +325,8 @@ function ImprovementLine({
 export default function BotScreen() {
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
-  const webBottomInset = Platform.OS === "web" ? 34 : 0;
+  const webBottomInset = Platform.OS === "web" ? 84 : 0;
+  const TAB_BAR_HEIGHT = Platform.OS === "web" ? 84 : 50;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -1287,8 +1288,8 @@ export default function BotScreen() {
           {
             paddingBottom:
               Platform.OS === "web"
-                ? webBottomInset + 8
-                : insets.bottom + 8,
+                ? TAB_BAR_HEIGHT + 8
+                : Math.max(insets.bottom, TAB_BAR_HEIGHT) + 8,
           },
         ]}
       >
