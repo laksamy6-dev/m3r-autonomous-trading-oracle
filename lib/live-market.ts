@@ -6,7 +6,7 @@ let statusLastFetched = 0;
 
 export async function getUpstoxStatus(): Promise<{ configured: boolean; connected: boolean }> {
   const now = Date.now();
-  if (cachedUpstoxStatus && now - statusLastFetched < 30000) {
+  if (cachedUpstoxStatus && now - statusLastFetched < 10000) {
     return cachedUpstoxStatus;
   }
   try {

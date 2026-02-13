@@ -245,7 +245,7 @@ export default function OptionsScreen() {
     if (selectedExpiry) {
       initialScrollDone.current = false;
       loadChain();
-      const interval = setInterval(loadChain, 30000);
+      const interval = setInterval(loadChain, 5000);
       return () => clearInterval(interval);
     }
   }, [selectedExpiry, loadChain]);

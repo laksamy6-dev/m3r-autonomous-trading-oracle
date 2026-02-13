@@ -2181,14 +2181,67 @@ Provide the full 10-section comprehensive analysis now.`;
     });
   });
 
-  app.post("/api/positions/open", (req, res) => {
-    const { type, strike, lots, premium, target, stopLoss, pin } = req.body;
+  app.post("/api/positions/open", async (req, res) => {
+    const { type, strike, lots, premium, target, stopLoss, pin, expiry } = req.body;
     if (!autoTradeMode && pin !== currentPin) {
       return res.status(403).json({ error: "Invalid PIN" });
     }
     const entryPrem = Number(premium);
+    const isLiveMode = !!(upstoxAccessToken && upstoxApiKey);
+    let upstoxOrderId: string | null = null;
+    let upstoxOrderStatus = "PAPER";
+
+    if (isLiveMode) {
+      try {
+        const lotSize = 75;
+        const quantity = Number(lots || 1) * lotSize;
+        const expiryStr = expiry || "";
+        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
+
+        const upstoxPayload = {
+          quantity,
+          product: "D",
+          validity: "DAY",
+          price: entryPrem,
+          tag: `M3R-${Date.now()}`,
+          instrument_token: instrumentKey,
+          order_type: "LIMIT",
+          transaction_type: "BUY",
+          disclosed_quantity: 0,
+          trigger_price: 0,
+          is_amo: false,
+        };
+
+        console.log("[LIVE POSITION] Placing Upstox order:", JSON.stringify(upstoxPayload));
+
+        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${upstoxAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(upstoxPayload),
+        });
+
+        const upstoxData = await upstoxRes.json();
+        console.log("[LIVE POSITION] Upstox response:", JSON.stringify(upstoxData));
+
+        if (upstoxData.status === "success") {
+          upstoxOrderId = upstoxData.data?.order_id || null;
+          upstoxOrderStatus = "LIVE_EXECUTED";
+        } else {
+          upstoxOrderStatus = "LIVE_REJECTED";
+          console.log("[LIVE POSITION] Order rejected:", upstoxData.message);
+        }
+      } catch (err: any) {
+        console.error("[LIVE POSITION] Upstox order error:", err.message);
+        upstoxOrderStatus = "LIVE_ERROR";
+      }
+    }
+
     const position: ActivePosition = {
-      id: `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      id: upstoxOrderId || `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
       type: type as "CE" | "PE",
       strike: Number(strike),
       lots: Number(lots || 1),
@@ -2216,7 +2269,15 @@ Provide the full 10-section comprehensive analysis now.`;
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChatId) {
-      const msg = `POSITION OPENED\nBUY ${position.type} ${position.strike}\nPremium: Rs.${position.entryPremium}\nTarget: Rs.${position.target} | SL: Rs.${position.stopLoss}\nLots: ${position.lots}\nTime: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+      const modeLabel = isLiveMode ? `LIVE (${upstoxOrderStatus})` : "PAPER";
+      const msg = [
+        `📊 POSITION OPENED [${modeLabel}]`,
+        `BUY ${position.type} ${position.strike}`,
+        `Premium: Rs.${position.entryPremium} | Lots: ${position.lots}`,
+        `Target: Rs.${position.target} | SL: Rs.${position.stopLoss}`,
+        upstoxOrderId ? `Upstox Order: ${upstoxOrderId}` : "",
+        `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+      ].filter(Boolean).join("\n");
       globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2224,7 +2285,13 @@ Provide the full 10-section comprehensive analysis now.`;
       }).catch(() => {});
     }
 
-    res.json({ success: true, position });
+    res.json({ 
+      success: true, 
+      position, 
+      mode: isLiveMode ? "live" : "paper",
+      upstoxOrderId,
+      upstoxOrderStatus,
+    });
   });
 
   app.post("/api/positions/exit", (req, res) => {
