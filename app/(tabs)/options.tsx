@@ -445,6 +445,8 @@ export default function OptionsScreen() {
         target: orderTarget || "0",
         stopLoss: orderSL || "0",
         pin: orderPin,
+        mode: isLive ? "live" : "paper",
+        expiry: chain?.expiryDate || "",
       };
 
       const controller = new AbortController();
@@ -469,9 +471,10 @@ export default function OptionsScreen() {
       }
 
       if (res.ok && data.success) {
+        const modeLabel = data.mode === "live" ? "LIVE" : "PAPER";
         Alert.alert(
-          "Order Executed",
-          `${orderType} ${orderStrike} x${orderLots} lot(s)\nPremium: ${orderPremium}\nOrder ID: ${data.order?.id || "N/A"}`
+          `${modeLabel} Order Executed`,
+          `${orderType} ${orderStrike} x${orderLots} lot(s)\nPremium: Rs.${orderPremium}\nOrder ID: ${data.order?.id || "N/A"}${data.mode === "live" ? "\nUpstox Order Placed" : ""}`
         );
         setShowOrderModal(false);
         setOrderPin("");

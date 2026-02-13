@@ -11,12 +11,14 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
+import { clearUpstoxStatusCache } from "@/lib/live-market";
 import Colors from "@/constants/colors";
 import BrandHeader from "@/components/BrandHeader";
 
@@ -357,10 +359,51 @@ export default function SettingsScreen() {
               <Text style={styles.statusLabel}>Upstox API</Text>
               <View style={[styles.statusBadge, upstoxStatus?.connected ? styles.statusOn : upstoxStatus?.configured ? styles.statusWarn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>
-                  {upstoxStatus?.connected ? "Live" : upstoxStatus?.configured ? "Keys Set" : "Not Set"}
+                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? "Keys Set" : "Not Set"}
                 </Text>
               </View>
             </View>
+            {upstoxStatus?.configured && !upstoxStatus?.connected && (
+              <Pressable
+                onPress={async () => {
+                  try {
+                    const baseUrl = getApiUrl();
+                    const res = await globalThis.fetch(`${baseUrl}api/upstox/auth-url`);
+                    const data = await res.json();
+                    if (data.authUrl) {
+                      await Linking.openURL(data.authUrl);
+                      setTimeout(() => {
+                        clearUpstoxStatusCache();
+                        checkStatuses();
+                      }, 10000);
+                    } else {
+                      Alert.alert("Error", data.error || "Could not get auth URL");
+                    }
+                  } catch {
+                    Alert.alert("Error", "Failed to connect. Check your network.");
+                  }
+                }}
+                style={({ pressed }) => [styles.connectButton, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="log-in" size={16} color="#000" />
+                <Text style={styles.connectButtonText}>Connect to Upstox</Text>
+              </Pressable>
+            )}
+            {upstoxStatus?.connected && (
+              <View style={styles.liveIndicatorRow}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>Real-time market data active</Text>
+                <Pressable
+                  onPress={() => {
+                    clearUpstoxStatusCache();
+                    checkStatuses();
+                  }}
+                  style={({ pressed }) => [styles.refreshButton, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="refresh" size={14} color={CYAN} />
+                </Pressable>
+              </View>
+            )}
           </View>
 
           <View style={styles.statusCard}>
@@ -1045,6 +1088,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "DMSans_500Medium",
     color: CYAN,
+  },
+  connectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    backgroundColor: NEON_GREEN,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: "center",
+  },
+  connectButtonText: {
+    fontSize: 14,
+    fontFamily: "DMSans_700Bold",
+    color: "#000",
+  },
+  liveIndicatorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: NEON_GREEN,
+  },
+  liveText: {
+    fontSize: 12,
+    fontFamily: "DMSans_500Medium",
+    color: NEON_GREEN,
+    flex: 1,
+  },
+  refreshButton: {
+    padding: 4,
   },
   settingRow: {
     backgroundColor: Colors.dark.surface,

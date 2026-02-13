@@ -1963,8 +1963,8 @@ Provide the full 10-section comprehensive analysis now.`;
     res.json({ valid: req.params.pin === currentPin });
   });
 
-  app.post("/api/order/place", (req, res) => {
-    const { type, strike, lots, premium, action, target, stopLoss, pin } = req.body;
+  app.post("/api/order/place", async (req, res) => {
+    const { type, strike, lots, premium, action, target, stopLoss, pin, mode, expiry } = req.body;
 
     if (!pin || pin !== currentPin) {
       console.log("[ORDER] PIN rejected");
@@ -1975,28 +1975,117 @@ Provide the full 10-section comprehensive analysis now.`;
       return res.status(400).json({ error: "Missing order details" });
     }
 
+    const orderAction = (action || "BUY") as "BUY" | "SELL";
+    const orderMode = mode || (upstoxAccessToken ? "live" : "paper");
+
+    if (orderMode === "live" && upstoxAccessToken) {
+      try {
+        const lotSize = 75;
+        const quantity = Number(lots) * lotSize;
+
+        const expiryStr = expiry || "";
+        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
+
+        const upstoxPayload = {
+          quantity,
+          product: "D",
+          validity: "DAY",
+          price: Number(premium),
+          tag: `JARVIS-${Date.now()}`,
+          instrument_token: instrumentKey,
+          order_type: "LIMIT",
+          transaction_type: orderAction === "BUY" ? "BUY" : "SELL",
+          disclosed_quantity: 0,
+          trigger_price: 0,
+          is_amo: false,
+        };
+
+        console.log("[LIVE ORDER] Placing via Upstox:", JSON.stringify(upstoxPayload));
+
+        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${upstoxAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(upstoxPayload),
+        });
+
+        const upstoxData = await upstoxRes.json();
+        console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
+
+        const order = {
+          id: upstoxData.data?.order_id || `LIVE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+          type: type as "CE" | "PE",
+          strike: Number(strike),
+          lots: Number(lots),
+          premium: Number(premium),
+          action: orderAction,
+          status: upstoxData.status === "success" ? "EXECUTED" as const : "REJECTED" as const,
+          target: Number(target || 0),
+          stopLoss: Number(stopLoss || 0),
+          createdAt: new Date().toISOString(),
+          executedAt: new Date().toISOString(),
+          pnl: null,
+          mode: "live" as const,
+          upstoxOrderId: upstoxData.data?.order_id || null,
+          upstoxMessage: upstoxData.message || null,
+        };
+
+        orderBook.push(order);
+
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+        if (tgToken && tgChatId) {
+          const msg = [
+            `🔴 LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
+            `${order.action} ${order.type} ${order.strike}`,
+            `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
+            `Upstox ID: ${order.upstoxOrderId || "N/A"}`,
+            `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+          ].join("\n");
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+          }).catch(() => {});
+        }
+
+        if (upstoxData.status === "success") {
+          return res.json({ success: true, order, mode: "live" });
+        } else {
+          return res.json({ success: false, error: upstoxData.message || "Upstox order failed", order, mode: "live" });
+        }
+      } catch (error: any) {
+        console.error("[LIVE ORDER] Error:", error);
+        return res.status(500).json({ error: `Live order failed: ${error.message}`, mode: "live" });
+      }
+    }
+
     const order = {
       id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
       type: type as "CE" | "PE",
       strike: Number(strike),
       lots: Number(lots),
       premium: Number(premium),
-      action: (action || "BUY") as "BUY" | "SELL",
+      action: orderAction,
       status: "EXECUTED" as const,
       target: Number(target || 0),
       stopLoss: Number(stopLoss || 0),
       createdAt: new Date().toISOString(),
       executedAt: new Date().toISOString(),
       pnl: null,
+      mode: "paper" as const,
     };
 
     orderBook.push(order);
 
-    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
-    const tgChatId = process.env.TELEGRAM_CHAT_ID;
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
     if (tgToken && tgChatId) {
       const msg = [
-        `ORDER EXECUTED`,
+        `📋 PAPER ORDER EXECUTED`,
         `${order.action} ${order.type} ${order.strike}`,
         `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
         `Target: Rs.${order.target} | SL: Rs.${order.stopLoss}`,
@@ -2011,7 +2100,7 @@ Provide the full 10-section comprehensive analysis now.`;
       }).catch(() => {});
     }
 
-    res.json({ success: true, order });
+    res.json({ success: true, order, mode: "paper" });
   });
 
   app.get("/api/order/book", (_req, res) => {
