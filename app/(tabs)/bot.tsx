@@ -506,7 +506,7 @@ export default function BotScreen() {
       } catch (err: any) {
         fullResponse =
           fullResponse ||
-          "Sorry, I couldn't process that. Please try again, Boss.";
+          "Sorry, I couldn't process that. Please try again, Sir.";
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiMsgId ? { ...m, content: fullResponse } : m
@@ -762,7 +762,7 @@ export default function BotScreen() {
         {
           id: genId(),
           role: "assistant" as const,
-          content: "Sorry Boss, voice processing failed. Please try again.",
+          content: "Sorry Sir, voice processing failed. Please try again.",
           timestamp: getTimestamp(),
         },
       ]);
@@ -1154,7 +1154,7 @@ export default function BotScreen() {
                 PERMANENT MEMORY
               </Text>
               <Text style={styles.memoryHint}>
-                Boss says = I remember FOREVER
+                You say = I remember FOREVER
               </Text>
 
               <View style={styles.memoryInputRow}>
@@ -1317,7 +1317,7 @@ export default function BotScreen() {
           )}
         </Pressable>
         <TextInput
-          placeholder="Boss, உங்க command..."
+          placeholder="Sir, உங்க command..."
           placeholderTextColor="rgba(0,243,255,0.25)"
           value={input}
           onChangeText={setInput}

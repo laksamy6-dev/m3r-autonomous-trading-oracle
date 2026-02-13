@@ -278,7 +278,7 @@ export default function AIScreen() {
     { text: "Neural Architecture v8.0 Loaded", type: "success" },
     { text: "JARVIS AI Core: ONLINE", type: "ai" },
     { text: "Voice Module: Standby", type: "info" },
-    { text: "Awaiting commands, Boss Manikandan", type: "ai" },
+    { text: "Awaiting commands, Mr. Manikandan", type: "ai" },
   ]);
   const [showQuickExecute, setShowQuickExecute] = useState(false);
   const [executeType, setExecuteType] = useState<"CE" | "PE">("CE");
@@ -831,7 +831,7 @@ export default function AIScreen() {
 
       <View style={s.bossRow}>
         <FontAwesome5 name="crown" size={10} color={AMBER} />
-        <Text style={s.bossName}>BOSS MANIKANDAN</Text>
+        <Text style={s.bossName}>MR. MANIKANDAN</Text>
       </View>
 
       <View style={s.statusDashboard}>

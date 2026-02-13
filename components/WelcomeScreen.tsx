@@ -38,13 +38,13 @@ function getVisitorIntro(lang: "en" | "ta"): string {
   if (lang === "ta") {
     return "வணக்கம்! நான் J.A.R.V.I.S - Just A Rather Very Intelligent System. " +
       "உலக சந்தை பகுப்பாய்வு, இந்திய பங்குச்சந்தை கண்காணிப்பு, Nifty 50 ஆப்ஷன்ஸ் டிரேடிங், AI சக்தி கொண்ட முன்கணிப்புகள் மற்றும் அறிவியல் பூர்வமான வர்த்தக உத்திகள் ஆகியவை என் திறன்களாகும். " +
-      "என் முதலாளி, திரு. மணிகண்டன் ராஜேந்திரன், என்னை அதிநவீன நரம்பு வலையமைப்புகள் மற்றும் குவாண்டம் நிலை சந்தை நுண்ணறிவுடன் உருவாக்கியுள்ளார். " +
-      "என் முழு வர்த்தக திறன்களை அணுக, என் முதலாளி வழங்கிய PIN ஐ உள்ளிடவும். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?";
+      "என் படைப்பாளர், திரு. மணிகண்டன் ராஜேந்திரன் அவர்கள், என்னை அதிநவீன நரம்பு வலையமைப்புகள் மற்றும் குவாண்டம் நிலை சந்தை நுண்ணறிவுடன் உருவாக்கியுள்ளார். " +
+      "என் முழு வர்த்தக திறன்களை அணுக, அங்கீகரிக்கப்பட்ட PIN ஐ உள்ளிடவும். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?";
   }
   return "Greetings! I am J.A.R.V.I.S. - Just A Rather Very Intelligent System. " +
     "I am equipped with world market analysis, Indian market tracking, Nifty 50 options trading, AI-powered predictions, and scientific trading strategies. " +
-    "My boss, Mr. Manikandan Rajendran, has built me with cutting-edge neural networks and quantum-level market intelligence. " +
-    "If you need full access to my trading capabilities, please enter the PIN provided by my boss. How can I help you today?";
+    "My creator, Mr. Manikandan Rajendran, has built me with cutting-edge neural networks and quantum-level market intelligence. " +
+    "To access my full trading capabilities, please enter the authorized PIN. How may I assist you today?";
 }
 
 function getOwnerBriefing(): string {
