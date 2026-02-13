@@ -573,6 +573,23 @@ Based on this data, give me:
     res.json({ configured: !!(upstoxApiKey && upstoxApiSecret), connected: !!upstoxAccessToken });
   });
 
+  app.post("/api/upstox/refresh-token", (_req, res) => {
+    const newToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
+    const vault = loadVaultFromFile();
+    const vaultToken = vault.UPSTOX_ACCESS_TOKEN || null;
+
+    upstoxAccessToken = vaultToken || newToken;
+
+    upstoxApiKey = vault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
+    upstoxApiSecret = vault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+
+    const configured = !!(upstoxApiKey && upstoxApiSecret);
+    const connected = !!upstoxAccessToken;
+
+    console.log(`[UPSTOX] Token refreshed - configured: ${configured}, connected: ${connected}`);
+    res.json({ success: true, configured, connected });
+  });
+
   const VAULT_KEYS = [
     { id: "UPSTOX_API_KEY", label: "Upstox API Key", category: "upstox" },
     { id: "UPSTOX_SECRET_KEY", label: "Upstox Secret Key", category: "upstox" },
