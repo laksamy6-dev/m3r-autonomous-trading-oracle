@@ -6,6 +6,7 @@ import {
   Pressable,
   Platform,
   Dimensions,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,10 +16,11 @@ import Animated, {
   withRepeat,
   withTiming,
   withSequence,
+  withDelay,
   Easing,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { speak, stopSpeech } from "@/lib/speech";
 import { getIndices } from "@/lib/stocks";
@@ -36,19 +38,12 @@ function getVisitorIntro(lang: "en" | "ta"): string {
   if (lang === "ta") {
     return "வணக்கம்! நான் J.A.R.V.I.S - Just A Rather Very Intelligent System. " +
       "உலக சந்தை பகுப்பாய்வு, இந்திய பங்குச்சந்தை கண்காணிப்பு, Nifty 50 ஆப்ஷன்ஸ் டிரேடிங், AI சக்தி கொண்ட முன்கணிப்புகள் மற்றும் அறிவியல் பூர்வமான வர்த்தக உத்திகள் ஆகியவை என் திறன்களாகும். " +
-      "உலகளாவிய பொருளாதாரம், அரசியல் தாக்கங்கள், நிறுவன முதலீட்டாளர் நகர்வுகள், தொழில்நுட்ப பகுப்பாய்வு மற்றும் ஏற்ற இறக்க வடிவங்கள் ஆகியவற்றை நான் அறிந்திருக்கிறேன். " +
       "என் முதலாளி, திரு. மணிகண்டன் ராஜேந்திரன், என்னை அதிநவீன நரம்பு வலையமைப்புகள் மற்றும் குவாண்டம் நிலை சந்தை நுண்ணறிவுடன் உருவாக்கியுள்ளார். " +
-      "அவரது நிபுணத்துவமும் பார்வையும் என்னை சந்தையில் மிகவும் சக்திவாய்ந்த வர்த்தக AI ஆக மாற்றியுள்ளது. " +
-      "20 நரம்பு சூத்திரங்கள், Monte Carlo உருவகப்படுத்துதல், Hurst Exponent பகுப்பாய்வு, Cognitive Alpha அமைப்பு மற்றும் பல மேம்பட்ட அல்காரிதங்களுடன் நான் இயங்குகிறேன். " +
       "என் முழு வர்த்தக திறன்களை அணுக, என் முதலாளி வழங்கிய PIN ஐ உள்ளிடவும். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?";
   }
   return "Greetings! I am J.A.R.V.I.S. - Just A Rather Very Intelligent System. " +
     "I am equipped with world market analysis, Indian market tracking, Nifty 50 options trading, AI-powered predictions, and scientific trading strategies. " +
-    "I maintain awareness of global economics, political impacts, institutional flows, technical analysis, and volatility patterns across every major exchange. " +
     "My boss, Mr. Manikandan Rajendran, has built me with cutting-edge neural networks and quantum-level market intelligence. " +
-    "His expertise and vision have made me one of the most powerful trading AI systems in the market. " +
-    "I operate with 20 neural formulas, Monte Carlo simulations, Hurst Exponent analysis, Cognitive Alpha system, Kalman filters, and many more advanced algorithms that my boss has meticulously engineered. " +
-    "My neural engine processes thousands of data points every second to deliver precise trading signals with unmatched accuracy. " +
     "If you need full access to my trading capabilities, please enter the PIN provided by my boss. How can I help you today?";
 }
 
@@ -56,204 +51,47 @@ function getOwnerBriefing(): string {
   const indices = getIndices();
   const session = getMarketSession();
   const chain = generateOptionChain();
-
   const nifty = indices.find(i => i.name === "NIFTY 50") || indices[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
   const sessionLabel = session.sessionStatus === "MARKET_OPEN" ? "Open - Live Trading" :
     session.sessionStatus === "PRE_MARKET" ? "Pre-Market" : "Closed";
-
   const pcr = chain.overallPCR;
   const recommendation = pcr > 1.2 ? "CE" : pcr < 0.8 ? "PE" : "neutral";
-  const lotCost = Math.round(chain.spotPrice * 25 * 0.005);
-
-  const changeDir = nifty.change >= 0 ? "positive" : "negative";
   const changeSign = nifty.change >= 0 ? "+" : "";
+  const changeDir = nifty.change >= 0 ? "positive" : "negative";
 
   return `Welcome back, Boss! Mr. Manikandan Rajendran. ` +
     `${greeting}, Sir! ` +
     `Nifty 50 is currently trading at ${nifty.value.toFixed(2)} with a ${changeSign}${nifty.changePercent.toFixed(2)}% ${changeDir} move. ` +
     `Market session status: ${sessionLabel}. ` +
-    `Today's range: ${(nifty.value - Math.abs(nifty.change) * 1.5).toFixed(2)} - ${(nifty.value + Math.abs(nifty.change) * 0.5).toFixed(2)}. ` +
     `Options activity shows Put-Call Ratio at ${pcr.toFixed(2)}. ` +
     `I recommend focusing on the ${recommendation === "neutral" ? "neutral zone - wait for clear direction" : recommendation + " side"} today, Sir. ` +
-    `One lot of Nifty options costs approximately Rs. ${lotCost}. ` +
     `All 20 neural formulas are active and calibrated. All systems are online and ready for your command, Sir!`;
 }
 
 function WaveBar({ index, active }: { index: number; active: boolean }) {
   const height = useSharedValue(6);
-
   useEffect(() => {
     if (active) {
-      const baseHeight = 10 + Math.random() * 28;
       height.value = withRepeat(
-        withTiming(baseHeight, {
-          duration: 250 + index * 60,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        -1,
-        true
+        withTiming(10 + Math.random() * 28, { duration: 250 + index * 60, easing: Easing.inOut(Easing.ease) }),
+        -1, true
       );
     } else {
       height.value = withTiming(6, { duration: 300 });
     }
   }, [active, height, index]);
-
-  const barStyle = useAnimatedStyle(() => ({
-    height: height.value,
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.waveBar,
-        { backgroundColor: active ? CYAN : "#64748B" },
-        barStyle,
-      ]}
-    />
-  );
+  const barStyle = useAnimatedStyle(() => ({ height: height.value }));
+  return <Animated.View style={[briefStyles.waveBar, { backgroundColor: active ? CYAN : "#64748B" }, barStyle]} />;
 }
-
-function FireNameText() {
-  const fireGlow1 = useSharedValue(0);
-  const fireGlow2 = useSharedValue(0);
-
-  useEffect(() => {
-    fireGlow1.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-    fireGlow2.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-  }, [fireGlow1, fireGlow2]);
-
-  const glow1Style = useAnimatedStyle(() => ({
-    opacity: 0.3 + fireGlow1.value * 0.5,
-    textShadowRadius: 8 + fireGlow1.value * 12,
-  }));
-
-  const glow2Style = useAnimatedStyle(() => ({
-    opacity: 0.2 + fireGlow2.value * 0.6,
-    textShadowRadius: 6 + fireGlow2.value * 10,
-  }));
-
-  return (
-    <View style={fireStyles.container}>
-      <View style={fireStyles.nameRow}>
-        <Animated.Text
-          style={[
-            fireStyles.fireShadow1,
-            glow1Style,
-          ]}
-        >
-          MANIKANDAN RAJENDRAN
-        </Animated.Text>
-        <Animated.Text
-          style={[
-            fireStyles.fireShadow2,
-            glow2Style,
-          ]}
-        >
-          MANIKANDAN RAJENDRAN
-        </Animated.Text>
-        <Text style={fireStyles.nameText}>MANIKANDAN RAJENDRAN</Text>
-      </View>
-      <View style={fireStyles.brandRow}>
-        <Text style={fireStyles.brandName}>M3R-ALGO-MATAI</Text>
-        <View style={fireStyles.versionBadge}>
-          <Text style={fireStyles.versionText}>{APP_VERSION}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const fireStyles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  nameRow: {
-    position: "relative" as const,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 28,
-    marginBottom: 6,
-  },
-  fireShadow1: {
-    position: "absolute" as const,
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-    color: FIRE_RED,
-    letterSpacing: 3,
-    textShadowColor: FIRE_RED,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-  },
-  fireShadow2: {
-    position: "absolute" as const,
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-    color: FIRE_YELLOW,
-    letterSpacing: 3,
-    textShadowColor: FIRE_ORANGE,
-    textShadowOffset: { width: 0, height: -2 },
-    textShadowRadius: 8,
-  },
-  nameText: {
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-    color: FIRE_YELLOW,
-    letterSpacing: 3,
-    textShadowColor: FIRE_RED,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  brandRow: {
-    flexDirection: "row" as const,
-    alignItems: "center",
-    gap: 8,
-  },
-  brandName: {
-    fontSize: 11,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#94A3B8",
-    letterSpacing: 2,
-  },
-  versionBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: CYAN + "44",
-    backgroundColor: CYAN + "11",
-  },
-  versionText: {
-    fontSize: 9,
-    fontFamily: "DMSans_600SemiBold",
-    color: CYAN,
-    letterSpacing: 1,
-  },
-});
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { isVisitor, isOwner, selectedLanguage, setSelectedLanguage, dismissWelcome } = useAuth();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
-  const [step, setStep] = useState<"lang" | "intro">(isVisitor ? "lang" : "intro");
+  const [phase, setPhase] = useState<"splash" | "lang" | "intro">("splash");
   const [displayText, setDisplayText] = useState("");
   const [fullText, setFullText] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -263,32 +101,40 @@ export default function WelcomeScreen() {
   const charIndexRef = useRef(0);
   const mountedRef = useRef(true);
 
-  const pulseScale = useSharedValue(1);
-  const pulseOpacity = useSharedValue(0.4);
+  const logoScale = useSharedValue(0.5);
+  const logoOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const taglineOpacity = useSharedValue(0);
+  const glowPulse = useSharedValue(0.3);
 
   useEffect(() => {
-    pulseScale.value = withRepeat(
+    logoOpacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.ease) });
+    logoScale.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.back(1.2)) });
+    titleOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
+    taglineOpacity.value = withDelay(800, withTiming(1, { duration: 600 }));
+    glowPulse.value = withRepeat(
       withSequence(
-        withTiming(1.15, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
+        withTiming(0.7, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ), -1, false
     );
-    pulseOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-  }, [pulseScale, pulseOpacity]);
+  }, []);
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-    opacity: pulseOpacity.value,
-  }));
+  useEffect(() => {
+    if (phase === "splash") {
+      const t = setTimeout(() => {
+        if (isVisitor) {
+          setPhase("lang");
+        } else {
+          setPhase("intro");
+          const text = getOwnerBriefing();
+          setFullText(text);
+          startTypingAndSpeech(text);
+        }
+      }, 3500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, isVisitor, isOwner]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -299,17 +145,9 @@ export default function WelcomeScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isOwner && step === "intro" && !fullText) {
-      const text = getOwnerBriefing();
-      setFullText(text);
-      startTypingAndSpeech(text);
-    }
-  }, [isOwner, step, fullText]);
-
   const selectLanguage = useCallback((lang: "en" | "ta") => {
     setSelectedLanguage(lang);
-    setStep("intro");
+    setPhase("intro");
     const text = getVisitorIntro(lang);
     setFullText(text);
     startTypingAndSpeech(text);
@@ -319,20 +157,17 @@ export default function WelcomeScreen() {
     charIndexRef.current = 0;
     setDisplayText("");
     setTypingDone(false);
-
     startTyping(text);
-
     speakText(text);
   }
 
   function startTyping(text: string) {
-    const speed = 25;
     function typeNext() {
       if (!mountedRef.current) return;
       if (charIndexRef.current < text.length) {
         charIndexRef.current++;
         setDisplayText(text.slice(0, charIndexRef.current));
-        timerRef.current = setTimeout(typeNext, speed);
+        timerRef.current = setTimeout(typeNext, 25);
       } else {
         setTypingDone(true);
       }
@@ -343,15 +178,9 @@ export default function WelcomeScreen() {
   function speakText(text: string) {
     const lang = isVisitor ? selectedLanguage : "en";
     setIsSpeaking(true);
-    speak(
-      text,
-      lang,
-      () => {
-        if (mountedRef.current) setIsSpeaking(false);
-      },
-      () => {
-        if (mountedRef.current) setIsSpeaking(true);
-      }
+    speak(text, lang,
+      () => { if (mountedRef.current) setIsSpeaking(false); },
+      () => { if (mountedRef.current) setIsSpeaking(true); }
     );
   }
 
@@ -362,85 +191,120 @@ export default function WelcomeScreen() {
     dismissWelcome();
   }
 
-  if (isVisitor && step === "lang") {
+  const logoAnimStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const titleAnimStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  const taglineAnimStyle = useAnimatedStyle(() => ({
+    opacity: taglineOpacity.value,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowPulse.value,
+    transform: [{ scale: 1 + glowPulse.value * 0.15 }],
+  }));
+
+  if (phase === "splash") {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-        <LinearGradient
-          colors={["#0A0E1A", "#0D1B2A", "#0A0E1A"]}
-          style={StyleSheet.absoluteFill}
-        />
+      <View style={[splashStyles.container, { paddingTop: insets.top + webTopInset }]}>
+        <Pressable style={splashStyles.skipCorner} onPress={handleSkip}>
+          <Ionicons name="chevron-forward" size={22} color="#CBD5E1" />
+        </Pressable>
 
-        <FireNameText />
+        <View style={splashStyles.center}>
+          <Animated.View style={[splashStyles.glowRing, glowStyle]} />
 
-        <View style={styles.arcReactorWrap}>
-          <Animated.View style={[styles.arcGlow, pulseStyle]} />
-          <Image 
-            source={require("@/assets/images/m3r-logo.png")} 
-            style={styles.logo} 
-            resizeMode="contain"
-          />
+          <Animated.View style={logoAnimStyle}>
+            <Image
+              source={require("@/assets/images/m3r-logo.png")}
+              style={splashStyles.logo}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <Animated.View style={titleAnimStyle}>
+            <Text style={splashStyles.brandTitle}>M3R</Text>
+          </Animated.View>
+
+          <Animated.View style={taglineAnimStyle}>
+            <View style={splashStyles.dividerLine} />
+            <Text style={splashStyles.tagline}>INNOVATIVE FINTECH SOLUTIONS</Text>
+            <View style={splashStyles.dividerLine} />
+          </Animated.View>
+
+          <Animated.View style={[taglineAnimStyle, { marginTop: 20 }]}>
+            <Text style={splashStyles.subTagline}>Powered by JARVIS AI</Text>
+          </Animated.View>
         </View>
 
-        <Text style={styles.jarvisTitle}>M3R</Text>
-        <Text style={styles.subtitle}>INNOVATIVE FINTECH SOLUTIONS</Text>
+        <View style={[splashStyles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
+          <Text style={splashStyles.footerText}>Created by MANIKANDAN RAJENDRAN</Text>
+          <Text style={splashStyles.versionText}>{APP_VERSION}</Text>
+        </View>
+      </View>
+    );
+  }
 
-        <View style={styles.langSection}>
-          <Text style={styles.langPrompt}>Select Your Language</Text>
+  if (isVisitor && phase === "lang") {
+    return (
+      <View style={[langStyles.container, { paddingTop: insets.top + webTopInset }]}>
+        <View style={langStyles.logoRow}>
+          <Image
+            source={require("@/assets/images/m3r-logo.png")}
+            style={langStyles.smallLogo}
+            resizeMode="contain"
+          />
+          <View>
+            <Text style={langStyles.brandSmall}>M3R</Text>
+            <Text style={langStyles.tagSmall}>INNOVATIVE FINTECH SOLUTIONS</Text>
+          </View>
+        </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.langBtn, pressed && styles.langBtnPressed]}
-            onPress={() => selectLanguage("en")}
-          >
-            <Text style={styles.langBtnText}>English</Text>
+        <View style={langStyles.center}>
+          <Text style={langStyles.prompt}>Select Your Language</Text>
+          <Pressable style={({ pressed }) => [langStyles.btn, pressed && langStyles.btnPressed]} onPress={() => selectLanguage("en")}>
+            <Text style={langStyles.btnText}>English</Text>
           </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.langBtn, pressed && styles.langBtnPressed]}
-            onPress={() => selectLanguage("ta")}
-          >
-            <Text style={styles.langBtnText}>Tamil (தமிழ்)</Text>
+          <Pressable style={({ pressed }) => [langStyles.btn, pressed && langStyles.btnPressed]} onPress={() => selectLanguage("ta")}>
+            <Text style={langStyles.btnText}>Tamil (தமிழ்)</Text>
           </Pressable>
+        </View>
+
+        <View style={[langStyles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
+          <Text style={langStyles.footerText}>Created by MANIKANDAN RAJENDRAN</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      <LinearGradient
-        colors={["#0A0E1A", "#0D1B2A", "#0A0E1A"]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <Pressable style={styles.skipBtn} onPress={handleSkip}>
+    <View style={[briefStyles.container, { paddingTop: insets.top + webTopInset }]}>
+      <Pressable style={briefStyles.skipBtn} onPress={handleSkip}>
         <Ionicons name="close-circle" size={32} color="#94A3B8" />
       </Pressable>
 
-      <FireNameText />
-
-      <View style={styles.arcReactorWrap}>
-        <Animated.View style={[styles.arcGlow, pulseStyle]} />
-        <Image 
-          source={require("@/assets/images/m3r-logo.png")} 
-          style={styles.logo} 
-          resizeMode="contain"
-        />
+      <View style={briefStyles.headerRow}>
+        <Image source={require("@/assets/images/m3r-logo.png")} style={briefStyles.headerLogo} resizeMode="contain" />
+        <View>
+          <Text style={briefStyles.headerBrand}>M3R JARVIS</Text>
+          <Text style={briefStyles.headerTag}>INNOVATIVE FINTECH SOLUTIONS</Text>
+        </View>
       </View>
 
-      <Text style={styles.jarvisTitle}>M3R</Text>
-      <Text style={styles.subtitle}>
-        {isOwner ? "Welcome back, Boss" : "INNOVATIVE FINTECH SOLUTIONS"}
-      </Text>
-
-      <View style={styles.textArea}>
-        <Text style={styles.introText}>
+      <View style={briefStyles.textArea}>
+        <Text style={briefStyles.introText}>
           {displayText}
-          {!typingDone && <Text style={styles.cursor}>|</Text>}
+          {!typingDone && <Text style={briefStyles.cursor}>|</Text>}
         </Text>
       </View>
 
       {isSpeaking && (
-        <View style={styles.waveContainer}>
+        <View style={briefStyles.waveContainer}>
           {[0, 1, 2, 3, 4].map((i) => (
             <WaveBar key={i} index={i} active={isSpeaking} />
           ))}
@@ -448,20 +312,168 @@ export default function WelcomeScreen() {
       )}
 
       {!isSpeaking && typingDone && (
-        <Pressable style={styles.continueBtn} onPress={handleSkip}>
-          <Text style={styles.continueBtnText}>Continue</Text>
+        <Pressable style={briefStyles.continueBtn} onPress={handleSkip}>
+          <Text style={briefStyles.continueBtnText}>Continue</Text>
           <Ionicons name="arrow-forward" size={18} color={CYAN} />
         </Pressable>
       )}
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
-        <Text style={styles.footerText}>Created by MANIKANDAN RAJENDRAN</Text>
+      <View style={[briefStyles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
+        <Text style={briefStyles.footerText}>Created by MANIKANDAN RAJENDRAN</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skipCorner: {
+    position: "absolute",
+    top: Platform.OS === "web" ? 67 + 16 : 56,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glowRing: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(0, 212, 255, 0.08)",
+    borderWidth: 2,
+    borderColor: "rgba(0, 212, 255, 0.12)",
+  },
+  logo: {
+    width: 160,
+    height: 160,
+    marginBottom: 16,
+  },
+  brandTitle: {
+    fontSize: 52,
+    fontFamily: "DMSans_700Bold",
+    color: "#0F172A",
+    letterSpacing: 12,
+    marginBottom: 8,
+  },
+  dividerLine: {
+    width: 60,
+    height: 1,
+    backgroundColor: "#CBD5E1",
+    marginVertical: 8,
+    alignSelf: "center",
+  },
+  tagline: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#475569",
+    letterSpacing: 4,
+    textAlign: "center",
+  },
+  subTagline: {
+    fontSize: 12,
+    fontFamily: "DMSans_500Medium",
+    color: "#94A3B8",
+    letterSpacing: 2,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    alignItems: "center",
+    gap: 4,
+  },
+  footerText: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: "#94A3B8",
+    letterSpacing: 1,
+  },
+  versionText: {
+    fontSize: 10,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#CBD5E1",
+    letterSpacing: 2,
+  },
+});
+
+const langStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+  },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 24,
+  },
+  smallLogo: {
+    width: 50,
+    height: 50,
+  },
+  brandSmall: {
+    fontSize: 22,
+    fontFamily: "DMSans_700Bold",
+    color: "#0F172A",
+    letterSpacing: 6,
+  },
+  tagSmall: {
+    fontSize: 8,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#64748B",
+    letterSpacing: 2,
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 32,
+  },
+  prompt: {
+    fontSize: 20,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#0F172A",
+    marginBottom: 12,
+  },
+  btn: {
+    width: Math.min(SCREEN_WIDTH - 64, 280),
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#0EA5E9",
+    backgroundColor: "rgba(14, 165, 233, 0.06)",
+    alignItems: "center",
+  },
+  btnPressed: {
+    backgroundColor: "rgba(14, 165, 233, 0.15)",
+  },
+  btnText: {
+    fontSize: 18,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#0EA5E9",
+  },
+  footer: {
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: "#94A3B8",
+    letterSpacing: 1,
+  },
+});
+
+const briefStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0E1A",
@@ -474,97 +486,28 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
-  arcReactorWrap: {
-    marginTop: 12,
-    width: 100,
-    height: 100,
+  headerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 8,
   },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  arcGlow: {
-    position: "absolute",
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: CYAN + "22",
-    borderWidth: 1,
-    borderColor: CYAN + "33",
-  },
-  arcReactorOuter: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: CYAN + "44",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arcReactorMiddle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: CYAN + "66",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arcReactorCore: {
+  headerLogo: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: CYAN + "22",
-    borderWidth: 1,
-    borderColor: CYAN,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  jarvisTitle: {
-    fontSize: 36,
+  headerBrand: {
+    fontSize: 20,
     fontFamily: "DMSans_700Bold",
-    color: CYAN,
-    letterSpacing: 8,
+    color: "#FFFFFF",
+    letterSpacing: 3,
   },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: "DMSans_400Regular",
-    color: "#94A3B8",
-    marginTop: 4,
+  headerTag: {
+    fontSize: 8,
+    fontFamily: "DMSans_600SemiBold",
+    color: CYAN,
     letterSpacing: 2,
-  },
-  langSection: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 20,
-    paddingHorizontal: 32,
-  },
-  langPrompt: {
-    fontSize: 18,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#F1F5F9",
-    marginBottom: 12,
-  },
-  langBtn: {
-    width: Math.min(SCREEN_WIDTH - 64, 280),
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: CYAN,
-    backgroundColor: CYAN + "11",
-    alignItems: "center",
-  },
-  langBtnPressed: {
-    backgroundColor: CYAN + "33",
-  },
-  langBtnText: {
-    fontSize: 18,
-    fontFamily: "DMSans_600SemiBold",
-    color: CYAN,
   },
   textArea: {
     flex: 1,
