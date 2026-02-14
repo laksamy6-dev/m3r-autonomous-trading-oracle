@@ -78,6 +78,7 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
+UPSTOX_ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0WkNDREwiLCJqdGkiOiI2OTkwN2ZkMTQ1MjdkZDMxZjhmYTZiNjMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzcxMDc3NTg1LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NzExMDY0MDB9.gYA59cNQVZMofIqBN6lWrzZvWZT-z_y9E8ofV-JJbPU"
 
 [userenv.development]
 
