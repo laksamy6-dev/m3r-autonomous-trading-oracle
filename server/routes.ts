@@ -2324,7 +2324,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       upstoxApiKey: !!upstoxApiKey,
       upstoxSecret: !!upstoxApiSecret,
       telegramConfigured: isTelegramConfigured(),
-      openaiKey: !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY),
+      openaiKey: !!(process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY),
     })
   );
 
