@@ -757,7 +757,7 @@ export default function AIScreen() {
 
     try {
       const baseUrl = getApiUrl();
-      const response = await globalThis.fetch(`${baseUrl}api/lamy/voice`, {
+      const response = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64Audio }),
