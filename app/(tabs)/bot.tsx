@@ -8,12 +8,15 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Image,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import { fetch } from "expo/fetch";
 import Animated, {
   useSharedValue,
@@ -44,9 +47,13 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  imageBase64?: string;
+  imageUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
 }
 
-type AssistantState = "idle" | "listening" | "thinking" | "speaking";
+type AssistantState = "idle" | "listening" | "thinking" | "speaking" | "live";
 
 interface BrainStatus {
   iq: number;
@@ -346,6 +353,10 @@ export default function BotScreen() {
   const [showAllKnowledge, setShowAllKnowledge] = useState(false);
   const [memoryInput, setMemoryInput] = useState("");
   const [memoryCategory, setMemoryCategory] = useState("general");
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const liveLoopRef = useRef(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ uri: string; name: string; type: string; base64?: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -558,6 +569,185 @@ export default function BotScreen() {
     [refreshMemories]
   );
 
+  const pickImage = useCallback(async () => {
+    setShowAttachMenu(false);
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          setPendingFile({
+            uri: URL.createObjectURL(file),
+            name: file.name,
+            type: file.type || "image/jpeg",
+            base64,
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    } else {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+          base64: true,
+          allowsEditing: false,
+        });
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          setPendingFile({
+            uri: asset.uri,
+            name: asset.fileName || "photo.jpg",
+            type: asset.mimeType || "image/jpeg",
+            base64: asset.base64 || undefined,
+          });
+        }
+      } catch (err) {
+        console.error("Image picker error:", err);
+      }
+    }
+  }, []);
+
+  const pickDocument = useCallback(async () => {
+    setShowAttachMenu(false);
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".pdf,.doc,.docx,.txt,.csv,.json,.xml,.html,.md";
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          setPendingFile({
+            uri: "",
+            name: file.name,
+            type: file.type || "application/octet-stream",
+            base64,
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    } else {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: false,
+          quality: 0.7,
+          base64: true,
+        });
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          setPendingFile({
+            uri: asset.uri,
+            name: asset.fileName || "file",
+            type: asset.mimeType || "application/octet-stream",
+            base64: asset.base64 || undefined,
+          });
+        }
+      } catch (err) {
+        console.error("File picker error:", err);
+      }
+    }
+  }, []);
+
+  const sendMessageWithFile = useCallback(
+    async (text: string, file: { uri: string; name: string; type: string; base64?: string }) => {
+      if (isStreaming) return;
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: "user",
+        content: text || `Sent: ${file.name}`,
+        timestamp: getTimestamp(),
+        attachmentName: file.name,
+        attachmentType: file.type,
+        imageBase64: file.type.startsWith("image/") ? file.base64 : undefined,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsStreaming(true);
+      setAssistantState("thinking");
+      setPendingFile(null);
+
+      const aiMsgId = genId();
+      setMessages((prev) => [...prev, { id: aiMsgId, role: "assistant", content: "", timestamp: getTimestamp() }]);
+
+      let fullResponse = "";
+
+      try {
+        const baseUrl = getApiUrl();
+        const formData = new FormData();
+        formData.append("message", text || `Analyze this file: ${file.name}`);
+
+        if (Platform.OS === "web") {
+          if (file.base64) {
+            const byteChars = atob(file.base64);
+            const byteNums = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+            const blob = new Blob([new Uint8Array(byteNums)], { type: file.type });
+            formData.append("file", blob, file.name);
+          } else if (file.uri) {
+            const resp = await globalThis.fetch(file.uri);
+            const blob = await resp.blob();
+            formData.append("file", blob, file.name);
+          }
+        } else {
+          formData.append("file", { uri: file.uri, name: file.name, type: file.type } as any);
+        }
+
+        const response = await globalThis.fetch(`${baseUrl}api/m3r/chat-with-file`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No reader");
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              if (dataStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.content) {
+                  fullResponse += parsed.content;
+                  setMessages((prev) => prev.map((m) => m.id === aiMsgId ? { ...m, content: fullResponse } : m));
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err: any) {
+        fullResponse = fullResponse || "Sorry Sir, file processing failed. Please try again.";
+        setMessages((prev) => prev.map((m) => m.id === aiMsgId ? { ...m, content: fullResponse } : m));
+      } finally {
+        setIsStreaming(false);
+        setAssistantState("idle");
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+        if (autoSpeak && fullResponse) assistantSpeak(fullResponse);
+      }
+    },
+    [isStreaming, autoSpeak, assistantSpeak]
+  );
+
   const startRecordingNative = useCallback(async () => {
     try {
       const permission = await Audio.requestPermissionsAsync();
@@ -643,6 +833,110 @@ export default function BotScreen() {
       mediaRecorder.stop();
     });
   }, []);
+
+  const toggleLiveMode = useCallback(async () => {
+    if (isLiveMode) {
+      liveLoopRef.current = false;
+      setIsLiveMode(false);
+      setAssistantState("idle");
+      if (recording) {
+        try { await recording.stopAndUnloadAsync(); } catch {}
+        setRecording(null);
+      }
+      if (mediaRecorderRef.current) {
+        try { mediaRecorderRef.current.stop(); } catch {}
+        mediaRecorderRef.current = null;
+      }
+      stopSpeech();
+      if (soundRef.current) {
+        try { await soundRef.current.stopAsync(); await soundRef.current.unloadAsync(); } catch {}
+        soundRef.current = null;
+      }
+      return;
+    }
+    setIsLiveMode(true);
+    liveLoopRef.current = true;
+    setAssistantState("live");
+
+    const liveLoop = async () => {
+      while (liveLoopRef.current) {
+        try {
+          setAssistantState("listening");
+          if (Platform.OS === "web") {
+            await startRecordingWeb();
+          } else {
+            await startRecordingNative();
+          }
+          await new Promise((r) => setTimeout(r, 5000));
+          if (!liveLoopRef.current) break;
+
+          let base64: string | null = null;
+          if (Platform.OS === "web") {
+            base64 = await stopRecordingWeb();
+          } else {
+            base64 = await stopRecordingNative();
+          }
+
+          if (!base64 || !liveLoopRef.current) continue;
+
+          setAssistantState("thinking");
+          const baseUrl = getApiUrl();
+          const res = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64 }),
+          });
+
+          if (!res.ok || !liveLoopRef.current) continue;
+          const data = await res.json();
+
+          if (data.userText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "user", content: data.userText, timestamp: getTimestamp() }]);
+          }
+          if (data.aiText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "assistant", content: data.aiText, timestamp: getTimestamp() }]);
+          }
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+
+          if (data.audioBase64 && liveLoopRef.current) {
+            setAssistantState("speaking");
+            await new Promise<void>((resolve) => {
+              if (Platform.OS === "web") {
+                const audioUrl = `data:audio/mp3;base64,${data.audioBase64}`;
+                const audioEl = new globalThis.Audio(audioUrl);
+                audioEl.onended = () => resolve();
+                audioEl.onerror = () => resolve();
+                audioEl.play().catch(() => resolve());
+              } else {
+                (async () => {
+                  try {
+                    const uri = FileSystem.cacheDirectory + "m3r_live.mp3";
+                    await FileSystem.writeAsStringAsync(uri, data.audioBase64, { encoding: FileSystem.EncodingType.Base64 });
+                    const { sound } = await Audio.Sound.createAsync({ uri });
+                    soundRef.current = sound;
+                    sound.setOnPlaybackStatusUpdate((status) => {
+                      if (status.isLoaded && status.didJustFinish) {
+                        sound.unloadAsync().catch(() => {});
+                        soundRef.current = null;
+                        resolve();
+                      }
+                    });
+                    await sound.playAsync();
+                  } catch { resolve(); }
+                })();
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Live mode error:", err);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+      setAssistantState("idle");
+    };
+
+    liveLoop();
+  }, [isLiveMode, recording, startRecordingWeb, startRecordingNative, stopRecordingWeb, stopRecordingNative]);
 
   const startRecording = useCallback(async () => {
     setAssistantState("listening");
@@ -969,6 +1263,26 @@ export default function BotScreen() {
                       : styles.aiBubble,
                   ]}
                 >
+                  {msg.imageBase64 && (
+                    <Image
+                      source={{ uri: `data:image/jpeg;base64,${msg.imageBase64}` }}
+                      style={{ width: 200, height: 150, borderRadius: 8, marginBottom: 6 }}
+                      resizeMode="cover"
+                    />
+                  )}
+                  {msg.imageUrl && (
+                    <Image
+                      source={{ uri: msg.imageUrl }}
+                      style={{ width: 200, height: 200, borderRadius: 8, marginBottom: 6 }}
+                      resizeMode="cover"
+                    />
+                  )}
+                  {msg.attachmentName && !msg.imageBase64 && (
+                    <View style={styles.attachBadge}>
+                      <Ionicons name="document-attach" size={12} color={AMBER} />
+                      <Text style={styles.attachName} numberOfLines={1}>{msg.attachmentName}</Text>
+                    </View>
+                  )}
                   <Text
                     style={[
                       styles.msgText,
@@ -976,6 +1290,7 @@ export default function BotScreen() {
                         ? styles.userMsgText
                         : styles.aiMsgText,
                     ]}
+                    selectable
                   >
                     {msg.content}
                   </Text>
@@ -1266,20 +1581,64 @@ export default function BotScreen() {
         )}
       </ScrollView>
 
-      {assistantState === "speaking" && (
+      {(assistantState === "speaking" || isLiveMode) && (
         <Pressable
-          onPress={handleStopSpeech}
-          style={[styles.speakingBar, { paddingBottom: Platform.OS === "web" ? 0 : 0 }]}
+          onPress={() => {
+            if (isLiveMode) { toggleLiveMode(); return; }
+            handleStopSpeech();
+          }}
+          style={[styles.speakingBar, isLiveMode && { backgroundColor: "rgba(239,68,68,0.08)", borderTopColor: "rgba(239,68,68,0.25)" }]}
         >
-          <View style={styles.speakingPulse}>
-            <Ionicons name="volume-high" size={16} color={CYAN} />
+          <View style={[styles.speakingPulse, isLiveMode && { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+            <Ionicons name={isLiveMode ? "radio" : "volume-high"} size={16} color={isLiveMode ? RED : CYAN} />
           </View>
-          <Text style={styles.speakingText}>M3R பேசுகிறது...</Text>
+          <Text style={[styles.speakingText, isLiveMode && { color: RED }]}>
+            {isLiveMode ? (assistantState === "listening" ? "Listening..." : assistantState === "thinking" ? "Thinking..." : assistantState === "speaking" ? "Speaking..." : "LIVE Mode Active") : "M3R பேசுகிறது..."}
+          </Text>
           <View style={styles.stopBtn}>
             <Ionicons name="stop" size={14} color="#fff" />
-            <Text style={styles.stopBtnText}>STOP</Text>
+            <Text style={styles.stopBtnText}>{isLiveMode ? "END" : "STOP"}</Text>
           </View>
         </Pressable>
+      )}
+
+      {pendingFile && (
+        <View style={styles.pendingFileBar}>
+          {pendingFile.type.startsWith("image/") && pendingFile.base64 ? (
+            <Image source={{ uri: `data:${pendingFile.type};base64,${pendingFile.base64}` }} style={{ width: 40, height: 40, borderRadius: 6 }} />
+          ) : (
+            <View style={styles.pendingFileIcon}>
+              <Ionicons name="document" size={18} color={AMBER} />
+            </View>
+          )}
+          <Text style={styles.pendingFileName} numberOfLines={1}>{pendingFile.name}</Text>
+          <Pressable onPress={() => setPendingFile(null)}>
+            <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+          </Pressable>
+        </View>
+      )}
+
+      {showAttachMenu && (
+        <View style={styles.attachMenu}>
+          <Pressable onPress={pickImage} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
+              <Ionicons name="image" size={20} color={ELECTRIC_BLUE} />
+            </View>
+            <Text style={styles.attachMenuText}>Photo</Text>
+          </Pressable>
+          <Pressable onPress={pickDocument} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(245,158,11,0.15)" }]}>
+              <Ionicons name="document" size={20} color={AMBER} />
+            </View>
+            <Text style={styles.attachMenuText}>File</Text>
+          </Pressable>
+          <Pressable onPress={() => setShowAttachMenu(false)} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+              <Ionicons name="close" size={20} color={RED} />
+            </View>
+            <Text style={styles.attachMenuText}>Cancel</Text>
+          </Pressable>
+        </View>
       )}
 
       <View
@@ -1294,10 +1653,15 @@ export default function BotScreen() {
         ]}
       >
         <Pressable
+          onPress={() => setShowAttachMenu(!showAttachMenu)}
+          style={styles.attachBtn}
+        >
+          <Ionicons name="add-circle-outline" size={24} color={showAttachMenu ? CYAN : "rgba(255,255,255,0.4)"} />
+        </Pressable>
+
+        <Pressable
           onPress={() => {
-            if (assistantState === "speaking") {
-              handleStopSpeech();
-            }
+            if (assistantState === "speaking") handleStopSpeech();
             handleMicPress();
           }}
           style={[
@@ -1306,44 +1670,58 @@ export default function BotScreen() {
           ]}
         >
           <Ionicons
-            name={
-              assistantState === "listening" ? "mic" : "mic-outline"
-            }
-            size={22}
+            name={assistantState === "listening" ? "mic" : "mic-outline"}
+            size={20}
             color={assistantState === "listening" ? "#fff" : CYAN}
           />
           {assistantState === "listening" && (
             <View style={styles.micRecordingDot} />
           )}
         </Pressable>
+
         <TextInput
           placeholder="Sir, உங்க command..."
           placeholderTextColor="rgba(0,243,255,0.25)"
           value={input}
           onChangeText={setInput}
           onSubmitEditing={() => {
-            if (input.trim()) {
+            if (pendingFile) {
+              sendMessageWithFile(input, pendingFile);
+              setInput("");
+            } else if (input.trim()) {
               sendTextMessage(input);
               setInput("");
             }
           }}
           style={styles.textInput}
         />
+
         <Pressable
           onPress={() => {
-            if (input.trim()) {
+            if (pendingFile) {
+              sendMessageWithFile(input, pendingFile);
+              setInput("");
+            } else if (input.trim()) {
               sendTextMessage(input);
               setInput("");
             }
           }}
-          disabled={!input.trim()}
+          disabled={!input.trim() && !pendingFile}
           style={styles.sendBtn}
         >
           <Ionicons
             name="send"
             size={18}
-            color={input.trim() ? CYAN : "rgba(255,255,255,0.15)"}
+            color={input.trim() || pendingFile ? CYAN : "rgba(255,255,255,0.15)"}
           />
+        </Pressable>
+
+        <Pressable
+          onPress={toggleLiveMode}
+          style={[styles.liveBtn, isLiveMode && styles.liveBtnActive]}
+        >
+          <Ionicons name="radio" size={16} color={isLiveMode ? "#fff" : NEON_GREEN} />
+          <Text style={[styles.liveBtnText, isLiveMode && { color: "#fff" }]}>LIVE</Text>
         </Pressable>
       </View>
     </View>
@@ -1941,6 +2319,101 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  attachBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(245,158,11,0.1)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  attachName: {
+    fontSize: 10,
+    color: AMBER,
+    fontWeight: "600" as const,
+    flex: 1,
+  },
+  attachMenu: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(10, 20, 30, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: PANEL_BORDER,
+  },
+  attachMenuItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  attachMenuIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  attachMenuText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "600" as const,
+  },
+  pendingFileBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(245,158,11,0.06)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(245,158,11,0.15)",
+  },
+  pendingFileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: "rgba(245,158,11,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingFileName: {
+    flex: 1,
+    fontSize: 12,
+    color: AMBER,
+    fontWeight: "600" as const,
+  },
+  liveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(57,255,20,0.08)",
+    borderWidth: 1.5,
+    borderColor: "rgba(57,255,20,0.25)",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  liveBtnActive: {
+    backgroundColor: "rgba(239,68,68,0.3)",
+    borderColor: RED,
+  },
+  liveBtnText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    color: NEON_GREEN,
+    letterSpacing: 1,
   },
 });
 

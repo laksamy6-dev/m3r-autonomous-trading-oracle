@@ -3503,9 +3503,10 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         return res.status(400).json({ error: "Text is required" });
       }
       const mp3 = await openai.audio.speech.create({
-        model: "tts-1",
-        voice: "onyx",
-        input: text,
+        model: "tts-1-hd",
+        voice: "nova",
+        input: text.slice(0, 4000),
+        speed: 1.15,
       });
       const arrayBuffer = await mp3.arrayBuffer();
       const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
@@ -3823,6 +3824,115 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     }
   });
 
+  const multer = require("multer");
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+  app.post("/api/m3r/chat-with-file", upload.single("file"), async (req: any, res) => {
+    try {
+      const { message } = req.body;
+      const file = req.file;
+      if (!m3rModel) return res.status(503).json({ error: "M3R Brain not configured" });
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      brainStats.totalInteractions++;
+      if (message) detectSlangProfile(message);
+
+      const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
+      const slangCtx = getSlangContext();
+      const memoryContext = await getMemoriesForContext();
+
+      let userContent: any[] = [];
+      
+      if (file) {
+        const mimeType = file.mimetype || "application/octet-stream";
+        if (mimeType.startsWith("image/")) {
+          const base64Data = file.buffer.toString("base64");
+          userContent.push({
+            inlineData: { mimeType, data: base64Data }
+          });
+          userContent.push({ text: (message || "Analyze this image") + brainContext + slangCtx + memoryContext });
+        } else if (mimeType.startsWith("audio/")) {
+          const audioFile = await toFile(file.buffer, file.originalname || "audio.wav");
+          const transcription = await openai.audio.transcriptions.create({ file: audioFile, model: "gpt-4o-mini-transcribe" });
+          userContent.push({ text: `[User sent audio file, transcription: "${transcription.text}"]\n${message || "Process this audio"}` + brainContext + slangCtx + memoryContext });
+        } else {
+          const textContent = file.buffer.toString("utf-8").slice(0, 10000);
+          userContent.push({ text: `[User uploaded file: ${file.originalname}, type: ${mimeType}]\nFile content:\n${textContent}\n\n${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
+        }
+      } else {
+        userContent.push({ text: (message || "") + brainContext + slangCtx + memoryContext });
+      }
+
+      m3rChatHistory.push({ role: "user", parts: userContent });
+      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
+
+      const genAI = (global as any).__m3rGenAI as any;
+      const systemInstruction = (global as any).__m3rSystemInstruction as string;
+
+      const result = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+        }
+      });
+
+      let fullResponse = "";
+      for await (const chunk of result) {
+        const text = chunk.text || "";
+        if (text) {
+          fullResponse += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
+      }
+
+      if (!fullResponse) fullResponse = "சார், processing பண்ணிட்டேன். மறுபடியும் try பண்ணுங்க.";
+      m3rChatHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error("[M3R FILE CHAT] Error:", error.message);
+      try {
+        res.write(`data: ${JSON.stringify({ content: "Sorry Sir, file processing failed. Please try again." })}\n\n`);
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+      } catch { res.end(); }
+    }
+  });
+
+  app.post("/api/m3r/generate-image", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      if (!prompt) return res.status(400).json({ error: "Prompt required" });
+
+      const response = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "medium",
+      });
+
+      const imageData = response.data?.[0];
+      if (imageData && imageData.b64_json) {
+        res.json({ imageBase64: imageData.b64_json });
+      } else if (imageData && imageData.url) {
+        res.json({ imageUrl: imageData.url });
+      } else {
+        res.status(500).json({ error: "No image generated" });
+      }
+    } catch (error: any) {
+      console.error("[M3R IMAGE] Error:", error.message);
+      res.status(500).json({ error: "Image generation failed" });
+    }
+  });
+
   app.post("/api/m3r/voice", voiceBodyParser, async (req, res) => {
     try {
       const { audio } = req.body;
@@ -3904,10 +4014,11 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       let audioBase64: string | null = null;
       try {
         const ttsResponse = await openai.audio.speech.create({
-          model: "tts-1",
-          voice: "onyx",
+          model: "tts-1-hd",
+          voice: "nova",
           input: aiText.slice(0, 4000),
           response_format: "mp3",
+          speed: 1.15,
         });
         const arrayBuffer = await ttsResponse.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
