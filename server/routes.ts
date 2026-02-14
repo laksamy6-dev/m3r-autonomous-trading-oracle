@@ -1094,6 +1094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!symbol) {
         return res.status(400).json({ error: "Stock symbol is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1136,8 +1137,6 @@ Volume: ${volume}
 Market Cap: ${marketCap}
 
 Provide your trading signal and analysis.`;
-
-      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
@@ -1266,6 +1265,7 @@ Creator: MANIKANDAN RAJENDRAN — Founder, M3R Innovative Fintech Solutions. Alw
       if (!optionChain) {
         return res.status(400).json({ error: "Option chain data is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1303,7 +1303,6 @@ Based on this data, give me:
 4. When to book partial profit
 5. Conditions that would trigger a direction switch`;
 
-      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
@@ -1344,6 +1343,7 @@ Based on this data, give me:
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1376,7 +1376,6 @@ Based on this data, give me:
         optionsBotHistory[0] = systemMsg;
       }
 
-      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const geminiContents = optionsBotHistory
@@ -1721,6 +1720,7 @@ Based on this data, give me:
   app.post("/api/m3r/analyze", async (req, res) => {
     try {
       const { optionChain, question } = req.body;
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1728,8 +1728,6 @@ Based on this data, give me:
       res.flushHeaders();
 
       const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
-
-      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
@@ -2797,6 +2795,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   app.post("/api/market/comprehensive-analysis", async (req, res) => {
     try {
       const { symbol, spotPrice, optionData, engineData } = req.body;
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -2886,7 +2885,6 @@ ${engineData ? `Engine Signal: ${engineData.signal}, Confidence: ${engineData.co
 
 Provide the full 10-section comprehensive analysis now.`;
 
-      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
