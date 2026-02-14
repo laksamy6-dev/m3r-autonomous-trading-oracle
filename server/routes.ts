@@ -483,7 +483,8 @@ function runSelfImprovement() {
   const avgBonus = avgScore * 0.5;
   const cycleBonus = brainStats.totalLearningCycles * 0.06;
   const interactionBonus = brainStats.totalInteractions * 0.2;
-  brainStats.iq = Math.round((100 + totalKnowledgeScore * 0.12 + cycleBonus + interactionBonus + domainBonus + avgBonus) * 10) / 10;
+  const newIq = Math.round((100 + totalKnowledgeScore * 0.12 + cycleBonus + interactionBonus + domainBonus + avgBonus) * 10) / 10;
+  brainStats.iq = Math.max(brainStats.iq, newIq);
 
   brainStats.accuracyScore = brainStats.accuracyScore + 0.02 + Math.random() * 0.08;
   brainStats.emotionalIQ = brainStats.emotionalIQ + 0.01 + Math.random() * 0.04;
@@ -548,17 +549,23 @@ async function loadBrainFromDb() {
     const result = await dbPool.query("SELECT * FROM brain_state WHERE id = 1");
     if (result.rows.length > 0) {
       const row = result.rows[0];
-      brainStats.iq = row.iq;
-      brainStats.generation = row.generation;
-      brainStats.totalInteractions = row.total_interactions;
-      brainStats.totalLearningCycles = row.total_learning_cycles;
-      brainStats.accuracyScore = row.accuracy_score;
-      brainStats.emotionalIQ = row.emotional_iq;
+      brainStats.iq = Math.max(brainStats.iq, row.iq || 0);
+      brainStats.generation = Math.max(brainStats.generation, row.generation || 0);
+      brainStats.totalInteractions = Math.max(brainStats.totalInteractions, row.total_interactions || 0);
+      brainStats.totalLearningCycles = Math.max(brainStats.totalLearningCycles, row.total_learning_cycles || 0);
+      brainStats.accuracyScore = Math.max(brainStats.accuracyScore, row.accuracy_score || 0);
+      brainStats.emotionalIQ = Math.max(brainStats.emotionalIQ, row.emotional_iq || 0);
       if (row.knowledge_areas && typeof row.knowledge_areas === "object") {
-        Object.assign(brainStats.knowledgeAreas, row.knowledge_areas);
+        for (const [key, val] of Object.entries(row.knowledge_areas)) {
+          const dbVal = typeof val === "number" ? val : 0;
+          brainStats.knowledgeAreas[key] = Math.max(brainStats.knowledgeAreas[key] || 0, dbVal);
+        }
       }
       if (row.language_fluency && typeof row.language_fluency === "object") {
-        Object.assign(brainStats.languageFluency, row.language_fluency);
+        for (const [key, val] of Object.entries(row.language_fluency)) {
+          const dbVal = typeof val === "number" ? val : 0;
+          brainStats.languageFluency[key] = Math.max(brainStats.languageFluency[key] || 0, dbVal);
+        }
       }
       console.log("[BRAIN DB] Loaded brain from database. IQ:", brainStats.iq, "Gen:", brainStats.generation);
     }
@@ -2253,7 +2260,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       upstoxApiKey: !!upstoxApiKey,
       upstoxSecret: !!upstoxApiSecret,
       telegramConfigured: isTelegramConfigured(),
-      lamyKey: !!process.env.GEMINI_API_KEY,
+      geminiKey: !!process.env.GEMINI_API_KEY,
     })
   );
 

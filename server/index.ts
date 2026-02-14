@@ -171,7 +171,16 @@ function configureExpoAndLanding(app: express.Application) {
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
   if (hasWebBuild) {
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: '1h',
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
     log("M3R Innovative Fintech Solutions — Web app ready at /");
   }
 
@@ -189,6 +198,9 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (hasWebBuild) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       return res.sendFile(webIndexPath);
     }
 
