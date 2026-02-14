@@ -285,6 +285,7 @@ export default function AIScreen() {
     { text: "Awaiting commands, Mr. Manikandan", type: "ai" },
   ]);
   const [showQuickExecute, setShowQuickExecute] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const [executeType, setExecuteType] = useState<"CE" | "PE">("CE");
   const [executeStrike, setExecuteStrike] = useState("");
   const [executeLots, setExecuteLots] = useState("1");
@@ -1395,19 +1396,17 @@ export default function AIScreen() {
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      <View style={s.logPanel}>
-        <View style={s.logHeader}>
-          <Ionicons name="code-slash" size={10} color={AMBER} />
-          <Text style={s.logHeaderText}>SYSTEM LOGS</Text>
-        </View>
-        <ScrollView ref={logScrollRef} showsVerticalScrollIndicator={false}>
-          {logs.map((log, i) => (
-            <SystemLog key={i} text={log.text} type={log.type} />
-          ))}
-        </ScrollView>
-      </View>
+      <View style={[s.bottomArea, { paddingBottom: Math.max(insets.bottom, webBottomInset, 8) + tabBarHeight }]}>
+        {showLogs && (
+          <View style={s.logPanel}>
+            <ScrollView ref={logScrollRef} showsVerticalScrollIndicator={false}>
+              {logs.map((log, i) => (
+                <SystemLog key={i} text={log.text} type={log.type} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-      <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, webBottomInset, 8) + tabBarHeight }]}>
         {voiceActive && (
           <View style={s.voiceActiveRow}>
             <View style={s.waveRow}>
@@ -1420,7 +1419,11 @@ export default function AIScreen() {
             </Text>
           </View>
         )}
+
         <View style={s.inputRow}>
+          <Pressable onPress={() => setShowLogs(!showLogs)} style={s.logToggleBtn}>
+            <Ionicons name="code-slash" size={16} color={showLogs ? CYAN : "#64748B"} />
+          </Pressable>
           <Pressable onPress={handleFileUpload} style={s.attachBtn}>
             <Ionicons name="attach" size={20} color={CYAN} />
           </Pressable>
@@ -1936,9 +1939,8 @@ const s = StyleSheet.create({
     fontWeight: "600" as const,
   },
   logPanel: {
-    height: 70,
-    marginHorizontal: 8,
-    marginBottom: 4,
+    maxHeight: 80,
+    marginBottom: 6,
     backgroundColor: "rgba(5,5,8,0.9)",
     borderWidth: 1,
     borderColor: "rgba(245,158,11,0.15)",
@@ -1948,29 +1950,24 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  logHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 3,
-  },
-  logHeaderText: {
-    fontSize: 7,
-    color: AMBER,
-    fontWeight: "700" as const,
-    letterSpacing: 1.5,
-  },
   logText: {
     fontSize: 8,
     fontFamily: Platform.OS === "web" ? "monospace" : undefined,
     lineHeight: 12,
   },
-  inputBar: {
+  bottomArea: {
     paddingHorizontal: 8,
     paddingTop: 6,
     backgroundColor: "rgba(5,5,8,0.98)",
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
+  },
+  logToggleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   voiceActiveRow: {
     flexDirection: "row",
