@@ -1297,6 +1297,55 @@ export default function AIScreen() {
         <Text style={s.engineText}>Scanner: 24/7</Text>
       </View>
 
+      <View style={s.inputRow}>
+        <Pressable onPress={() => setShowLogs(!showLogs)} style={s.logToggleBtn}>
+          <Ionicons name="code-slash" size={16} color={showLogs ? CYAN : "#64748B"} />
+        </Pressable>
+        <Pressable onPress={handleFileUpload} style={s.attachBtn}>
+          <Ionicons name="attach" size={20} color={CYAN} />
+        </Pressable>
+        <TextInput
+          placeholder="LAMY-க்கு message..."
+          placeholderTextColor="rgba(0,243,255,0.3)"
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={() => sendTextMessage(input)}
+          style={s.textInput}
+          returnKeyType="send"
+          multiline
+        />
+        <Pressable onPress={handleMicPress} style={[s.micBtn, voiceStatus === "listening" && { backgroundColor: "rgba(239,68,68,0.2)", borderColor: RED }]}>
+          <Ionicons
+            name={voiceStatus === "listening" ? "mic" : "mic-outline"}
+            size={20}
+            color={
+              voiceStatus === "listening"
+                ? RED
+                : voiceStatus === "speaking"
+                  ? NEON_GREEN
+                  : CYAN
+            }
+          />
+        </Pressable>
+        <Pressable onPress={toggleLiveMode} style={[s.liveBtn, isLiveMode && s.liveBtnActive]}>
+          <Ionicons name="radio" size={14} color={isLiveMode ? "#fff" : NEON_GREEN} />
+          <Text style={[s.liveBtnText, isLiveMode && { color: "#fff" }]}>LIVE</Text>
+        </Pressable>
+        {input.trim() ? (
+          <Pressable
+            onPress={() => sendTextMessage(input)}
+            disabled={isStreaming}
+            style={({ pressed }) => [
+              s.sendBtn,
+              isStreaming && { opacity: 0.3 },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Ionicons name="send" size={18} color={DEEP_BLACK} />
+          </Pressable>
+        ) : null}
+      </View>
+
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
@@ -1610,54 +1659,6 @@ export default function AIScreen() {
           </View>
         )}
 
-        <View style={s.inputRow}>
-          <Pressable onPress={() => setShowLogs(!showLogs)} style={s.logToggleBtn}>
-            <Ionicons name="code-slash" size={16} color={showLogs ? CYAN : "#64748B"} />
-          </Pressable>
-          <Pressable onPress={handleFileUpload} style={s.attachBtn}>
-            <Ionicons name="attach" size={20} color={CYAN} />
-          </Pressable>
-          <TextInput
-            placeholder="LAMY-க்கு message..."
-            placeholderTextColor="rgba(0,243,255,0.3)"
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={() => sendTextMessage(input)}
-            style={s.textInput}
-            returnKeyType="send"
-            multiline
-          />
-          <Pressable onPress={handleMicPress} style={[s.micBtn, voiceStatus === "listening" && { backgroundColor: "rgba(239,68,68,0.2)", borderColor: RED }]}>
-            <Ionicons
-              name={voiceStatus === "listening" ? "mic" : "mic-outline"}
-              size={20}
-              color={
-                voiceStatus === "listening"
-                  ? RED
-                  : voiceStatus === "speaking"
-                    ? NEON_GREEN
-                    : CYAN
-              }
-            />
-          </Pressable>
-          <Pressable onPress={toggleLiveMode} style={[s.liveBtn, isLiveMode && s.liveBtnActive]}>
-            <Ionicons name="radio" size={14} color={isLiveMode ? "#fff" : NEON_GREEN} />
-            <Text style={[s.liveBtnText, isLiveMode && { color: "#fff" }]}>LIVE</Text>
-          </Pressable>
-          {input.trim() ? (
-            <Pressable
-              onPress={() => sendTextMessage(input)}
-              disabled={isStreaming}
-              style={({ pressed }) => [
-                s.sendBtn,
-                isStreaming && { opacity: 0.3 },
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <Ionicons name="send" size={18} color={DEEP_BLACK} />
-            </Pressable>
-          ) : null}
-        </View>
       </View>
     </View>
   );
