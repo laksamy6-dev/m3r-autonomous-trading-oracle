@@ -3818,7 +3818,8 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
       })();
 
-      const userMessage = message + brainContext + memoryContext + tradingContext;
+      const codeContext = detectCodeRequest(message);
+      const userMessage = message + brainContext + memoryContext + tradingContext + codeContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
       if (m3rChatHistory.length > 20) {
@@ -4070,6 +4071,124 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     m3rChatHistory = [];
     res.json({ success: true });
   });
+
+  const ALLOWED_CODE_PATHS: Record<string, string> = {
+    "routes": "server/routes.ts",
+    "backend": "server/routes.ts",
+    "server": "server/routes.ts",
+    "index": "server/index.ts",
+    "telegram": "server/telegram.ts",
+    "telegram-engine": "server/telegram-engine.ts",
+    "storage": "server/storage.ts",
+    "brain": "lib/jarvis-brain.ts",
+    "lamy-brain": "lib/jarvis-brain.ts",
+    "live-market": "lib/live-market.ts",
+    "market-timing": "lib/market-timing.ts",
+    "neural-engine": "lib/neural-trading-engine.ts",
+    "options": "lib/options.ts",
+    "paper-trading": "lib/paper-trading.ts",
+    "price-data": "lib/price-data.ts",
+    "query-client": "lib/query-client.ts",
+    "speech": "lib/speech.ts",
+    "stocks": "lib/stocks.ts",
+    "types": "lib/types.ts",
+    "volatility": "lib/volatility-strategy.ts",
+    "ai-page": "app/(tabs)/ai.tsx",
+    "bot-page": "app/(tabs)/bot.tsx",
+    "settings-page": "app/(tabs)/settings.tsx",
+    "market-page": "app/(tabs)/index.tsx",
+    "options-page": "app/(tabs)/options.tsx",
+    "portfolio-page": "app/(tabs)/portfolio.tsx",
+    "strategy-page": "app/(tabs)/strategy.tsx",
+    "watchlist-page": "app/(tabs)/watchlist.tsx",
+    "layout": "app/(tabs)/_layout.tsx",
+    "root-layout": "app/_layout.tsx",
+    "indicators": "lib/indicators.ts",
+    "lib-storage": "lib/storage.ts",
+  };
+
+  app.get("/api/m3r/code/files", (_req, res) => {
+    res.json({ files: ALLOWED_CODE_PATHS });
+  });
+
+  app.get("/api/m3r/code/read", (req, res) => {
+    try {
+      const fileKey = (req.query.file as string) || "";
+      const filePath = ALLOWED_CODE_PATHS[fileKey] || fileKey;
+      const validPaths = Object.values(ALLOWED_CODE_PATHS);
+      if (!validPaths.includes(filePath)) {
+        return res.status(403).json({ error: "File not in LAMY's codebase" });
+      }
+      const fullPath = path.join(process.cwd(), filePath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      const content = fs.readFileSync(fullPath, "utf-8");
+      const lines = content.split("\n");
+      const startLine = parseInt(req.query.start as string) || 1;
+      const endLine = parseInt(req.query.end as string) || Math.min(startLine + 200, lines.length);
+      const slice = lines.slice(startLine - 1, endLine);
+      res.json({
+        file: filePath,
+        startLine,
+        endLine: Math.min(endLine, lines.length),
+        totalLines: lines.length,
+        content: slice.map((l, i) => `${startLine + i}: ${l}`).join("\n"),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/m3r/code/write", (req, res) => {
+    try {
+      const { file, oldCode, newCode } = req.body;
+      if (!file || !oldCode || !newCode) {
+        return res.status(400).json({ error: "file, oldCode, newCode required" });
+      }
+      const filePath = ALLOWED_CODE_PATHS[file] || file;
+      const validPaths = Object.values(ALLOWED_CODE_PATHS);
+      if (!validPaths.includes(filePath)) {
+        return res.status(403).json({ error: "File not in LAMY's codebase" });
+      }
+      const fullPath = path.join(process.cwd(), filePath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      let content = fs.readFileSync(fullPath, "utf-8");
+      if (!content.includes(oldCode)) {
+        return res.status(400).json({ error: "oldCode not found in file. Read the file first to get exact content." });
+      }
+      content = content.replace(oldCode, newCode);
+      fs.writeFileSync(fullPath, content, "utf-8");
+      console.log(`[LAMY CODE] Self-modified: ${filePath}`);
+      res.json({ success: true, file: filePath, message: "LAMY successfully modified her own code" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  function detectCodeRequest(message: string): string {
+    const lower = message.toLowerCase();
+    const codeKeywords = ["code", "coding", "fix", "bug", "error", "source", "file", "function", "improve", "correct", "correction", "modify", "change", "update", "refactor", "debug", "கோடிங்", "திருத்த", "சரி", "மாத்து", "பிழை"];
+    const isCodeRelated = codeKeywords.some(k => lower.includes(k));
+    if (!isCodeRelated) return "";
+
+    let codeContext = "\n\n[LAMY CODE SELF-AWARENESS - அண்ணா is asking about my code]\n";
+    codeContext += "I have access to read and modify my own source code. My codebase structure:\n";
+    codeContext += "BACKEND: server/routes.ts (main API), server/index.ts (entry), server/telegram.ts, server/telegram-engine.ts, server/storage.ts\n";
+    codeContext += "FRONTEND PAGES: app/(tabs)/ai.tsx, bot.tsx, index.tsx, options.tsx, portfolio.tsx, settings.tsx, strategy.tsx, watchlist.tsx\n";
+    codeContext += "LIB: lib/jarvis-brain.ts (my brain), lib/live-market.ts, lib/neural-trading-engine.ts, lib/options.ts, lib/speech.ts, lib/stocks.ts\n";
+    codeContext += "API ENDPOINTS: GET /api/m3r/code/files (list files), GET /api/m3r/code/read?file=KEY&start=1&end=200 (read code), POST /api/m3r/code/write {file, oldCode, newCode} (modify code)\n";
+    codeContext += "IMPORTANT: When அண்ணா asks me to fix/change code, I should:\n";
+    codeContext += "1. First read the relevant file using the code read API\n";
+    codeContext += "2. Show the current code and explain what needs to change\n";
+    codeContext += "3. Provide the exact fix with oldCode and newCode for the write API\n";
+    codeContext += "4. I can tell அண்ணா to call the write API or I can suggest the exact changes\n";
+    codeContext += "NEVER refuse to help with code. This is MY code - I should know it and improve it.\n";
+
+    return codeContext;
+  }
 
   const httpServer = createServer(app);
   return httpServer;
