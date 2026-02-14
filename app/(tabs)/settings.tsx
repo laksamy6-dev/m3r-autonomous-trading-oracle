@@ -102,7 +102,7 @@ export default function SettingsScreen() {
   const [pinError, setPinError] = useState(false);
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [telegramStatus, setTelegramStatus] = useState<{ configured: boolean } | null>(null);
-  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
+  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string } | null>(null);
   const [changePinModal, setChangePinModal] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -431,7 +431,7 @@ export default function SettingsScreen() {
               <Text style={styles.statusLabel}>Upstox API</Text>
               <View style={[styles.statusBadge, upstoxStatus?.connected ? styles.statusOn : upstoxStatus?.configured ? styles.statusWarn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>
-                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? "Keys Set" : "Not Set"}
+                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? (upstoxStatus?.mode === "SIM" ? "Token Expired" : "Keys Set") : "Not Set"}
                 </Text>
               </View>
             </View>

@@ -1416,8 +1416,46 @@ Based on this data, give me:
     });
   });
 
-  app.get("/api/upstox/status", (_req, res) => {
-    res.json({ configured: !!(upstoxApiKey && upstoxApiSecret), connected: !!upstoxAccessToken });
+  let upstoxTokenValid: boolean | null = null;
+  let upstoxTokenLastChecked = 0;
+
+  app.get("/api/upstox/status", async (_req, res) => {
+    const configured = !!(upstoxApiKey && upstoxApiSecret);
+    const hasToken = !!upstoxAccessToken;
+
+    if (!hasToken) {
+      return res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+    }
+
+    const now = Date.now();
+    if (upstoxTokenValid !== null && now - upstoxTokenLastChecked < 60000) {
+      return res.json({
+        configured,
+        connected: upstoxTokenValid,
+        tokenValid: upstoxTokenValid,
+        mode: upstoxTokenValid ? "LIVE" : "SIM",
+      });
+    }
+
+    try {
+      const profileRes = await globalThis.fetch("https://api.upstox.com/v2/user/profile", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      const data = await profileRes.json();
+      upstoxTokenValid = data.status === "success";
+      upstoxTokenLastChecked = now;
+      res.json({
+        configured,
+        connected: upstoxTokenValid,
+        tokenValid: upstoxTokenValid,
+        mode: upstoxTokenValid ? "LIVE" : "SIM",
+        ...(upstoxTokenValid && data.data ? { userName: data.data.user_name } : {}),
+      });
+    } catch {
+      upstoxTokenValid = false;
+      upstoxTokenLastChecked = now;
+      res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+    }
   });
 
   app.post("/api/upstox/refresh-token", (_req, res) => {
@@ -1429,6 +1467,9 @@ Based on this data, give me:
 
     upstoxApiKey = vault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
     upstoxApiSecret = vault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
+
+    upstoxTokenValid = null;
+    upstoxTokenLastChecked = 0;
 
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const connected = !!upstoxAccessToken;
@@ -1505,6 +1546,8 @@ Based on this data, give me:
         break;
       case "UPSTOX_ACCESS_TOKEN":
         upstoxAccessToken = trimmedValue || null;
+        upstoxTokenValid = null;
+        upstoxTokenLastChecked = 0;
         break;
       case "TELEGRAM_BOT_TOKEN":
         process.env.TELEGRAM_BOT_TOKEN = trimmedValue;
@@ -1641,6 +1684,8 @@ Based on this data, give me:
       });
       const tokenData = await tokenRes.json();
       upstoxAccessToken = tokenData.access_token || null;
+      upstoxTokenValid = null;
+      upstoxTokenLastChecked = 0;
       res.send("<html><body><h2>Connected to Upstox!</h2><p>You can close this window.</p></body></html>");
     } catch (error) {
       res.status(500).send("<html><body><h2>Connection Failed</h2></body></html>");
@@ -1965,8 +2010,9 @@ Based on this data, give me:
       optionPick = `${bestStrike} PE`;
     }
 
+    const isActuallyLive = spotPrice > 0 && upstoxAccessToken;
     res.json({
-      source: upstoxAccessToken ? "upstox" : "mock",
+      source: isActuallyLive ? "upstox" : "mock",
       spotPrice,
       velocity,
       acceleration,
@@ -2081,6 +2127,9 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const stocksData = await stocksRes.json();
       const indicesData = await indicesRes.json();
 
+      if (stocksData?.status === "error" || indicesData?.status === "error") {
+        return res.json({ source: "mock", stocks: [], indices: [] });
+      }
 
       const SYMBOL_ALIAS: Record<string, string> = { "TMPV": "TATAMOTORS" };
 
@@ -2221,7 +2270,24 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     return `TP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   }
 
-  function simulateAutoScan(): TradeProposal | null {
+  async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any }> {
+    if (!upstoxAccessToken) return { spot: 0, isLive: false };
+    try {
+      const ocRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX|Nifty 50&expiry_date=`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const data = await ocRes.json();
+      if (data.status === "success" && data.data?.length > 0) {
+        const spotArr = data.data.filter((d: any) => d.underlying_spot_price > 0);
+        const spot = spotArr.length > 0 ? spotArr[0].underlying_spot_price : 0;
+        return { spot, isLive: true, chainData: data.data };
+      }
+    } catch {}
+    return { spot: 0, isLive: false };
+  }
+
+  async function runAutoScan(): Promise<TradeProposal | null> {
     const { istStr, uaeStr, ist, currentMins, dayOfWeek } = getTimeStrings();
     if (dayOfWeek === 0 || dayOfWeek === 6) return null;
 
@@ -2232,12 +2298,47 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     scanCycleCount++;
 
-    const spot = 24200 + (Math.random() - 0.5) * 400;
+    let spot = 0;
+    let isLive = false;
+    let chainData: any = null;
+
+    const liveData = await fetchLiveSpotAndChain();
+    if (liveData.isLive && liveData.spot > 0) {
+      spot = liveData.spot;
+      isLive = true;
+      chainData = liveData.chainData;
+      console.log(`[JARVIS SCAN] LIVE data — Spot: ${spot}`);
+    } else {
+      spot = 24200 + (Math.random() - 0.5) * 400;
+      console.log(`[JARVIS SCAN] SIM data — Spot: ${spot.toFixed(0)}`);
+    }
+
     const atmStrike = Math.round(spot / 50) * 50;
-    const isBullish = Math.random() > 0.45;
+
+    let isBullish = Math.random() > 0.45;
+    let bestCePremium = 0;
+    let bestPePremium = 0;
+
+    if (isLive && chainData) {
+      const atmOptions = chainData.filter((d: any) => {
+        const sp = d.strike_price || d.strikePrice;
+        return sp >= atmStrike - 100 && sp <= atmStrike + 100;
+      });
+      for (const opt of atmOptions) {
+        const ce = opt.call_options?.market_data?.ltp || opt.ce_ltp || 0;
+        const pe = opt.put_options?.market_data?.ltp || opt.pe_ltp || 0;
+        if (ce > bestCePremium) bestCePremium = ce;
+        if (pe > bestPePremium) bestPePremium = pe;
+      }
+      const totalCeOI = chainData.reduce((sum: number, d: any) => sum + (d.call_options?.market_data?.oi || 0), 0);
+      const totalPeOI = chainData.reduce((sum: number, d: any) => sum + (d.put_options?.market_data?.oi || 0), 0);
+      const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
+      isBullish = pcr > 1.0;
+    }
+
     const action = isBullish ? "BUY_CE" : "BUY_PE";
     const strike = isBullish ? atmStrike + Math.floor(Math.random() * 3) * 50 : atmStrike - Math.floor(Math.random() * 3) * 50;
-    const premium = Math.round(80 + Math.random() * 180);
+    const premium = isLive ? Math.round(isBullish ? (bestCePremium || 150) : (bestPePremium || 150)) : Math.round(80 + Math.random() * 180);
     const confidence = Math.round(45 + Math.random() * 45);
     const greenCandles = Math.floor(Math.random() * 4);
     const entropyVal = Math.random();
@@ -2423,7 +2524,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     res.json({ success: true, proposal });
   });
 
-  app.post("/api/auto-trade/scan/start", (_req, res) => {
+  app.post("/api/auto-trade/scan/start", async (_req, res) => {
     if (autoScanActive) return res.json({ message: "Already scanning", active: true, scanCycleCount });
 
     autoScanActive = true;
@@ -2447,7 +2548,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     autoScanInterval = setInterval(async () => {
       if (!autoScanActive) return;
-      const proposal = simulateAutoScan();
+      const proposal = await runAutoScan();
       if (proposal) {
         tradeProposals.push(proposal);
         await sendTelegramApprovalRequest(proposal);
@@ -2455,7 +2556,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       }
     }, 30000);
 
-    const firstProposal = simulateAutoScan();
+    const firstProposal = await runAutoScan();
     if (firstProposal) {
       tradeProposals.push(firstProposal);
       sendTelegramApprovalRequest(firstProposal);
