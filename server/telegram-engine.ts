@@ -50,7 +50,7 @@ interface TokenStatus {
   upstoxApiKey: boolean;
   upstoxSecret: boolean;
   telegramConfigured: boolean;
-  geminiKey: boolean;
+  openaiKey: boolean;
 }
 
 type GetBrainStats = () => BrainStats;
@@ -124,7 +124,7 @@ async function sendStartupNotification() {
   msg += `├ Upstox API: ${tokens?.upstoxApiKey ? "✅ Configured" : "❌ Missing"}\n`;
   msg += `├ Upstox Token: ${tokens?.upstoxConnected ? "✅ LIVE Connected" : "⚠️ Not Connected (SIM Mode)"}\n`;
   msg += `├ Telegram: ✅ Active\n`;
-  msg += `├ M3R Brain: ${tokens?.geminiKey ? "✅ Active" : "⚠️ No API Key"}\n`;
+  msg += `├ M3R Brain: ${tokens?.openaiKey ? "✅ Active" : "⚠️ No API Key"}\n`;
   msg += `└ Database: ✅ PostgreSQL\n\n`;
 
   if (brain) {
@@ -398,7 +398,7 @@ async function runTokenHealthCheck() {
   if (!tokens.upstoxApiKey) {
     alerts.push("❌ Upstox API Key missing — Configure in Settings to enable trading");
   }
-  if (!tokens.geminiKey) {
+  if (!tokens.openaiKey) {
     alerts.push("⚠️ M3R Brain API Key (Gemini) missing — AI intelligence limited");
   }
 
@@ -420,7 +420,7 @@ async function runTokenHealthCheck() {
   msg += `├ Upstox Secret: ${tokens.upstoxSecret ? "✅" : "❌"}\n`;
   msg += `├ Upstox Token: ${tokens.upstoxConnected ? "✅ LIVE" : "❌ Expired"}\n`;
   msg += `├ Telegram: ✅\n`;
-  msg += `└ M3R Brain: ${tokens.geminiKey ? "✅" : "❌"}\n\n`;
+  msg += `└ M3R Brain: ${tokens.openaiKey ? "✅" : "❌"}\n\n`;
 
   if (!tokens.upstoxConnected) {
     msg += `💡 <i>Sir, Upstox token expires daily. Please re-authenticate via Settings → Upstox Auth to resume LIVE trading.</i>`;
