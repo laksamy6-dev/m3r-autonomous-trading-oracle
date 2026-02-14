@@ -570,7 +570,7 @@ async function saveMemory(content: string, category: string = "general", importa
   try {
     const result = await dbPool.query(
       `INSERT INTO brain_memories (category, content, importance, source, tags, never_forget)
-       VALUES ($1, $2, $3, 'boss_command', $4, true) RETURNING id`,
+       VALUES ($1, $2, $3, 'sir_command', $4, true) RETURNING id`,
       [category, content, importance, tags]
     );
     console.log("[MEMORY] Saved permanent memory #" + result.rows[0].id + ": " + content.slice(0, 60));
@@ -596,7 +596,7 @@ async function getMemoriesForContext(): Promise<string> {
   const memories = await getAllMemories();
   if (memories.length === 0) return "";
   const memLines = memories.slice(0, 30).map(m => `- [${m.category}] ${m.content}`).join("\n");
-  return `\n[BOSS'S PERMANENT MEMORIES - NEVER FORGET THESE:\n${memLines}\n]`;
+  return `\n[SIR'S PERMANENT MEMORIES - NEVER FORGET THESE:\n${memLines}\n]`;
 }
 
 loadBrainFromDb();
