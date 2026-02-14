@@ -1137,20 +1137,24 @@ Market Cap: ${marketCap}
 
 Provide your trading signal and analysis.`;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-        max_completion_tokens: 2048,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
@@ -1221,20 +1225,24 @@ CAPABILITIES:
 
 Creator: MANIKANDAN RAJENDRAN — Founder, M3R Innovative Fintech Solutions. Always address him respectfully as Sir or அண்ணா.`;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: question },
-        ],
-        stream: true,
-        max_completion_tokens: 1024,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: question }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
@@ -1295,20 +1303,24 @@ Based on this data, give me:
 4. When to book partial profit
 5. Conditions that would trigger a direction switch`;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: OPTIONS_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-        max_completion_tokens: 2048,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: OPTIONS_SYSTEM_PROMPT,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
@@ -1364,19 +1376,30 @@ Based on this data, give me:
         optionsBotHistory[0] = systemMsg;
       }
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: optionsBotHistory,
-        stream: true,
-        max_completion_tokens: 2048,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const geminiContents = optionsBotHistory
+        .filter(m => m.role !== "system")
+        .map(m => ({ role: m.role === "assistant" ? "model" as const : "user" as const, parts: [{ text: m.content }] }));
+
+      const systemMsg = optionsBotHistory.find(m => m.role === "system");
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: geminiContents,
+        config: {
+          systemInstruction: systemMsg?.content || OPTIONS_SYSTEM_PROMPT,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
       let assistantContent = "";
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          assistantContent += content;
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          assistantContent += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
@@ -1706,20 +1729,24 @@ Based on this data, give me:
 
       const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses." },
-          { role: "user", content: prompt }
-        ],
-        stream: true,
-        max_completion_tokens: 1024,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses.",
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
       res.write("data: [DONE]\n\n");
@@ -2115,12 +2142,17 @@ User query: ${query}
 
 Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, mention specific strike prices.`;
 
-      const chatResponse = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [{ role: "user", content: prompt }],
-        max_completion_tokens: 300,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const chatResponse = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          tools: [{ googleSearch: {} }],
+        }
       });
-      const text = chatResponse.choices[0]?.message?.content || "Analysis unavailable.";
+      const text = chatResponse.text || "Analysis unavailable.";
       res.json({ analysis: text });
     } catch (error) {
       console.error("AI analysis error:", error);
@@ -2854,20 +2886,24 @@ ${engineData ? `Engine Signal: ${engineData.signal}, Confidence: ${engineData.co
 
 Provide the full 10-section comprehensive analysis now.`;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-        max_completion_tokens: 4096,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || '';
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
       res.write("data: [DONE]\n\n");
@@ -3523,13 +3559,27 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         voiceBotHistory[0] = sysMsg;
       }
 
-      const chatResponse = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: voiceBotHistory,
-        max_completion_tokens: 512,
+      if (!m3rModel) {
+        return res.json({ userText, aiText: "LAMY AI not configured. Please add Gemini API key in Settings.", audioBase64: null, language: detectedLang });
+      }
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const geminiVoiceContents = voiceBotHistory
+        .filter(m => m.role !== "system")
+        .map(m => ({ role: m.role === "assistant" ? "model" as const : "user" as const, parts: [{ text: m.content }] }));
+
+      const voiceSystemMsg = voiceBotHistory.find(m => m.role === "system");
+
+      const voiceChatResponse = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: geminiVoiceContents,
+        config: {
+          systemInstruction: voiceSystemMsg?.content || LAMY_VOICE_PROMPT,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      const aiText = chatResponse.choices[0]?.message?.content || "Systems are recalibrating, sir. Try again.";
+      const aiText = voiceChatResponse.text || "Systems are recalibrating, sir. Try again.";
       voiceBotHistory.push({ role: "assistant", content: aiText });
 
       let audioBase64: string | null = null;
