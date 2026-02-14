@@ -139,7 +139,7 @@ let scanCycleCount = 0;
 
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-  console.warn("WARNING: OpenAI API key not found. AI features will be unavailable until configured.");
+  console.log("[INFO] OpenAI API key not found — TTS/Image features will use fallback. Core AI runs on Gemini.");
 }
 const openai = new OpenAI({
   apiKey: openaiApiKey || "placeholder-key-not-configured",
