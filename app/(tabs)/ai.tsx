@@ -292,6 +292,7 @@ export default function AIScreen() {
   const [executePremium, setExecutePremium] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
   const [m3rStatus, setM3rStatus] = useState<{ available: boolean } | null>(null);
+  const [isLiveMode, setIsLiveMode] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const logScrollRef = useRef<ScrollView>(null);
@@ -299,6 +300,8 @@ export default function AIScreen() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const lastSpokenRef = useRef<string>("");
+  const liveLoopRef = useRef(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -787,6 +790,112 @@ export default function AIScreen() {
       stopSpeech();
       setVoiceStatus("ready");
     }
+  }
+
+  async function toggleLiveMode() {
+    if (isLiveMode) {
+      liveLoopRef.current = false;
+      setIsLiveMode(false);
+      setVoiceStatus("ready");
+      if (recordingRef.current) {
+        try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+        recordingRef.current = null;
+      }
+      if (mediaRecorderRef.current) {
+        try { mediaRecorderRef.current.stop(); } catch {}
+        mediaRecorderRef.current = null;
+      }
+      stopSpeech();
+      if (soundRef.current) {
+        try { await soundRef.current.stopAsync(); await soundRef.current.unloadAsync(); } catch {}
+        soundRef.current = null;
+      }
+      addLog("LIVE mode ended", "info");
+      return;
+    }
+    setIsLiveMode(true);
+    liveLoopRef.current = true;
+    addLog("LIVE conversation mode started", "success");
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    const liveLoop = async () => {
+      while (liveLoopRef.current) {
+        try {
+          setVoiceStatus("listening");
+          if (Platform.OS === "web") {
+            startRecordingWeb();
+          } else {
+            await startRecordingNative();
+          }
+          await new Promise((r) => setTimeout(r, 5000));
+          if (!liveLoopRef.current) break;
+
+          let base64: string | null = null;
+          if (Platform.OS === "web") {
+            base64 = await stopRecordingWeb();
+          } else {
+            base64 = await stopRecordingNative();
+          }
+
+          if (!base64 || !liveLoopRef.current) continue;
+
+          setVoiceStatus("processing");
+          const baseUrl = getApiUrl();
+          const res = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64 }),
+          });
+
+          if (!res.ok || !liveLoopRef.current) continue;
+          const data = await res.json();
+
+          if (data.userText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "user", content: data.userText, timestamp: getNow() }]);
+          }
+          if (data.aiText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "assistant", content: data.aiText, timestamp: getNow() }]);
+          }
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+
+          if (data.audioBase64 && liveLoopRef.current) {
+            setVoiceStatus("speaking");
+            await new Promise<void>((resolve) => {
+              if (Platform.OS === "web") {
+                const audioUrl = `data:audio/mp3;base64,${data.audioBase64}`;
+                const audioEl = new globalThis.Audio(audioUrl);
+                audioEl.onended = () => resolve();
+                audioEl.onerror = () => resolve();
+                audioEl.play().catch(() => resolve());
+              } else {
+                (async () => {
+                  try {
+                    const uri = FileSystem.cacheDirectory + "lamy_live.mp3";
+                    await FileSystem.writeAsStringAsync(uri, data.audioBase64, { encoding: FileSystem.EncodingType.Base64 });
+                    const { sound } = await Audio.Sound.createAsync({ uri });
+                    soundRef.current = sound;
+                    sound.setOnPlaybackStatusUpdate((status) => {
+                      if (status.isLoaded && status.didJustFinish) {
+                        sound.unloadAsync().catch(() => {});
+                        soundRef.current = null;
+                        resolve();
+                      }
+                    });
+                    await sound.playAsync();
+                  } catch { resolve(); }
+                })();
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Live mode error:", err);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+      setVoiceStatus("ready");
+    };
+
+    liveLoop();
   }
 
   async function sendTextMessage(message: string) {
@@ -1407,7 +1516,24 @@ export default function AIScreen() {
           </View>
         )}
 
-        {voiceActive && (
+        {isLiveMode && (
+          <Pressable
+            onPress={toggleLiveMode}
+            style={[s.liveActiveBar, voiceStatus === "listening" && { borderTopColor: "rgba(0,243,255,0.3)" }, voiceStatus === "speaking" && { borderTopColor: "rgba(57,255,20,0.3)" }]}
+          >
+            <View style={s.liveActivePulse}>
+              <Ionicons name="radio" size={16} color={RED} />
+            </View>
+            <Text style={s.liveActiveText}>
+              {voiceStatus === "listening" ? "Listening..." : voiceStatus === "processing" ? "Processing..." : voiceStatus === "speaking" ? "LAMY speaking..." : "LIVE Mode Active"}
+            </Text>
+            <View style={s.liveEndBtn}>
+              <Text style={s.liveEndText}>END</Text>
+            </View>
+          </Pressable>
+        )}
+
+        {!isLiveMode && voiceActive && (
           <View style={s.voiceActiveRow}>
             <View style={s.waveRow}>
               {Array.from({ length: 7 }).map((_, i) => (
@@ -1449,6 +1575,10 @@ export default function AIScreen() {
                     : CYAN
               }
             />
+          </Pressable>
+          <Pressable onPress={toggleLiveMode} style={[s.liveBtn, isLiveMode && s.liveBtnActive]}>
+            <Ionicons name="radio" size={14} color={isLiveMode ? "#fff" : NEON_GREEN} />
+            <Text style={[s.liveBtnText, isLiveMode && { color: "#fff" }]}>LIVE</Text>
           </Pressable>
           {input.trim() ? (
             <Pressable
@@ -2032,5 +2162,64 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: CYAN,
+  },
+  liveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 36,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(57,255,20,0.3)",
+    backgroundColor: "rgba(57,255,20,0.05)",
+  },
+  liveBtnActive: {
+    backgroundColor: "rgba(239,68,68,0.8)",
+    borderColor: "rgba(239,68,68,0.6)",
+  },
+  liveBtnText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    color: NEON_GREEN,
+    letterSpacing: 1,
+  },
+  liveActiveBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(239,68,68,0.06)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(239,68,68,0.2)",
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  liveActivePulse: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(239,68,68,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveActiveText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: RED,
+  },
+  liveEndBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: RED,
+    borderRadius: 10,
+  },
+  liveEndText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    color: "#fff",
+    letterSpacing: 1,
   },
 });
