@@ -1655,6 +1655,9 @@ export default function BotScreen() {
         <Pressable
           onPress={() => setShowAttachMenu(!showAttachMenu)}
           style={styles.attachBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Attach file"
+          accessibilityRole="button"
         >
           <Ionicons name="add-circle-outline" size={24} color={showAttachMenu ? CYAN : "rgba(255,255,255,0.4)"} />
         </Pressable>
@@ -2236,6 +2239,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(5, 5, 8, 0.95)",
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
+    zIndex: 50,
   },
   speakingBar: {
     flexDirection: "row",
@@ -2348,9 +2352,10 @@ const styles = StyleSheet.create({
     gap: 20,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "rgba(10, 20, 30, 0.95)",
+    backgroundColor: "rgba(10, 20, 30, 0.98)",
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
+    zIndex: 100,
   },
   attachMenuItem: {
     alignItems: "center",
