@@ -3825,7 +3825,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     res.json({
       available: !!m3rModel,
       model: m3rModel ? "M3R-LAMY-v3.0" : null,
-      hasApiKey: !!openaiApiKey,
+      hasApiKey: !!(process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY),
     });
   });
 
