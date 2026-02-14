@@ -323,70 +323,99 @@ export default function AIScreen() {
       return;
     }
 
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["*/*"],
-        copyToCacheDirectory: true,
-      });
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const mimeType = asset.mimeType || "";
-        const fileName = asset.name || "file";
-        addLog(`File selected: ${fileName} (${mimeType})`, "info");
-
-        if (mimeType.startsWith("image/")) {
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const userMsg: ChatMessage = {
-            id: genId(),
-            role: "user",
-            content: `[Photo uploaded: ${fileName}]`,
-            timestamp: getNow(),
-          };
-          setMessages((prev) => [...prev, userMsg]);
-          await sendFileToLamy(base64, fileName, "image");
-        } else if (mimeType.startsWith("audio/")) {
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const userMsg: ChatMessage = {
-            id: genId(),
-            role: "user",
-            content: `[Audio uploaded: ${fileName}]`,
-            timestamp: getNow(),
-          };
-          setMessages((prev) => [...prev, userMsg]);
-          await sendFileToLamy(base64, fileName, "audio");
-        } else if (mimeType.startsWith("video/")) {
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const userMsg: ChatMessage = {
-            id: genId(),
-            role: "user",
-            content: `[Video uploaded: ${fileName}]`,
-            timestamp: getNow(),
-          };
-          setMessages((prev) => [...prev, userMsg]);
-          await sendFileToLamy(base64, fileName, "video");
-        } else {
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const userMsg: ChatMessage = {
-            id: genId(),
-            role: "user",
-            content: `[Document uploaded: ${fileName}]`,
-            timestamp: getNow(),
-          };
-          setMessages((prev) => [...prev, userMsg]);
-          await sendFileToLamy(base64, fileName, "document");
-        }
-      }
-    } catch (err) {
-      addLog("File upload failed", "warning");
-    }
+    Alert.alert("Upload File", "Choose what to send to LAMY", [
+      {
+        text: "Photo / Video",
+        onPress: async () => {
+          try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              base64: true,
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              const isVideo = asset.type === "video";
+              const fileName = asset.fileName || (isVideo ? "video.mp4" : "image.jpg");
+              addLog(`${isVideo ? "Video" : "Photo"} selected: ${fileName}`, "info");
+              if (isVideo) {
+                const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Video uploaded: ${fileName}]`, timestamp: getNow() };
+                setMessages((prev) => [...prev, userMsg]);
+                await sendFileToLamy(base64, fileName, "video");
+              } else {
+                const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Photo uploaded: ${fileName}]`, timestamp: getNow() };
+                setMessages((prev) => [...prev, userMsg]);
+                await sendFileToLamy(asset.base64 || "", fileName, "image");
+              }
+            }
+          } catch (err) { addLog("Photo/Video upload failed", "warning"); }
+        },
+      },
+      {
+        text: "Audio",
+        onPress: async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: ["audio/*"],
+              copyToCacheDirectory: true,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              addLog(`Audio selected: ${asset.name}`, "info");
+              const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+              const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Audio uploaded: ${asset.name}]`, timestamp: getNow() };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(base64, asset.name, "audio");
+            }
+          } catch (err) { addLog("Audio upload failed", "warning"); }
+        },
+      },
+      {
+        text: "Document (PDF/Doc)",
+        onPress: async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: ["application/pdf", "text/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"],
+              copyToCacheDirectory: true,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              addLog(`Document selected: ${asset.name}`, "info");
+              const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+              const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Document uploaded: ${asset.name}]`, timestamp: getNow() };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(base64, asset.name, "document");
+            }
+          } catch (err) { addLog("Document upload failed", "warning"); }
+        },
+      },
+      {
+        text: "Any File",
+        onPress: async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: ["*/*"],
+              copyToCacheDirectory: true,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              const mimeType = asset.mimeType || "";
+              const fileName = asset.name || "file";
+              addLog(`File selected: ${fileName} (${mimeType})`, "info");
+              const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+              const fileType = mimeType.startsWith("image/") ? "image" : mimeType.startsWith("audio/") ? "audio" : mimeType.startsWith("video/") ? "video" : "document";
+              const userMsg: ChatMessage = { id: genId(), role: "user", content: `[${fileType === "image" ? "Photo" : fileType === "audio" ? "Audio" : fileType === "video" ? "Video" : "Document"} uploaded: ${fileName}]`, timestamp: getNow() };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(base64, fileName, fileType);
+            }
+          } catch (err) { addLog("File upload failed", "warning"); }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 
   async function processFileWeb(file: File) {
