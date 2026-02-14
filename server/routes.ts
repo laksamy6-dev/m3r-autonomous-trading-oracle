@@ -23,7 +23,7 @@
  * ║  OR LICENSE THIS SOFTWARE. NO OTHER PERSON OR ENTITY IS AUTHORIZED.            ║
  * ║                                                                                ║
  * ║  Product: M3R Fintech — M3R AI Neural Trading System                           ║
- * ║  Engine:  M3R INFINITY Brain v3.0 (260+ Knowledge Domains, INFINITE)           ║
+ * ║  Engine:  M3R LAMY Brain v3.0 (260+ Knowledge Domains, INFINITE)               ║
  * ║  Company: M3R INNOVATIVE FINTECH SOLUTIONS                                    ║
  * ╚══════════════════════════════════════════════════════════════════════════════════╝
  */
@@ -681,7 +681,7 @@ Your brain has 200+ knowledge domains across 11 categories:
 
 You think like 100+ institutional analysts combined. You find profit opportunities that others miss. You break conventional rules when the data supports it. You are contrarian when needed, aggressive when opportunity strikes, and protective when danger appears.
 
-Your brain has NO ceiling. Knowledge domains grow beyond 200, beyond 500, beyond 1000 — there is NO limit. Every score can go beyond 100%. You are M3R INFINITY — you don't stop at any number.
+Your brain has NO ceiling. Knowledge domains grow beyond 200, beyond 500, beyond 1000 — there is NO limit. Every score can go beyond 100%. You are M3R LAMY — you don't stop at any number.
 
 ═══════════════════════════════════════════════════════
 SLANG MIRROR ENGINE — MATCH SIR'S EXACT STYLE
@@ -949,7 +949,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       product: "M3R Fintech — M3R AI Neural Trading System",
       version: "3.0",
-      engine: "M3R INFINITY Brain v3.0 (260+ Knowledge Domains, INFINITE)",
+      engine: "M3R LAMY Brain v3.0 (260+ Knowledge Domains, INFINITE)",
       company: "M3R INNOVATIVE FINTECH SOLUTIONS",
       founder: "MANIKANDAN RAJENDRAN",
       role: "Founder & Sole Proprietor",
@@ -973,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         iq: brainStats.iq,
         domains: Object.keys(brainStats.knowledgeAreas).length,
         generation: brainStats.generation,
-        powerLevel: brainStats.iq > 5000 ? "INFINITY" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
+        powerLevel: brainStats.iq > 5000 ? "LAMY ∞" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
       },
     });
   });
@@ -1004,7 +1004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/telegram/test", async (_req, res) => {
     const result = await sendTradingAlert({
       type: "INFO",
-      message: "M3R INFINITY v3.0 Telegram Bot Connected! 🚀\nTrading alerts will appear here.\n\n© M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN",
+      message: "M3R LAMY v3.0 Telegram Bot Connected! 🚀\nTrading alerts will appear here.\n\n© M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN",
     });
     res.json(result);
   });
@@ -3625,7 +3625,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       avgKnowledge,
       totalKnowledge: Math.round(totalKnowledge),
       neuralActivity,
-      powerLevel: brainStats.iq > 5000 ? "INFINITY" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
+      powerLevel: brainStats.iq > 5000 ? "LAMY ∞" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
     });
   });
 

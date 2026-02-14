@@ -9,12 +9,16 @@ import {
   Platform,
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { fetch } from "expo/fetch";
 import Animated, {
   useSharedValue,
@@ -297,6 +301,183 @@ export default function AIScreen() {
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
+  const tabBarHeight = Platform.OS === "web" ? 84 : 60;
+
+  async function handleFileUpload() {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const options = [
+      { label: "Photo", action: "photo" },
+      { label: "Document", action: "document" },
+    ];
+
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx";
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        await processFileWeb(file);
+      };
+      input.click();
+      return;
+    }
+
+    Alert.alert("Upload", "Choose file type", [
+      {
+        text: "Photo",
+        onPress: async () => {
+          try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              base64: true,
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              addLog(`Photo selected: ${asset.fileName || "image"}`, "info");
+              const userMsg: ChatMessage = {
+                id: genId(),
+                role: "user",
+                content: `[Photo uploaded: ${asset.fileName || "image.jpg"}]`,
+                timestamp: getNow(),
+              };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(asset.base64 || "", asset.fileName || "image.jpg", "image");
+            }
+          } catch (err) {
+            addLog("Photo upload failed", "warning");
+          }
+        },
+      },
+      {
+        text: "Document",
+        onPress: async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: ["application/pdf", "text/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              addLog(`Document selected: ${asset.name}`, "info");
+              const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              const userMsg: ChatMessage = {
+                id: genId(),
+                role: "user",
+                content: `[Document uploaded: ${asset.name}]`,
+                timestamp: getNow(),
+              };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(base64, asset.name, "document");
+            }
+          } catch (err) {
+            addLog("Document upload failed", "warning");
+          }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
+  async function processFileWeb(file: File) {
+    addLog(`File selected: ${file.name}`, "info");
+    const userMsg: ChatMessage = {
+      id: genId(),
+      role: "user",
+      content: `[File uploaded: ${file.name}]`,
+      timestamp: getNow(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1] || "";
+      const isImage = file.type.startsWith("image/");
+      await sendFileToLamy(base64, file.name, isImage ? "image" : "document");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function sendFileToLamy(base64Data: string, fileName: string, fileType: "image" | "document") {
+    setIsStreaming(true);
+    addLog(`Sending ${fileType} to LAMY...`, "info");
+
+    try {
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}api/lamy/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({
+          message: `[${fileType === "image" ? "Photo" : "Document"} uploaded: ${fileName}] Please analyze this ${fileType}.`,
+          file: { data: base64Data, name: fileName, type: fileType },
+        }),
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      let fullContent = "";
+      let assistantAdded = false;
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No body");
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const d = line.slice(6);
+          if (d === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(d);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              if (!assistantAdded) {
+                setMessages((prev) => [
+                  ...prev,
+                  { id: genId(), role: "assistant", content: fullContent, timestamp: getNow() },
+                ]);
+                assistantAdded = true;
+              } else {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    ...updated[updated.length - 1],
+                    content: fullContent,
+                  };
+                  return updated;
+                });
+              }
+            }
+          } catch {}
+        }
+      }
+      addLog(`${fileType} analysis complete`, "success");
+      if (fullContent) lamySpeak(fullContent);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          role: "assistant",
+          content: `Sir, I couldn't process that ${fileType} right now. Please try again.`,
+          timestamp: getNow(),
+        },
+      ]);
+      addLog(`${fileType} processing failed`, "warning");
+    } finally {
+      setIsStreaming(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }
 
   function addLog(text: string, type: "info" | "success" | "warning" | "ai" = "info") {
     setLogs((prev) => [...prev.slice(-20), { text, type }]);
@@ -786,7 +967,7 @@ export default function AIScreen() {
             <Text style={s.headerTitle}>
               M3R <Text style={{ color: CYAN }}>LAMY</Text>
             </Text>
-            <Text style={s.headerSub}>COMMAND CENTER</Text>
+            <Text style={s.headerSub}>AI ASSISTANT</Text>
           </View>
         </View>
         <View style={s.headerRight}>
@@ -1226,9 +1407,34 @@ export default function AIScreen() {
         </ScrollView>
       </View>
 
-      <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, webBottomInset, 8) }]}>
+      <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, webBottomInset, 8) + tabBarHeight }]}>
+        {voiceActive && (
+          <View style={s.voiceActiveRow}>
+            <View style={s.waveRow}>
+              {Array.from({ length: 7 }).map((_, i) => (
+                <VoiceWaveBar key={i} index={i} active={voiceActive} />
+              ))}
+            </View>
+            <Text style={s.voiceActiveText}>
+              {voiceStatus === "listening" ? "Listening..." : "LAMY speaking..."}
+            </Text>
+          </View>
+        )}
         <View style={s.inputRow}>
-          <Pressable onPress={handleMicPress} style={s.micBtn}>
+          <Pressable onPress={handleFileUpload} style={s.attachBtn}>
+            <Ionicons name="attach" size={20} color={CYAN} />
+          </Pressable>
+          <TextInput
+            placeholder="LAMY-க்கு message..."
+            placeholderTextColor="rgba(0,243,255,0.3)"
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={() => sendTextMessage(input)}
+            style={s.textInput}
+            returnKeyType="send"
+            multiline
+          />
+          <Pressable onPress={handleMicPress} style={[s.micBtn, voiceStatus === "listening" && { backgroundColor: "rgba(239,68,68,0.2)", borderColor: RED }]}>
             <Ionicons
               name={voiceStatus === "listening" ? "mic" : "mic-outline"}
               size={20}
@@ -1241,33 +1447,19 @@ export default function AIScreen() {
               }
             />
           </Pressable>
-          {voiceActive && (
-            <View style={s.waveRow}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <VoiceWaveBar key={i} index={i} active={voiceActive} />
-              ))}
-            </View>
-          )}
-          <TextInput
-            placeholder="LAMY-\u0B95\u0BCD\u0B95\u0BC1 command \u0B95\u0BCA\u0B9F\u0BC1\u0B99\u0BCD\u0B95..."
-            placeholderTextColor="rgba(0,243,255,0.3)"
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={() => sendTextMessage(input)}
-            style={s.textInput}
-            returnKeyType="send"
-          />
-          <Pressable
-            onPress={() => sendTextMessage(input)}
-            disabled={isStreaming || !input.trim()}
-            style={({ pressed }) => [
-              s.sendBtn,
-              (!input.trim() || isStreaming) && { opacity: 0.3 },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <Ionicons name="send" size={18} color={CYAN} />
-          </Pressable>
+          {input.trim() ? (
+            <Pressable
+              onPress={() => sendTextMessage(input)}
+              disabled={isStreaming}
+              style={({ pressed }) => [
+                s.sendBtn,
+                isStreaming && { opacity: 0.3 },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Ionicons name="send" size={18} color={DEEP_BLACK} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </View>
@@ -1776,14 +1968,36 @@ const s = StyleSheet.create({
   inputBar: {
     paddingHorizontal: 8,
     paddingTop: 6,
-    backgroundColor: "rgba(5,5,8,0.95)",
+    backgroundColor: "rgba(5,5,8,0.98)",
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
   },
-  inputRow: {
+  voiceActiveRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 6,
+  },
+  voiceActiveText: {
+    fontSize: 11,
+    color: CYAN,
+    fontWeight: "600" as const,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 6,
+  },
+  attachBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,243,255,0.05)",
   },
   micBtn: {
     width: 36,
@@ -1803,23 +2017,23 @@ const s = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 36,
+    minHeight: 36,
+    maxHeight: 100,
     borderWidth: 1,
     borderColor: PANEL_BORDER,
     borderRadius: 18,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     color: CYAN,
-    fontSize: 12,
+    fontSize: 13,
     backgroundColor: "rgba(0,0,0,0.3)",
   },
   sendBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(0,243,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,243,255,0.08)",
+    backgroundColor: CYAN,
   },
 });

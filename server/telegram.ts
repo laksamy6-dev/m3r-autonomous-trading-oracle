@@ -69,7 +69,7 @@ export async function sendTradingAlert(params: {
   }
   text += `━━━━━━━━━━━━━━━━━━\n`;
   text += `🕐 ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}\n`;
-  text += `🤖 M3R INFINITY v3.0`;
+  text += `🤖 M3R LAMY v3.0`;
 
   return sendTelegramMessage(text);
 }

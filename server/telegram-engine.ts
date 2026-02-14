@@ -116,7 +116,7 @@ async function sendStartupNotification() {
   const brain = getBrainStatsFn?.();
   const tokens = getTokenStatusFn?.();
 
-  let msg = `🚀 <b>M3R INFINITY v3.0 — ONLINE</b>\n`;
+  let msg = `🚀 <b>M3R LAMY v3.0 — ONLINE</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `🕐 ${fmtTime(ist)} IST | ${fmtDate(ist)}\n\n`;
 
@@ -339,7 +339,7 @@ async function runBrainProgressReport() {
 
   const recentLearning = brain.selfImprovementLog.slice(-5);
 
-  const powerLevel = brain.iq > 5000 ? "INFINITY ∞" :
+  const powerLevel = brain.iq > 5000 ? "LAMY ∞" :
     brain.iq > 3000 ? "TRANSCENDENT" :
     brain.iq > 2000 ? "CELESTIAL" :
     brain.iq > 1500 ? "OMEGA" :
