@@ -36,12 +36,12 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function getVisitorIntro(lang: "en" | "ta"): string {
   if (lang === "ta") {
-    return "வணக்கம்! நான் J.A.R.V.I.S - Just A Rather Very Intelligent System. " +
+    return "வணக்கம்! நான் L.A.M.Y - Logical Analytical Mind Yielding. " +
       "உலக சந்தை பகுப்பாய்வு, இந்திய பங்குச்சந்தை கண்காணிப்பு, Nifty 50 ஆப்ஷன்ஸ் டிரேடிங், AI சக்தி கொண்ட முன்கணிப்புகள் மற்றும் அறிவியல் பூர்வமான வர்த்தக உத்திகள் ஆகியவை என் திறன்களாகும். " +
       "என் படைப்பாளர், திரு. மணிகண்டன் ராஜேந்திரன் அவர்கள், என்னை அதிநவீன நரம்பு வலையமைப்புகள் மற்றும் குவாண்டம் நிலை சந்தை நுண்ணறிவுடன் உருவாக்கியுள்ளார். " +
       "என் முழு வர்த்தக திறன்களை அணுக, அங்கீகரிக்கப்பட்ட PIN ஐ உள்ளிடவும். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?";
   }
-  return "Greetings! I am J.A.R.V.I.S. - Just A Rather Very Intelligent System. " +
+  return "Greetings! I am L.A.M.Y. - Logical Analytical Mind Yielding. " +
     "I am equipped with world market analysis, Indian market tracking, Nifty 50 options trading, AI-powered predictions, and scientific trading strategies. " +
     "My creator, Mr. Manikandan Rajendran, has built me with cutting-edge neural networks and quantum-level market intelligence. " +
     "To access my full trading capabilities, please enter the authorized PIN. How may I assist you today?";
@@ -238,7 +238,7 @@ export default function WelcomeScreen() {
           </Animated.View>
 
           <Animated.View style={[taglineAnimStyle, { marginTop: 20 }]}>
-            <Text style={splashStyles.subTagline}>Powered by JARVIS AI</Text>
+            <Text style={splashStyles.subTagline}>Powered by LAMY AI</Text>
           </Animated.View>
         </View>
 
@@ -291,7 +291,7 @@ export default function WelcomeScreen() {
       <View style={briefStyles.headerRow}>
         <Image source={require("@/assets/images/m3r-logo.png")} style={briefStyles.headerLogo} resizeMode="contain" />
         <View>
-          <Text style={briefStyles.headerBrand}>M3R JARVIS</Text>
+          <Text style={briefStyles.headerBrand}>M3R LAMY</Text>
           <Text style={briefStyles.headerTag}>INNOVATIVE FINTECH SOLUTIONS</Text>
         </View>
       </View>

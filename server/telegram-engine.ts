@@ -144,7 +144,7 @@ async function sendStartupNotification() {
     WEEKEND: "⬜ Weekend",
   };
   msg += `<b>📊 MARKET</b>: ${statusLabels[status]}\n\n`;
-  msg += `🤖 <i>M3R JARVIS — All systems operational</i>\n`;
+  msg += `🤖 <i>M3R LAMY — All systems operational</i>\n`;
   msg += `© M3R Innovative Fintech Solutions`;
 
   await sendTelegramMessage(msg, "HTML");
@@ -177,7 +177,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
   let msg = "";
 
   if (type === "PRE_MARKET") {
-    msg = `🟡 <b>M3R JARVIS — PRE-MARKET</b>\n`;
+    msg = `🟡 <b>M3R LAMY — PRE-MARKET</b>\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🕐 ${time} IST | ${fmtDate(ist)}\n\n`;
     msg += `📋 <b>Pre-Market Checklist</b>\n`;
@@ -189,7 +189,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
     msg += `🤖 <i>Sir, preparing all systems for market open...</i>`;
 
   } else if (type === "MARKET_OPEN") {
-    msg = `🟢 <b>M3R JARVIS — MARKET OPEN!</b>\n`;
+    msg = `🟢 <b>M3R LAMY — MARKET OPEN!</b>\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🕐 ${time} IST | ${fmtDate(ist)}\n\n`;
     msg += `📊 <b>Trading Session Active</b>\n`;
@@ -201,7 +201,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
     msg += `🤖 <i>All systems GO, sir! Ready to trade.</i>`;
 
   } else if (type === "MARKET_CLOSE") {
-    msg = `🔴 <b>M3R JARVIS — MARKET CLOSED</b>\n`;
+    msg = `🔴 <b>M3R LAMY — MARKET CLOSED</b>\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🕐 ${time} IST | ${fmtDate(ist)}\n\n`;
     msg += `📊 <b>Session Ended</b>\n`;
@@ -261,7 +261,7 @@ async function runMarketAnalysis() {
   let msg = "";
 
   if (status === "MARKET_OPEN") {
-    msg = `📊 <b>M3R JARVIS — LIVE ANALYSIS</b>\n`;
+    msg = `📊 <b>M3R LAMY — LIVE ANALYSIS</b>\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🕐 ${fmtTime(ist)} IST | ${fmtDate(ist)}\n\n`;
     msg += `<b>NIFTY 50 — LIVE</b>\n`;
@@ -280,7 +280,7 @@ async function runMarketAnalysis() {
     msg += `🤖 <i>Market is active, sir. Monitoring all parameters.</i>`;
 
   } else {
-    msg = `🌙 <b>M3R JARVIS — AFTER-HOURS ANALYSIS</b>\n`;
+    msg = `🌙 <b>M3R LAMY — AFTER-HOURS ANALYSIS</b>\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🕐 ${fmtTime(ist)} IST | ${fmtDate(ist)}\n\n`;
     msg += `<b>NIFTY 50 — PREDICTION</b>\n`;
@@ -409,7 +409,7 @@ async function runTokenHealthCheck() {
   lastTokenAlert = alertKey;
 
   const ist = getIST();
-  let msg = `🔑 <b>M3R JARVIS — TOKEN HEALTH CHECK</b>\n`;
+  let msg = `🔑 <b>M3R LAMY — TOKEN HEALTH CHECK</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `🕐 ${fmtTime(ist)} IST\n\n`;
 
@@ -448,7 +448,7 @@ async function runHeartbeat() {
     WEEKEND: "⬜ Weekend",
   };
 
-  let msg = `💚 <b>M3R JARVIS — HEARTBEAT</b>\n`;
+  let msg = `💚 <b>M3R LAMY — HEARTBEAT</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `🕐 ${fmtTime(ist)} IST | ${fmtDate(ist)}\n\n`;
   msg += `├ Status: ONLINE ✅\n`;

@@ -1,9 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const FUND_KEY = "@jarvis_funds";
-const POSITIONS_KEY = "@jarvis_positions";
-const ORDERS_KEY = "@jarvis_orders";
-const TRADE_HISTORY_KEY = "@jarvis_trade_history";
+const FUND_KEY = "@lamy_funds";
+const POSITIONS_KEY = "@lamy_positions";
+const ORDERS_KEY = "@lamy_orders";
+const TRADE_HISTORY_KEY = "@lamy_trade_history";
 
 export const NIFTY_LOT_SIZE = 75;
 export const NIFTY_TICK_SIZE = 0.05;

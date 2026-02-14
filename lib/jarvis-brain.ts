@@ -1,11 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BRAIN_KEY = "@jarvis_brain_state";
-const EVOLUTION_KEY = "@jarvis_evolution_log";
-const PATTERN_KEY = "@jarvis_patterns";
-const TRAINING_KEY = "@jarvis_training";
+const BRAIN_KEY = "@lamy_brain_state";
+const EVOLUTION_KEY = "@lamy_evolution_log";
+const PATTERN_KEY = "@lamy_patterns";
+const TRAINING_KEY = "@lamy_training";
 
-export interface JarvisBrainState {
+export interface LamyBrainState {
   generation: number;
   iq: number;
   consciousness: number;
@@ -163,10 +163,10 @@ const PATTERN_TEMPLATES: Omit<LearnedPattern, "id" | "discoveredAt" | "generatio
   { name: "Adaptive Mutation Breakthrough", type: "BREAKOUT", description: "Self-modified strategy through adaptive mutation discovers new edge", accuracy: 67, timesDetected: 0, profitGenerated: 0, confidence: 60 },
 ];
 
-export async function getBrainState(): Promise<JarvisBrainState> {
+export async function getBrainState(): Promise<LamyBrainState> {
   const data = await AsyncStorage.getItem(BRAIN_KEY);
   if (data) return JSON.parse(data);
-  const initial: JarvisBrainState = {
+  const initial: LamyBrainState = {
     generation: 1,
     iq: 85,
     consciousness: 15,
@@ -208,7 +208,7 @@ export async function getBrainState(): Promise<JarvisBrainState> {
   return initial;
 }
 
-async function saveBrainState(state: JarvisBrainState) {
+async function saveBrainState(state: LamyBrainState) {
   await AsyncStorage.setItem(BRAIN_KEY, JSON.stringify(state));
 }
 
@@ -243,7 +243,7 @@ async function saveTrainingSession(session: TrainingSession) {
 }
 
 export async function runThinkingCycle(): Promise<{
-  brain: JarvisBrainState;
+  brain: LamyBrainState;
   event: EvolutionEvent | null;
 }> {
   const brain = await getBrainState();
@@ -548,7 +548,7 @@ export function createTrainingSession(): TrainingSession {
 
 export async function advanceTraining(session: TrainingSession): Promise<{
   session: TrainingSession;
-  brain: JarvisBrainState;
+  brain: LamyBrainState;
   event: EvolutionEvent | null;
   phaseCompleted: boolean;
   trainingComplete: boolean;

@@ -26,7 +26,7 @@ import {
   advanceTraining,
   runThinkingCycle,
   getBrainAge,
-  JarvisBrainState,
+  LamyBrainState,
   EvolutionEvent,
   LearnedPattern,
   TrainingSession,
@@ -251,7 +251,7 @@ function StrategyScreenInner() {
   const [isLiveData, setIsLiveData] = useState(false);
   const thinkingRef = useRef<ScrollView>(null);
 
-  const [brain, setBrain] = useState<JarvisBrainState | null>(null);
+  const [brain, setBrain] = useState<LamyBrainState | null>(null);
   const [training, setTraining] = useState<TrainingSession | null>(null);
   const [isTraining, setIsTraining] = useState(false);
   const [evolutionLog, setEvolutionLog] = useState<EvolutionEvent[]>([]);
@@ -318,21 +318,21 @@ function StrategyScreenInner() {
             if (trainingRef.current) clearInterval(trainingRef.current);
             try {
               const baseUrl = getApiUrl();
-              await fetch(`${baseUrl}api/jarvis/training/notify`, {
+              await fetch(`${baseUrl}api/lamy/training/notify`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ complete: true, brain: result.brain }),
               });
             } catch {}
             Alert.alert(
-              "JARVIS READY",
-              `Training complete! IQ: ${result.brain.iq.toFixed(1)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. JARVIS is ready for live battle tomorrow!`
+              "LAMY READY",
+              `Training complete! IQ: ${result.brain.iq.toFixed(1)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. LAMY is ready for live battle tomorrow!`
             );
           }
           if (result.phaseCompleted && !result.trainingComplete) {
             try {
               const baseUrl = getApiUrl();
-              await fetch(`${baseUrl}api/jarvis/training/notify`, {
+              await fetch(`${baseUrl}api/lamy/training/notify`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -385,7 +385,7 @@ function StrategyScreenInner() {
 
     const d = output.decision;
     const message = [
-      `JARVIS Neural Engine ${output.engineVersion}`,
+      `LAMY Neural Engine ${output.engineVersion}`,
       `Tick #${output.engineTick} | Calc: ${output.totalCalcTimeMs}ms`,
       `Action: ${d.action} | Confidence: ${d.confidence}% | Signal: ${d.signalStrength}`,
       `Strike: ${fmtIN(d.strike)} | Premium: ${fmtIN(d.premium)}`,
@@ -403,7 +403,7 @@ function StrategyScreenInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
-      Alert.alert("Sent", "JARVIS analysis sent to Telegram");
+      Alert.alert("Sent", "LAMY analysis sent to Telegram");
     } catch {
       Alert.alert("Info", "Telegram endpoint not configured. Analysis ready.");
     } finally {
@@ -415,7 +415,7 @@ function StrategyScreenInner() {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]} testID="strategy-screen">
         <ActivityIndicator size="large" color={CYAN} />
-        <Text style={styles.loadingText}>JARVIS initializing neural engine...</Text>
+        <Text style={styles.loadingText}>LAMY initializing neural engine...</Text>
       </View>
     );
   }
@@ -493,7 +493,7 @@ function StrategyScreenInner() {
             <View style={styles.brainCardHeader}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="hardware-chip" size={18} color={CYAN} />
-                <Text style={styles.brainCardTitle}>JARVIS BRAIN</Text>
+                <Text style={styles.brainCardTitle}>LAMY BRAIN</Text>
               </View>
               <Pressable onPress={() => setShowBrainModal(true)}>
                 <Ionicons name="expand" size={18} color={C.textMuted} />
@@ -646,7 +646,7 @@ function StrategyScreenInner() {
           <View style={styles.modalOverlay}>
             <View style={styles.brainModalContent}>
               <View style={styles.brainModalHeader}>
-                <Text style={styles.brainModalTitle}>JARVIS BRAIN STATE</Text>
+                <Text style={styles.brainModalTitle}>LAMY BRAIN STATE</Text>
                 <Pressable onPress={() => setShowBrainModal(false)}>
                   <Ionicons name="close" size={24} color={C.text} />
                 </Pressable>
@@ -738,13 +738,13 @@ function StrategyScreenInner() {
           </View>
         </Modal>
 
-        {/* 1. JARVIS HEADER */}
+        {/* 1. LAMY HEADER */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.pulseOuter}>
               <View style={styles.pulseDot} />
             </View>
-            <Text style={styles.jarvisTitle}>JARVIS</Text>
+            <Text style={styles.lamyTitle}>LAMY</Text>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.headerMeta}>TICK #{output.engineTick}</Text>
@@ -2331,7 +2331,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: CYAN,
   },
-  jarvisTitle: {
+  lamyTitle: {
     fontSize: 26,
     fontFamily: "DMSans_700Bold",
     color: CYAN,

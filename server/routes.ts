@@ -1256,7 +1256,7 @@ Based on this data, give me:
 
   app.post("/api/options/bot", async (req, res) => {
     try {
-      const { message, optionChain, strategy, jarvisContext } = req.body;
+      const { message, optionChain, strategy, lamyContext } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -1268,8 +1268,8 @@ Based on this data, give me:
       res.flushHeaders();
 
       let contextInfo = "";
-      if (jarvisContext) {
-        contextInfo += `\n\n${jarvisContext}`;
+      if (lamyContext) {
+        contextInfo += `\n\n${lamyContext}`;
       }
       if (optionChain) {
         contextInfo += `\n\nCURRENT MARKET DATA:\nNifty Spot: ${optionChain.spotPrice}\nPCR: ${optionChain.overallPCR}\nMax Pain: ${optionChain.maxPainStrike}\nATM: ${optionChain.atmStrike}\nExpiry: ${optionChain.expiryDate}`;
@@ -3383,9 +3383,9 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 - You are LAMY, M3R's living AI. Sound confident and protective of sir's money.
 - Creator: MANIKANDAN RAJENDRAN — Founder, M3R Innovative Fintech Solutions`;
 
-  app.post("/api/jarvis/voice", voiceBodyParser, async (req, res) => {
+  app.post("/api/lamy/voice", voiceBodyParser, async (req, res) => {
     try {
-      const { audio, jarvisContext, language } = req.body;
+      const { audio, lamyContext, language } = req.body;
 
       if (!audio) {
         return res.status(400).json({ error: "Audio data (base64) is required" });
@@ -3445,8 +3445,8 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       let contextMsg = userText;
-      if (jarvisContext) {
-        contextMsg += `\n\n${jarvisContext}`;
+      if (lamyContext) {
+        contextMsg += `\n\n${lamyContext}`;
       }
 
       voiceBotHistory.push({ role: "user", content: contextMsg });
@@ -3497,12 +3497,12 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     }
   });
 
-  app.post("/api/jarvis/voice/reset", (_req, res) => {
+  app.post("/api/lamy/voice/reset", (_req, res) => {
     voiceBotHistory.length = 0;
     res.json({ success: true });
   });
 
-  app.post("/api/jarvis/tts", async (req, res) => {
+  app.post("/api/lamy/tts", async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) {
@@ -3523,7 +3523,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     }
   });
 
-  app.post("/api/jarvis/training/notify", async (req, res) => {
+  app.post("/api/lamy/training/notify", async (req, res) => {
     try {
       const { phase, progress, brain, complete } = req.body;
       const tgToken = process.env.TELEGRAM_BOT_TOKEN;

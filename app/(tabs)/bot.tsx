@@ -1343,7 +1343,7 @@ export default function BotScreen() {
             <View style={nStyles.labHeader}>
               <View style={nStyles.labTitleRow}>
                 <MaterialCommunityIcons name="atom-variant" size={16} color={CYAN} />
-                <Text style={nStyles.labTitle}>JARVIS NEURAL LAB</Text>
+                <Text style={nStyles.labTitle}>LAMY NEURAL LAB</Text>
               </View>
               <View style={nStyles.labBadge}>
                 <PulsingDot color={POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN} />

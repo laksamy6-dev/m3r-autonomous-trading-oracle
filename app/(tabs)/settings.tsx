@@ -128,11 +128,11 @@ export default function SettingsScreen() {
 
   async function loadSettings() {
     try {
-      const stored = await AsyncStorage.getItem("jarvis_settings");
+      const stored = await AsyncStorage.getItem("lamy_settings");
       if (stored) {
         setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       }
-      const storedPin = await AsyncStorage.getItem("jarvis_pin");
+      const storedPin = await AsyncStorage.getItem("lamy_pin");
       if (storedPin) setSavedPin(storedPin);
     } catch {}
   }
@@ -140,7 +140,7 @@ export default function SettingsScreen() {
   async function saveSettings(updated: SettingsState) {
     setSettings(updated);
     try {
-      await AsyncStorage.setItem("jarvis_settings", JSON.stringify(updated));
+      await AsyncStorage.setItem("lamy_settings", JSON.stringify(updated));
     } catch {}
   }
 
@@ -258,7 +258,7 @@ export default function SettingsScreen() {
       return;
     }
     setSavedPin(newPin);
-    await AsyncStorage.setItem("jarvis_pin", newPin);
+    await AsyncStorage.setItem("lamy_pin", newPin);
     setChangePinModal(false);
     setNewPin("");
     setConfirmPin("");
@@ -318,7 +318,7 @@ export default function SettingsScreen() {
       const res = await globalThis.fetch(`${baseUrl}api/telegram/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "JARVIS Test: Settings verified. All systems operational." }),
+        body: JSON.stringify({ message: "LAMY Test: Settings verified. All systems operational." }),
       });
       const data = await res.json();
       if (data.success) {
@@ -338,7 +338,7 @@ export default function SettingsScreen() {
           <View style={styles.lockIconContainer}>
             <Ionicons name="lock-closed" size={48} color={CYAN} />
           </View>
-          <Text style={styles.pinTitle}>JARVIS Settings</Text>
+          <Text style={styles.pinTitle}>LAMY Settings</Text>
           <Text style={styles.pinSubtitle}>Enter PIN to access settings</Text>
 
           <View style={styles.pinInputRow}>
@@ -393,7 +393,7 @@ export default function SettingsScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Settings</Text>
-            <Text style={styles.headerSub}>JARVIS Configuration</Text>
+            <Text style={styles.headerSub}>LAMY Configuration</Text>
           </View>
           <Pressable
             onPress={() => {
@@ -514,7 +514,7 @@ export default function SettingsScreen() {
                 <Text style={styles.statusLabel}>Auto Trade Mode</Text>
                 <Text style={styles.settingDesc}>
                   {settings.autoTradeMode
-                    ? "ACTIVE - JARVIS trades automatically"
+                    ? "ACTIVE - LAMY trades automatically"
                     : "OFF - Manual approval required"}
                 </Text>
               </View>
@@ -537,7 +537,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.autoTradeInfoRow}>
               <Ionicons name="volume-high" size={14} color={Colors.dark.gold} />
-              <Text style={styles.autoTradeInfoText}>JARVIS voice narration for all actions</Text>
+              <Text style={styles.autoTradeInfoText}>LAMY voice narration for all actions</Text>
             </View>
             <View style={styles.autoTradeInfoRow}>
               <Ionicons name="flash" size={14} color={Colors.dark.red} />
@@ -551,7 +551,7 @@ export default function SettingsScreen() {
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Language</Text>
-              <Text style={styles.settingDesc}>JARVIS voice response language</Text>
+              <Text style={styles.settingDesc}>LAMY voice response language</Text>
             </View>
             <View style={styles.langOptions}>
               {(["auto", "english", "tamil"] as const).map((lang) => (
@@ -855,7 +855,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.aboutCard}>
-            <Text style={styles.aboutTitle}>JARVIS Trading AI</Text>
+            <Text style={styles.aboutTitle}>LAMY Trading AI</Text>
             <Text style={styles.aboutVersion}>v8.0 Neuro-Quantum Engine</Text>
             <Text style={styles.aboutCreator}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
             <Text style={styles.aboutDesc}>
@@ -955,7 +955,7 @@ export default function SettingsScreen() {
             <Ionicons name="rocket" size={36} color={NEON_GREEN} style={{ alignSelf: "center", marginBottom: 12 }} />
             <Text style={styles.modalTitle}>Enable Auto Pilot</Text>
             <Text style={[styles.settingDesc, { textAlign: "center", marginBottom: 16 }]}>
-              JARVIS will trade automatically without your approval. Enter PIN to authorize.
+              LAMY will trade automatically without your approval. Enter PIN to authorize.
             </Text>
             <TextInput
               style={styles.modalInput}

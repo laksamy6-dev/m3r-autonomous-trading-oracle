@@ -110,7 +110,7 @@ function PulsingDot({ color }: { color: string }) {
   );
 }
 
-function JarvisCore({ status, onPress }: { status: VoiceStatus; onPress: () => void }) {
+function LamyCore({ status, onPress }: { status: VoiceStatus; onPress: () => void }) {
   const pulseScale = useSharedValue(1);
   const ringScale = useSharedValue(1);
   const ringOpacity = useSharedValue(0.5);
@@ -276,7 +276,7 @@ export default function AIScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [logs, setLogs] = useState<{ text: string; type: "info" | "success" | "warning" | "ai" }[]>([
     { text: "Neural Architecture v8.0 Loaded", type: "success" },
-    { text: "JARVIS AI Core: ONLINE", type: "ai" },
+    { text: "LAMY AI Core: ONLINE", type: "ai" },
     { text: "Voice Module: Standby", type: "info" },
     { text: "Awaiting commands, Mr. Manikandan", type: "ai" },
   ]);
@@ -366,10 +366,10 @@ export default function AIScreen() {
         setUpstoxStatus({ configured: data.configured, connected: data.connected });
         if (data.connected) {
           addLog("UPSTOX CONNECTED - LIVE MODE ACTIVE", "success");
-          jarvisSpeak("Sir, Upstox connection refreshed successfully. Live trading mode is now active.");
+          lamySpeak("Sir, Upstox connection refreshed successfully. Live trading mode is now active.");
         } else if (data.configured) {
           addLog("UPSTOX CONFIGURED - Token expired or invalid", "warning");
-          jarvisSpeak(
+          lamySpeak(
             "Sir, Upstox keys are configured but the access token appears invalid. Please update the daily token."
           );
         } else {
@@ -388,7 +388,7 @@ export default function AIScreen() {
     }
   };
 
-  function jarvisSpeak(text: string) {
+  function lamySpeak(text: string) {
     if (!autoSpeak) return;
     const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
     const shortText = cleanText.length > 600 ? cleanText.slice(0, 600) + "..." : cleanText;
@@ -518,7 +518,7 @@ export default function AIScreen() {
 
     try {
       const baseUrl = getApiUrl();
-      const response = await globalThis.fetch(`${baseUrl}api/jarvis/voice`, {
+      const response = await globalThis.fetch(`${baseUrl}api/lamy/voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64Audio }),
@@ -537,7 +537,7 @@ export default function AIScreen() {
       }
 
       if (aiText) {
-        addLog("JARVIS responding...", "ai");
+        addLog("LAMY responding...", "ai");
         setMessages((prev) => [
           ...prev,
           { id: genId(), role: "assistant", content: aiText, timestamp: getNow() },
@@ -553,7 +553,7 @@ export default function AIScreen() {
             audio.onended = () => setVoiceStatus("ready");
             audio.onerror = () => {
               setVoiceStatus("ready");
-              if (aiText) jarvisSpeak(aiText);
+              if (aiText) lamySpeak(aiText);
             };
             await audio.play();
           } else {
@@ -576,7 +576,7 @@ export default function AIScreen() {
       }
 
       if (aiText) {
-        jarvisSpeak(aiText);
+        lamySpeak(aiText);
       } else {
         setVoiceStatus("ready");
       }
@@ -693,7 +693,7 @@ export default function AIScreen() {
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
       if (fullContent && fullContent !== lastSpokenRef.current) {
         lastSpokenRef.current = fullContent;
-        jarvisSpeak(fullContent);
+        lamySpeak(fullContent);
       }
     }
   }
@@ -730,7 +730,7 @@ export default function AIScreen() {
       });
       if (res.ok) {
         addLog(`ORDER EXECUTED: BUY ${executeType} ${executeStrike}`, "success");
-        jarvisSpeak(`Order executed sir. Bought ${executeType} at strike ${executeStrike}.`);
+        lamySpeak(`Order executed sir. Bought ${executeType} at strike ${executeStrike}.`);
         setExecuteStrike("");
         setExecutePremium("");
       } else {
@@ -784,7 +784,7 @@ export default function AIScreen() {
           <PulsingDot color={NEON_GREEN} />
           <View>
             <Text style={s.headerTitle}>
-              M3R <Text style={{ color: CYAN }}>JARVIS</Text>
+              M3R <Text style={{ color: CYAN }}>LAMY</Text>
             </Text>
             <Text style={s.headerSub}>COMMAND CENTER</Text>
           </View>
@@ -937,7 +937,7 @@ export default function AIScreen() {
         <PulsingDot color={NEON_GREEN} />
         <Text style={s.engineText}>Neural Engine: ONLINE</Text>
         <PulsingDot color={CYAN} />
-        <Text style={s.engineText}>JARVIS Brain: ACTIVE</Text>
+        <Text style={s.engineText}>LAMY Brain: ACTIVE</Text>
         <PulsingDot color={AMBER} />
         <Text style={s.engineText}>Scanner: 24/7</Text>
       </View>
@@ -1146,7 +1146,7 @@ export default function AIScreen() {
         {messages.length === 0 && (
           <View style={s.emptyState}>
             <MaterialCommunityIcons name="brain" size={36} color={CYAN} />
-            <Text style={s.emptyTitle}>JARVIS Command Center</Text>
+            <Text style={s.emptyTitle}>LAMY Command Center</Text>
             <Text style={s.emptyDesc}>
               உங்கள் trading command-ஐ type செய்யுங்கள் அல்லது voice-ல் சொல்லுங்கள்
             </Text>
@@ -1185,7 +1185,7 @@ export default function AIScreen() {
             >
               <View style={s.msgHeader}>
                 <Text style={s.msgLabel}>
-                  {msg.role === "user" ? "YOU" : "JARVIS"}
+                  {msg.role === "user" ? "YOU" : "LAMY"}
                 </Text>
                 <Text style={s.msgTime}>{msg.timestamp}</Text>
                 {msg.role === "assistant" && (
@@ -1207,7 +1207,7 @@ export default function AIScreen() {
         {isStreaming && (
           <View style={s.streamingRow}>
             <ActivityIndicator size={12} color={CYAN} />
-            <Text style={s.streamingText}>JARVIS analyzing...</Text>
+            <Text style={s.streamingText}>LAMY analyzing...</Text>
           </View>
         )}
 
@@ -1249,7 +1249,7 @@ export default function AIScreen() {
             </View>
           )}
           <TextInput
-            placeholder="JARVIS-\u0B95\u0BCD\u0B95\u0BC1 command \u0B95\u0BCA\u0B9F\u0BC1\u0B99\u0BCD\u0B95..."
+            placeholder="LAMY-\u0B95\u0BCD\u0B95\u0BC1 command \u0B95\u0BCA\u0B9F\u0BC1\u0B99\u0BCD\u0B95..."
             placeholderTextColor="rgba(0,243,255,0.3)"
             value={input}
             onChangeText={setInput}

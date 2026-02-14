@@ -6,7 +6,7 @@ import * as Device from "expo-device";
 import * as Battery from "expo-battery";
 import * as Network from "expo-network";
 
-const AUTH_PIN_KEY = "jarvis_auth_pin";
+const AUTH_PIN_KEY = "lamy_auth_pin";
 const DEFAULT_PIN = "1234";
 
 async function getDeviceDetails() {
