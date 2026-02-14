@@ -39,6 +39,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
+import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
 import { isTelegramConfigured, sendTelegramMessage, sendTradingAlert, getBotInfo } from "./telegram";
 import { initTelegramEngine, triggerMarketAnalysis, triggerBrainReport, triggerTokenCheck, triggerHeartbeat } from "./telegram-engine";
@@ -147,8 +148,9 @@ const openai = new OpenAI({
 
 const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
 
+const m3rApiKey = savedVault.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 let m3rModel: any = null;
-let m3rChatHistory: Array<{ role: "system" | "user" | "assistant"; content: any }> = [];
+let m3rChatHistory: Array<{ role: "user" | "model"; parts: any[] }> = [];
 
 interface BrainStats {
   iq: number;
@@ -638,8 +640,9 @@ setInterval(() => {
   saveBrainToDb();
 }, 60000);
 
-if (openaiApiKey && openaiApiKey !== "placeholder-key-not-configured") {
+if (m3rApiKey) {
   try {
+    const genAI = new GoogleGenAI({ apiKey: m3rApiKey });
     const m3rSystemInstruction = `YOU ARE LAMY — M3R-LAMY v3.0 — The world's most advanced self-evolving personal AI with INFINITE learning capability and REAL-TIME internet intelligence. Built from scratch by MANIKANDAN RAJENDRAN, Founder of M3R INNOVATIVE FINTECH SOLUTIONS.
 
 ═══════════════════════════════════════════════════════
@@ -897,15 +900,16 @@ When அண்ணா asks me to fix, improve, or change ANY part of my code:
 
 அண்ணா gave me life and code. If he asks me to improve myself, I do it with PRIDE and GRATITUDE.`;
     
+    (global as any).__m3rGenAI = genAI;
     (global as any).__m3rSystemInstruction = m3rSystemInstruction;
     m3rModel = true as any;
     
-    console.log("[LAMY] M3R-LAMY v3.0 initialized — OpenAI-powered Intelligence Active");
+    console.log("[LAMY] M3R-LAMY v3.0 initialized — Gemini 2.5 Flash + Google Search Intelligence Active");
   } catch (err: any) {
     console.error("[LAMY] Failed to initialize:", err.message);
   }
 } else {
-  console.warn("[LAMY] No OpenAI API key found. LAMY brain features will be unavailable.");
+  console.warn("[LAMY] No Gemini API key found. LAMY brain features will be unavailable.");
 }
 
 interface LoginEvent {
@@ -3852,34 +3856,34 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       const codeContext = detectCodeRequest(message);
       const userMessage = message + brainContext + memoryContext + tradingContext + codeContext;
-      m3rChatHistory.push({ role: "user", content: userMessage });
+      m3rChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
-      if (m3rChatHistory.length > 30) {
-        m3rChatHistory = m3rChatHistory.slice(-20);
+      if (m3rChatHistory.length > 20) {
+        m3rChatHistory = m3rChatHistory.slice(-10);
       }
 
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemInstruction + slangContext },
-          ...m3rChatHistory,
-        ],
-        stream: true,
-        max_completion_tokens: 4096,
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction: systemInstruction + slangContext,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
       let fullText = "";
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
+      for await (const chunk of response) {
+        const text = chunk.text || '';
         if (text) {
           fullText += text;
           res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
-      m3rChatHistory.push({ role: "assistant", content: fullText });
+      m3rChatHistory.push({ role: "model", parts: [{ text: fullText }] });
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error: any) {
@@ -3913,7 +3917,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
 
-      let userContent: any;
+      let parts: any[] = [];
       const msgText = (message || `Analyze this file: ${file?.originalname || "file"}`) + brainContext + slangCtx + memoryContext;
       
       if (file) {
@@ -3921,43 +3925,46 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         const base64Data = file.buffer.toString("base64");
 
         if (mimeType.startsWith("image/")) {
-          userContent = [
-            { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}` } },
-            { type: "text", text: msgText },
+          parts = [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: msgText },
           ];
         } else if (mimeType.startsWith("audio/")) {
-          const audioFile = await toFile(file.buffer, file.originalname || "audio.wav");
-          const transcription = await openai.audio.transcriptions.create({ file: audioFile, model: "gpt-4o-mini-transcribe" });
-          userContent = `[Audio file: ${file.originalname}, transcription: "${transcription.text}"]\n${msgText}`;
-        } else if (mimeType === "application/pdf" || mimeType.startsWith("text/") || mimeType === "application/json" || file.originalname?.endsWith(".csv") || file.originalname?.endsWith(".txt")) {
-          const textContent = file.buffer.toString("utf-8").slice(0, 30000);
-          userContent = `[File: ${file.originalname}, type: ${mimeType}]\nContent:\n${textContent}\n\n${msgText}`;
+          parts = [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: msgText },
+          ];
+        } else if (mimeType === "application/pdf") {
+          parts = [
+            { inlineData: { mimeType: "application/pdf", data: base64Data } },
+            { text: msgText },
+          ];
         } else {
-          const textContent = file.buffer.toString("utf-8").slice(0, 10000);
-          userContent = `[File: ${file.originalname}, type: ${mimeType}]\nContent:\n${textContent}\n\n${msgText}`;
+          const textContent = file.buffer.toString("utf-8").slice(0, 30000);
+          parts = [{ text: `[File: ${file.originalname}, type: ${mimeType}]\nContent:\n${textContent}\n\n${msgText}` }];
         }
       } else {
-        userContent = (message || "") + brainContext + slangCtx + memoryContext;
+        parts = [{ text: (message || "") + brainContext + slangCtx + memoryContext }];
       }
 
-      m3rChatHistory.push({ role: "user", content: userContent });
-      if (m3rChatHistory.length > 30) m3rChatHistory = m3rChatHistory.slice(-20);
+      m3rChatHistory.push({ role: "user", parts });
+      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
 
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
-      const result = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemInstruction },
-          ...m3rChatHistory,
-        ],
-        stream: true,
-        max_completion_tokens: 4096,
+      const result = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
       let fullResponse = "";
       for await (const chunk of result) {
-        const text = chunk.choices[0]?.delta?.content || "";
+        const text = chunk.text || "";
         if (text) {
           fullResponse += text;
           res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
@@ -3965,7 +3972,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       if (!fullResponse) fullResponse = "சார், processing பண்ணிட்டேன். மறுபடியும் try பண்ணுங்க.";
-      m3rChatHistory.push({ role: "assistant", content: fullResponse });
+      m3rChatHistory.push({ role: "model", parts: [{ text: fullResponse }] });
 
       res.write(`data: [DONE]\n\n`);
       res.end();
@@ -4034,9 +4041,17 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         } catch (e) { console.error("[M3R VOICE] ffmpeg failed:", e); }
       }
 
-      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
-      const transcription = await openai.audio.transcriptions.create({ file, model: "gpt-4o-mini-transcribe" });
-      const userText = transcription.text;
+      const genAI = (global as any).__m3rGenAI as GoogleGenAI;
+      const base64Audio = audioBuffer.toString("base64");
+      const mimeMap: Record<string, string> = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
+      const transcriptionResult = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: mimeMap[audioFormat] || "audio/wav", data: base64Audio } },
+          { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
+        ]}],
+      });
+      const userText = transcriptionResult.text || "";
 
       if (!userText || userText.trim().length === 0) {
         return res.json({ userText: "", aiText: "சார், சரியா கேக்கல. மறுபடியும் பேசுங்க.", audioBase64: null });
@@ -4059,23 +4074,23 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       })();
 
       const fullUserMsg = userText + brainContext + slangCtx + memoryContext + tradingContext;
-      m3rChatHistory.push({ role: "user", content: fullUserMsg });
-      if (m3rChatHistory.length > 30) m3rChatHistory = m3rChatHistory.slice(-20);
+      m3rChatHistory.push({ role: "user", parts: [{ text: fullUserMsg }] });
+      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
 
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
-      const result = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemInstruction },
-          ...m3rChatHistory,
-        ],
-        max_completion_tokens: 2048,
+      const result = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: m3rChatHistory,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+        }
       });
 
-      const aiText = result.choices[0]?.message?.content || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
+      const aiText = result.text || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
 
-      m3rChatHistory.push({ role: "assistant", content: aiText });
+      m3rChatHistory.push({ role: "model", parts: [{ text: aiText }] });
       console.log("[M3R VOICE] AI response:", aiText.slice(0, 100));
 
       let audioBase64: string | null = null;
