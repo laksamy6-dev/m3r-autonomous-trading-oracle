@@ -14,7 +14,7 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
@@ -484,6 +484,16 @@ export default function SettingsScreen() {
               <Text style={styles.statusLabel}>OpenAI (GPT)</Text>
               <View style={[styles.statusBadge, styles.statusOn]}>
                 <Text style={styles.statusBadgeText}>Active</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.statusCard}>
+            <View style={styles.statusRow}>
+              <MaterialCommunityIcons name="brain" size={20} color="#A855F7" />
+              <Text style={styles.statusLabel}>LAMY Brain (Gemini)</Text>
+              <View style={[styles.statusBadge, vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? styles.statusOn : styles.statusOff]}>
+                <Text style={styles.statusBadgeText}>{vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? "Active" : "Not Set"}</Text>
               </View>
             </View>
           </View>

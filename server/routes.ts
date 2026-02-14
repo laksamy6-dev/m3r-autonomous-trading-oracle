@@ -79,6 +79,29 @@ if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.T
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
 if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
 
+{
+  let needsSave = false;
+  const vaultSync = { ...savedVault };
+  const envMap: Record<string, string | undefined> = {
+    UPSTOX_API_KEY: process.env.UPSTOX_API_KEY,
+    UPSTOX_SECRET_KEY: process.env.UPSTOX_SECRET_KEY,
+    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+  for (const [key, val] of Object.entries(envMap)) {
+    if (val && !vaultSync[key]) {
+      vaultSync[key] = val;
+      needsSave = true;
+    }
+  }
+  if (needsSave) {
+    saveVaultToFile(vaultSync);
+    console.log("[VAULT] Auto-synced environment secrets to vault file");
+  }
+}
+
 interface TradeProposal {
   id: string;
   action: string;
