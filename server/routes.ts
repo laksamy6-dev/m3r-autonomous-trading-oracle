@@ -3921,19 +3921,24 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       
       if (file) {
         const mimeType = file.mimetype || "application/octet-stream";
+        const base64Data = file.buffer.toString("base64");
+        const msgText = (message || `Analyze this file: ${file.originalname}`) + brainContext + slangCtx + memoryContext;
+
         if (mimeType.startsWith("image/")) {
-          const base64Data = file.buffer.toString("base64");
-          userContent.push({
-            inlineData: { mimeType, data: base64Data }
-          });
-          userContent.push({ text: (message || "Analyze this image") + brainContext + slangCtx + memoryContext });
+          userContent.push({ inlineData: { mimeType, data: base64Data } });
+          userContent.push({ text: msgText });
+        } else if (mimeType === "application/pdf") {
+          userContent.push({ inlineData: { mimeType: "application/pdf", data: base64Data } });
+          userContent.push({ text: msgText });
         } else if (mimeType.startsWith("audio/")) {
-          const audioFile = await toFile(file.buffer, file.originalname || "audio.wav");
-          const transcription = await openai.audio.transcriptions.create({ file: audioFile, model: "gpt-4o-mini-transcribe" });
-          userContent.push({ text: `[User sent audio file, transcription: "${transcription.text}"]\n${message || "Process this audio"}` + brainContext + slangCtx + memoryContext });
+          userContent.push({ inlineData: { mimeType, data: base64Data } });
+          userContent.push({ text: msgText });
+        } else if (mimeType.startsWith("text/") || mimeType === "application/json" || file.originalname?.endsWith(".csv") || file.originalname?.endsWith(".txt")) {
+          const textContent = file.buffer.toString("utf-8").slice(0, 30000);
+          userContent.push({ text: `[File: ${file.originalname}, type: ${mimeType}]\nContent:\n${textContent}\n\n${msgText}` });
         } else {
-          const textContent = file.buffer.toString("utf-8").slice(0, 10000);
-          userContent.push({ text: `[User uploaded file: ${file.originalname}, type: ${mimeType}]\nFile content:\n${textContent}\n\n${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
+          userContent.push({ inlineData: { mimeType, data: base64Data } });
+          userContent.push({ text: msgText });
         }
       } else {
         userContent.push({ text: (message || "") + brainContext + slangCtx + memoryContext });

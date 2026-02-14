@@ -309,15 +309,11 @@ export default function AIScreen() {
 
   async function handleFileUpload() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const options = [
-      { label: "Photo", action: "photo" },
-      { label: "Document", action: "document" },
-    ];
 
     if (Platform.OS === "web") {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = "image/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx";
+      input.accept = "image/*,audio/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx";
       input.onchange = async (e: any) => {
         const file = e.target?.files?.[0];
         if (!file) return;
@@ -355,7 +351,7 @@ export default function AIScreen() {
         },
       },
       {
-        text: "Document",
+        text: "Document (PDF/Doc)",
         onPress: async () => {
           try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -381,6 +377,33 @@ export default function AIScreen() {
           }
         },
       },
+      {
+        text: "Audio File",
+        onPress: async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: ["audio/*"],
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              addLog(`Audio selected: ${asset.name}`, "info");
+              const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              const userMsg: ChatMessage = {
+                id: genId(),
+                role: "user",
+                content: `[Audio uploaded: ${asset.name}]`,
+                timestamp: getNow(),
+              };
+              setMessages((prev) => [...prev, userMsg]);
+              await sendFileToLamy(base64, asset.name, "audio");
+            }
+          } catch (err) {
+            addLog("Audio upload failed", "warning");
+          }
+        },
+      },
       { text: "Cancel", style: "cancel" },
     ]);
   }
@@ -395,92 +418,123 @@ export default function AIScreen() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(",")[1] || "";
-      const isImage = file.type.startsWith("image/");
-      await sendFileToLamy(base64, file.name, isImage ? "image" : "document");
-    };
-    reader.readAsDataURL(file);
+    const fileType: "image" | "document" | "audio" = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : "document";
+    await sendFileToLamyWeb(file, fileType);
   }
 
-  async function sendFileToLamy(base64Data: string, fileName: string, fileType: "image" | "document") {
+  async function sendFileToLamyWeb(file: File, fileType: "image" | "document" | "audio") {
     setIsStreaming(true);
     addLog(`Sending ${fileType} to LAMY...`, "info");
-
     try {
       const baseUrl = getApiUrl();
-      const response = await fetch(`${baseUrl}api/lamy/chat`, {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("message", `Please analyze this ${fileType}: ${file.name}`);
+      const response = await globalThis.fetch(`${baseUrl}api/m3r/chat-with-file`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({
-          message: `[${fileType === "image" ? "Photo" : "Document"} uploaded: ${fileName}] Please analyze this ${fileType}.`,
-          file: { data: base64Data, name: fileName, type: fileType },
-        }),
+        body: formData,
       });
-
       if (!response.ok) throw new Error("Upload failed");
-
-      let fullContent = "";
-      let assistantAdded = false;
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No body");
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const d = line.slice(6);
-          if (d === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(d);
-            if (parsed.content) {
-              fullContent += parsed.content;
-              if (!assistantAdded) {
-                setMessages((prev) => [
-                  ...prev,
-                  { id: genId(), role: "assistant", content: fullContent, timestamp: getNow() },
-                ]);
-                assistantAdded = true;
-              } else {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: fullContent,
-                  };
-                  return updated;
-                });
-              }
-            }
-          } catch {}
-        }
-      }
-      addLog(`${fileType} analysis complete`, "success");
-      if (fullContent) lamySpeak(fullContent);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: genId(),
-          role: "assistant",
-          content: `Sir, I couldn't process that ${fileType} right now. Please try again.`,
-          timestamp: getNow(),
-        },
-      ]);
-      addLog(`${fileType} processing failed`, "warning");
+      await handleStreamResponse(response, fileType);
+    } catch (err) {
+      showFileError(fileType);
     } finally {
       setIsStreaming(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
+  }
+
+  async function sendFileToLamy(base64Data: string, fileName: string, fileType: "image" | "document" | "audio") {
+    setIsStreaming(true);
+    addLog(`Sending ${fileType} to LAMY...`, "info");
+    try {
+      const baseUrl = getApiUrl();
+      const binaryStr = atob(base64Data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+      const mimeMap: Record<string, string> = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+        ".pdf": "application/pdf", ".doc": "application/msword", ".txt": "text/plain", ".csv": "text/csv",
+        ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".aac": "audio/aac",
+      };
+      const ext = "." + fileName.split(".").pop()?.toLowerCase();
+      const mimeType = mimeMap[ext] || (fileType === "image" ? "image/jpeg" : fileType === "audio" ? "audio/mpeg" : "application/octet-stream");
+      const blob = new Blob([bytes], { type: mimeType });
+      const formData = new FormData();
+      formData.append("file", blob as any, fileName);
+      formData.append("message", `Please analyze this ${fileType}: ${fileName}`);
+      const response = await globalThis.fetch(`${baseUrl}api/m3r/chat-with-file`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      await handleStreamResponse(response, fileType);
+    } catch (err) {
+      showFileError(fileType);
+    } finally {
+      setIsStreaming(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }
+
+  function showFileError(fileType: string) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: genId(),
+        role: "assistant",
+        content: `Sorry Sir, ${fileType} processing failed. Please try again.`,
+        timestamp: getNow(),
+      },
+    ]);
+    addLog(`${fileType} processing failed`, "warning");
+  }
+
+  async function handleStreamResponse(response: Response, fileType: string) {
+    let fullContent = "";
+    let assistantAdded = false;
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No body");
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const d = line.slice(6);
+        if (d === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(d);
+          if (parsed.content) {
+            fullContent += parsed.content;
+            if (!assistantAdded) {
+              setMessages((prev) => [
+                ...prev,
+                { id: genId(), role: "assistant", content: fullContent, timestamp: getNow() },
+              ]);
+              assistantAdded = true;
+            } else {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  content: fullContent,
+                };
+                return updated;
+              });
+            }
+          }
+        } catch {}
+      }
+    }
+    addLog(`${fileType} analysis complete`, "success");
+    if (fullContent) lamySpeak(fullContent);
   }
 
   function addLog(text: string, type: "info" | "success" | "warning" | "ai" = "info") {
