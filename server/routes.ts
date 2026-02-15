@@ -1877,7 +1877,7 @@ Based on this data, give me:
       const data = await ocRes.json();
       if (data.status === "success" && data.data) {
         const expiries = [...new Set(data.data.map((c: any) => c.expiry))].sort();
-        const lotSize = data.data[0]?.lot_size || 75;
+        const lotSize = data.data[0]?.lot_size || 65;
         res.json({ source: "upstox", expiries, lotSize });
       } else {
         res.json({ source: "mock", expiries: [] });
@@ -2454,7 +2454,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 75;
+    const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
 
@@ -2712,7 +2712,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 75;
+    const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
     const zeroLossReady = greenCandles >= 2 && netProfit >= 300 && confidence >= 55;
@@ -2725,7 +2725,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       id: generateProposalId(),
       action, confidence, strike, premium,
       target: targetPremium, stopLoss: slPremium,
-      lotSize: 75, potentialProfit, brokerage, netProfit,
+      lotSize: 65, potentialProfit, brokerage, netProfit,
       reasoning: [
         `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal at ${strike}`,
         `Monte Carlo: ${monteCarloWin}% win across 10K paths`,
@@ -2949,7 +2949,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
   const LOSS_ALERT_THRESHOLD = 300;
   const MIN_PROFIT_TARGET = 500;
-  const LOT_SIZE = 25;
+  const LOT_SIZE = 65;
 
   function calculatePositionATR(history: number[]): number {
     if (history.length < 3) return 0;
@@ -3141,7 +3141,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
     if (isLiveMode) {
       try {
-        const lotSize = 75;
+        const lotSize = 65;
         const quantity = Number(lots || 1) * lotSize;
         const expiryStr = expiry || "";
         const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
@@ -3334,7 +3334,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
     if (orderMode === "live" && upstoxAccessToken) {
       try {
-        const lotSize = 75;
+        const lotSize = 65;
         const quantity = Number(lots) * lotSize;
 
         const expiryStr = expiry || "";

@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const NIFTY_LOT_SIZE = 25;
+export const NIFTY_LOT_SIZE = 65;
 export const BROKERAGE_PER_TRADE = 40;
 
 const STORAGE_KEYS = {
