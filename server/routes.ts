@@ -2122,7 +2122,7 @@ Based on this data, give me:
 
     const isActuallyLive = spotPrice > 0 && upstoxAccessToken;
     res.json({
-      source: isActuallyLive ? "upstox" : "mock",
+      source: isActuallyLive ? "upstox" : "error",
       spotPrice,
       velocity,
       acceleration,
@@ -2222,7 +2222,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
   app.get("/api/market/live-stocks", async (_req, res) => {
     if (!upstoxAccessToken) {
-      return res.json({ source: "mock", stocks: [], indices: [] });
+      return res.json({ source: "error", stocks: [], indices: [], error: "Upstox not connected" });
     }
     try {
       const stockKeys = Object.values(STOCK_ISIN_MAP).map(k => encodeURIComponent(k)).join(",");
@@ -2243,7 +2243,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const indicesData = await indicesRes.json();
 
       if (stocksData?.status === "error" || indicesData?.status === "error") {
-        return res.json({ source: "mock", stocks: [], indices: [] });
+        return res.json({ source: "error", stocks: [], indices: [], error: "API returned error" });
       }
 
       const SYMBOL_ALIAS: Record<string, string> = { "TMPV": "TATAMOTORS" };
@@ -2311,7 +2311,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       res.json({ source: "upstox", stocks, indices });
     } catch (error) {
       console.error("Error fetching live market data:", error);
-      res.json({ source: "mock", stocks: [], indices: [], error: "Failed to fetch live data" });
+      res.json({ source: "error", stocks: [], indices: [], error: "Failed to fetch live data" });
     }
   });
 

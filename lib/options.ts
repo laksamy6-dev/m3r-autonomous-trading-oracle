@@ -30,6 +30,11 @@ export interface OptionData {
   peAskQty?: number;
   peClosePrice?: number;
   pcr: number;
+  ceInstrumentKey?: string;
+  peInstrumentKey?: string;
+  ceTradingSymbol?: string;
+  peTradingSymbol?: string;
+  lotSize?: number;
 }
 
 export interface OptionChainData {
@@ -40,7 +45,7 @@ export interface OptionChainData {
   overallPCR: number;
   maxPainStrike: number;
   atmStrike: number;
-  source?: "upstox" | "simulated";
+  source?: "upstox" | "error";
   totalCeOI?: number;
   totalPeOI?: number;
   totalCeOIChange?: number;
@@ -186,7 +191,7 @@ export function generateOptionChain(spotPrice?: number): OptionChainData {
     overallPCR,
     maxPainStrike,
     atmStrike,
-    source: "simulated",
+    source: "error",
     totalCeOI,
     totalPeOI,
   };

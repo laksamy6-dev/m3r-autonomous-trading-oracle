@@ -140,7 +140,7 @@ export default function MarketScreen() {
   const [togglingAutoScan, setTogglingAutoScan] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
-  const [dataSource, setDataSource] = useState<"mock" | "upstox">("mock");
+  const [dataSource, setDataSource] = useState<"upstox" | "offline">("offline");
 
   const loadData = useCallback(async () => {
     try {
@@ -163,7 +163,7 @@ export default function MarketScreen() {
         }
       }
     } catch (e) {}
-    setDataSource("mock");
+    setDataSource("offline");
     setIndices(getIndices());
     setGainers(getTopGainers());
     setLosers(getTopLosers());
@@ -391,7 +391,7 @@ export default function MarketScreen() {
             <View>
               <View style={styles.chartLabelRow}>
                 <View style={styles.liveDot} />
-                <Text style={styles.chartLabel}>NIFTY 50 {dataSource === "upstox" ? "LIVE" : "SIMULATED"}</Text>
+                <Text style={styles.chartLabel}>NIFTY 50 {dataSource === "upstox" ? "LIVE" : "OFFLINE"}</Text>
               </View>
               <View style={styles.chartPriceRow}>
                 <Text style={styles.chartPrice}>
