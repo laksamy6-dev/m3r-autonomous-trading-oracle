@@ -139,7 +139,7 @@ let scanCycleCount = 0;
 
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-  console.log("[INFO] OpenAI API key not found — TTS/Image features will use fallback. Core AI runs on Gemini.");
+  console.log("[INFO] All AI features powered by Gemini — OpenAI not required.");
 }
 const openai = new OpenAI({
   apiKey: openaiApiKey || "placeholder-key-not-configured",
@@ -3527,12 +3527,17 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         }
       }
 
-      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
-      const transcription = await openai.audio.transcriptions.create({
-        file,
-        model: "gpt-4o-mini-transcribe",
+      const genAITranscribe = (global as any).__m3rGenAI as GoogleGenAI;
+      const base64AudioData = audioBuffer.toString("base64");
+      const mimeTypes: Record<string, string> = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
+      const transcribeResult = await genAITranscribe.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: mimeTypes[audioFormat] || "audio/wav", data: base64AudioData } },
+          { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
+        ]}],
       });
-      const userText = transcription.text;
+      const userText = transcribeResult.text || "";
 
       if (!userText || userText.trim().length === 0) {
         return res.json({ userText: "", aiText: "I didn't catch that, sir. Could you speak again?", audioBase64: null });
@@ -3582,20 +3587,26 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       let audioBase64: string | null = null;
       try {
-        const ttsResponse = await openai.audio.speech.create({
-          model: "tts-1",
-          voice: "onyx",
-          input: aiText,
-          response_format: "mp3",
+        const ttsGenAI = (global as any).__m3rGenAI as GoogleGenAI;
+        const ttsResult = await ttsGenAI.models.generateContent({
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [{ parts: [{ text: `Say this naturally: ${aiText.slice(0, 4000)}` }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Kore" }
+              }
+            }
+          } as any,
         });
-        const arrayBuffer = await ttsResponse.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        if (buffer.length > 0) {
-          audioBase64 = buffer.toString("base64");
-          console.log("[VOICE] TTS generated successfully, size:", buffer.length);
+        const audioPart = ttsResult.candidates?.[0]?.content?.parts?.[0];
+        if (audioPart && (audioPart as any).inlineData?.data) {
+          audioBase64 = (audioPart as any).inlineData.data;
+          console.log("[VOICE] Gemini TTS generated successfully");
         }
       } catch (ttsErr: any) {
-        console.error("[VOICE] TTS failed:", ttsErr?.message || ttsErr);
+        console.error("[VOICE] Gemini TTS failed:", ttsErr?.message || ttsErr);
       }
 
       res.json({
@@ -3622,17 +3633,29 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
-      const mp3 = await openai.audio.speech.create({
-        model: "tts-1-hd",
-        voice: "nova",
-        input: text.slice(0, 4000),
-        speed: 1.15,
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+
+      const ttsGenAI = (global as any).__m3rGenAI as GoogleGenAI;
+      const ttsResult = await ttsGenAI.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `Say this naturally: ${text.slice(0, 4000)}` }] }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Kore" }
+            }
+          }
+        } as any,
       });
-      const arrayBuffer = await mp3.arrayBuffer();
-      const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
-      res.json({ audioBase64 });
-    } catch (error) {
-      console.error("TTS error:", error);
+      const audioPart = ttsResult.candidates?.[0]?.content?.parts?.[0];
+      if (audioPart && (audioPart as any).inlineData?.data) {
+        res.json({ audioBase64: (audioPart as any).inlineData.data });
+      } else {
+        res.status(500).json({ error: "TTS generation returned no audio" });
+      }
+    } catch (error: any) {
+      console.error("TTS error:", error?.message);
       res.status(500).json({ error: "TTS generation failed" });
     }
   });
@@ -4038,26 +4061,29 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     try {
       const { prompt } = req.body;
       if (!prompt) return res.status(400).json({ error: "Prompt required" });
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
 
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "medium",
+      const imgGenAI = (global as any).__m3rGenAI as GoogleGenAI;
+
+      const response = await imgGenAI.models.generateContent({
+        model: "gemini-2.0-flash-exp-image-generation",
+        contents: [{ role: "user", parts: [{ text: `Generate an image: ${prompt}` }] }],
+        config: {
+          responseModalities: ["TEXT", "IMAGE"],
+        } as any,
       });
 
-      const imageData = response.data?.[0];
-      if (imageData && imageData.b64_json) {
-        res.json({ imageBase64: imageData.b64_json });
-      } else if (imageData && imageData.url) {
-        res.json({ imageUrl: imageData.url });
-      } else {
-        res.status(500).json({ error: "No image generated" });
+      const parts = response.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if ((part as any).inlineData?.mimeType?.startsWith("image/")) {
+          res.json({ imageBase64: (part as any).inlineData.data });
+          return;
+        }
       }
+      res.status(500).json({ error: "No image generated" });
     } catch (error: any) {
       console.error("[M3R IMAGE] Error:", error.message);
-      res.status(500).json({ error: "Image generation failed" });
+      res.status(500).json({ error: "Image generation failed: " + error.message });
     }
   });
 
@@ -4143,20 +4169,26 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       let audioBase64: string | null = null;
       try {
-        const ttsResponse = await openai.audio.speech.create({
-          model: "tts-1-hd",
-          voice: "nova",
-          input: aiText.slice(0, 4000),
-          response_format: "mp3",
-          speed: 1.15,
+        const ttsGenAI2 = (global as any).__m3rGenAI as GoogleGenAI;
+        const ttsResult2 = await ttsGenAI2.models.generateContent({
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [{ parts: [{ text: `Say this naturally: ${aiText.slice(0, 4000)}` }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Kore" }
+              }
+            }
+          } as any,
         });
-        const arrayBuffer = await ttsResponse.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        if (buffer.length > 0) {
-          audioBase64 = buffer.toString("base64");
+        const audioPart2 = ttsResult2.candidates?.[0]?.content?.parts?.[0];
+        if (audioPart2 && (audioPart2 as any).inlineData?.data) {
+          audioBase64 = (audioPart2 as any).inlineData.data;
+          console.log("[M3R VOICE] Gemini TTS generated successfully");
         }
       } catch (ttsErr: any) {
-        console.error("[M3R VOICE] TTS failed:", ttsErr?.message);
+        console.error("[M3R VOICE] Gemini TTS failed:", ttsErr?.message);
       }
 
       res.json({ userText, aiText, audioBase64, language: /[\u0B80-\u0BFF]/.test(aiText) ? "tamil" : "english" });
