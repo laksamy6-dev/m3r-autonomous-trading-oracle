@@ -1205,7 +1205,7 @@ Provide your trading signal and analysis.`;
         return lines.join("\n");
       })();
 
-      const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "PAPER/SIM Mode";
+      const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "OFFLINE (Upstox Disconnected)";
 
       const systemPrompt = `You are LAMY, the AI trading assistant created by MANIKANDAN RAJENDRAN — Founder, M3R INNOVATIVE FINTECH SOLUTIONS. You are the command center brain for Nifty 50 options trading. This system is the exclusive intellectual property of M3R Innovative Fintech Solutions.
 
@@ -1523,7 +1523,7 @@ Based on this data, give me:
     const hasToken = !!upstoxAccessToken;
 
     if (!hasToken) {
-      return res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+      return res.json({ configured, connected: false, tokenValid: false, mode: "OFFLINE" });
     }
 
     const now = Date.now();
@@ -1532,7 +1532,7 @@ Based on this data, give me:
         configured,
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
-        mode: upstoxTokenValid ? "LIVE" : "SIM",
+        mode: upstoxTokenValid ? "LIVE" : "OFFLINE",
       });
     }
 
@@ -1547,13 +1547,13 @@ Based on this data, give me:
         configured,
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
-        mode: upstoxTokenValid ? "LIVE" : "SIM",
+        mode: upstoxTokenValid ? "LIVE" : "OFFLINE",
         ...(upstoxTokenValid && data.data ? { userName: data.data.user_name } : {}),
       });
     } catch {
       upstoxTokenValid = false;
       upstoxTokenLastChecked = now;
-      res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+      res.json({ configured, connected: false, tokenValid: false, mode: "OFFLINE" });
     }
   });
 

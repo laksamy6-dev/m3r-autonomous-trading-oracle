@@ -431,7 +431,7 @@ export default function SettingsScreen() {
               <Text style={styles.statusLabel}>Upstox API</Text>
               <View style={[styles.statusBadge, upstoxStatus?.connected ? styles.statusOn : upstoxStatus?.configured ? styles.statusWarn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>
-                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? (upstoxStatus?.mode === "SIM" ? "Token Expired" : "Keys Set") : "Not Set"}
+                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? (upstoxStatus?.mode === "OFFLINE" ? "Token Expired" : "Keys Set") : "Not Set"}
                 </Text>
               </View>
             </View>

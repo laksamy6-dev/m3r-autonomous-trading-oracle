@@ -1203,7 +1203,7 @@ export default function AIScreen() {
               { color: upstoxStatus.connected ? NEON_GREEN : RED },
             ]}
           >
-            {upstoxStatus.connected ? "LIVE" : upstoxStatus.configured ? "SIM" : "OFFLINE"}
+            {upstoxStatus.connected ? "LIVE" : "OFFLINE"}
           </Text>
         </View>
         <View style={s.statusDivider} />

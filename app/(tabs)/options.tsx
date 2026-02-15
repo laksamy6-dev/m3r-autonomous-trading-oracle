@@ -560,7 +560,7 @@ export default function OptionsScreen() {
               <View style={[styles.sourceBadge, isLive ? styles.liveBadge : styles.simBadge]}>
                 <View style={[styles.statusDot, isLive ? styles.liveDot : styles.simDot]} />
                 <Text style={[styles.sourceText, isLive ? styles.liveText : styles.simText]}>
-                  {isLive ? "LIVE" : "SIM"}
+                  {isLive ? "LIVE" : "OFFLINE"}
                 </Text>
               </View>
             </View>

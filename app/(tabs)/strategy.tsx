@@ -483,7 +483,7 @@ function StrategyScreenInner() {
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: isLiveData ? "rgba(0,255,136,0.15)" : "rgba(245,158,11,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isLiveData ? "#00FF88" : "#F59E0B" }} />
-            <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: isLiveData ? "#00FF88" : "#F59E0B" }}>{isLiveData ? "LIVE" : "SIM"}</Text>
+            <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: isLiveData ? "#00FF88" : "#F59E0B" }}>{isLiveData ? "LIVE" : "OFFLINE"}</Text>
           </View>
         </View>
 
