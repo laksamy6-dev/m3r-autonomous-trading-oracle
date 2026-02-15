@@ -17,7 +17,7 @@ export async function getUpstoxStatus(): Promise<{ configured: boolean; connecte
       return cachedUpstoxStatus!;
     }
   } catch {}
-  return { configured: false, connected: false, tokenValid: false, mode: "SIM" };
+  return { configured: false, connected: false, tokenValid: false, mode: "OFFLINE" };
 }
 
 export function clearUpstoxStatusCache() {

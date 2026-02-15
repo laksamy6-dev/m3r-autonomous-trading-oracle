@@ -122,7 +122,7 @@ async function sendStartupNotification() {
 
   msg += `<b>🔌 CONNECTION STATUS</b>\n`;
   msg += `├ Upstox API: ${tokens?.upstoxApiKey ? "✅ Configured" : "❌ Missing"}\n`;
-  msg += `├ Upstox Token: ${tokens?.upstoxConnected ? "✅ LIVE Connected" : "⚠️ Not Connected (SIM Mode)"}\n`;
+  msg += `├ Upstox Token: ${tokens?.upstoxConnected ? "✅ LIVE Connected" : "⚠️ OFFLINE — Token Required"}\n`;
   msg += `├ Telegram: ✅ Active\n`;
   msg += `├ M3R Brain: ${tokens?.openaiKey ? "✅ Active" : "⚠️ No API Key"}\n`;
   msg += `└ Database: ✅ PostgreSQL\n\n`;
@@ -182,7 +182,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
     msg += `🕐 ${time} IST | ${fmtDate(ist)}\n\n`;
     msg += `📋 <b>Pre-Market Checklist</b>\n`;
     msg += `├ NSE opens at 09:15 IST\n`;
-    msg += `├ Mode: ${tokens?.upstoxConnected ? "🟢 LIVE Trading" : "🟡 SIM Mode"}\n`;
+    msg += `├ Mode: ${tokens?.upstoxConnected ? "🟢 LIVE Trading" : "🔴 OFFLINE — Upstox Disconnected"}\n`;
     msg += `├ Brain IQ: ${brain?.iq.toFixed(0) || "N/A"}\n`;
     msg += `├ Domains: ${brain ? Object.keys(brain.knowledgeAreas).length : "N/A"}\n`;
     msg += `└ Neural Engine: WARMING UP\n\n`;
@@ -194,7 +194,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
     msg += `🕐 ${time} IST | ${fmtDate(ist)}\n\n`;
     msg += `📊 <b>Trading Session Active</b>\n`;
     msg += `├ NSE: 09:15 – 15:30 IST\n`;
-    msg += `├ Mode: ${tokens?.upstoxConnected ? "🟢 LIVE (Upstox Connected)" : "🟡 SIM Mode"}\n`;
+    msg += `├ Mode: ${tokens?.upstoxConnected ? "🟢 LIVE (Upstox Connected)" : "🔴 OFFLINE — Reconnect Upstox"}\n`;
     msg += `├ Brain: ${brain?.currentPhase || "ONLINE"}\n`;
     msg += `├ IQ: ${brain?.iq.toFixed(0) || "N/A"}\n`;
     msg += `└ All neural formulas: ACTIVE\n\n`;
@@ -276,7 +276,7 @@ async function runMarketAnalysis() {
       msg += `${i === selectedFactors.length - 1 ? "└" : "├"} ${f}\n`;
     });
     msg += `\n🎯 Confidence: ${confidence}%\n`;
-    msg += `🔌 Mode: ${tokens?.upstoxConnected ? "LIVE" : "SIM"}\n\n`;
+    msg += `🔌 Mode: ${tokens?.upstoxConnected ? "LIVE" : "OFFLINE"}\n\n`;
     msg += `🤖 <i>Market is active, sir. Monitoring all parameters.</i>`;
 
   } else {
@@ -393,7 +393,7 @@ async function runTokenHealthCheck() {
   const alerts: string[] = [];
 
   if (!tokens.upstoxConnected && tokens.upstoxApiKey) {
-    alerts.push("⚠️ Upstox Access Token expired or not connected — LIVE trading unavailable, running in SIM mode");
+    alerts.push("⚠️ Upstox Access Token expired or not connected — LIVE trading OFFLINE, re-authenticate required");
   }
   if (!tokens.upstoxApiKey) {
     alerts.push("❌ Upstox API Key missing — Configure in Settings to enable trading");
@@ -453,7 +453,7 @@ async function runHeartbeat() {
   msg += `🕐 ${fmtTime(ist)} IST | ${fmtDate(ist)}\n\n`;
   msg += `├ Status: ONLINE ✅\n`;
   msg += `├ Market: ${statusLabels[status]}\n`;
-  msg += `├ Mode: ${tokens?.upstoxConnected ? "LIVE" : "SIM"}\n`;
+  msg += `├ Mode: ${tokens?.upstoxConnected ? "LIVE" : "OFFLINE"}\n`;
   if (brain) {
     msg += `├ Brain IQ: ${brain.iq.toFixed(0)}\n`;
     msg += `├ Domains: ${Object.keys(brain.knowledgeAreas).length}\n`;
