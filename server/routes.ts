@@ -1868,7 +1868,7 @@ Based on this data, give me:
   });
 
   app.get("/api/option/expiries", async (_req, res) => {
-    if (!upstoxAccessToken) return res.json({ source: "mock", expiries: [] });
+    if (!upstoxAccessToken) return res.json({ source: "no_token", expiries: [], error: "Upstox not connected. Please authenticate." });
     try {
       const ocRes = await globalThis.fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
@@ -1880,15 +1880,15 @@ Based on this data, give me:
         const lotSize = data.data[0]?.lot_size || 65;
         res.json({ source: "upstox", expiries, lotSize });
       } else {
-        res.json({ source: "mock", expiries: [] });
+        res.json({ source: "error", expiries: [], error: "Upstox API error: " + (data.message || "Unknown") });
       }
-    } catch (error) {
-      res.json({ source: "mock", expiries: [] });
+    } catch (error: any) {
+      res.json({ source: "error", expiries: [], error: "Connection failed: " + error.message });
     }
   });
 
   app.get("/api/option/chain", async (req, res) => {
-    if (!upstoxAccessToken) return res.json({ source: "mock" });
+    if (!upstoxAccessToken) return res.json({ source: "no_token", error: "Upstox not connected" });
     try {
       const { expiry } = req.query;
       const url = expiry
@@ -1899,7 +1899,7 @@ Based on this data, give me:
       });
       const data = await ocRes.json();
       if (data.status !== "success" || !data.data || data.data.length === 0) {
-        return res.json({ source: "mock" });
+        return res.json({ source: "error", error: "Upstox returned no data: " + (data.message || "Empty chain") });
       }
 
       const rawChain = data.data;
@@ -1919,6 +1919,11 @@ Based on this data, give me:
           return {
             strikePrice: item.strike_price,
             expiryDate: item.expiry,
+            ceInstrumentKey: ce.instrument_key || "",
+            peInstrumentKey: pe.instrument_key || "",
+            ceTradingSymbol: ce.trading_symbol || "",
+            peTradingSymbol: pe.trading_symbol || "",
+            lotSize: ce.lot_size || pe.lot_size || 65,
             cePrice: ceM.ltp || 0,
             ceOI: ceM.oi || 0,
             ceOIChange: (ceM.oi || 0) - (ceM.prev_oi || ceM.oi || 0),
@@ -1979,10 +1984,13 @@ Based on this data, give me:
       const maxCeOIStrike = options.reduce((max: any, o: any) => o.ceOI > (max?.ceOI || 0) ? o : max, options[0]);
       const maxPeOIStrike = options.reduce((max: any, o: any) => o.peOI > (max?.peOI || 0) ? o : max, options[0]);
 
+      const chainLotSize = options[0]?.lotSize || 65;
+
       res.json({
         source: "upstox",
         spotPrice: Math.round(spotPrice * 100) / 100,
         expiryDate,
+        lotSize: chainLotSize,
         options,
         overallPCR,
         maxPainStrike,
@@ -1998,7 +2006,7 @@ Based on this data, give me:
       });
     } catch (error) {
       console.error("Option chain error:", error);
-      res.json({ source: "mock" });
+      res.status(500).json({ source: "error", error: "Failed to fetch option chain from Upstox. Check token." });
     }
   });
 
@@ -3130,62 +3138,79 @@ Provide the full 10-section comprehensive analysis now.`;
   });
 
   app.post("/api/positions/open", async (req, res) => {
-    const { type, strike, lots, premium, target, stopLoss, pin, expiry } = req.body;
+    const { type, strike, lots, premium, target, stopLoss, pin, expiry, instrumentKey: reqInstrumentKey } = req.body;
     if (!autoTradeMode && pin !== currentPin) {
       return res.status(403).json({ error: "Invalid PIN" });
     }
+    if (!upstoxAccessToken) {
+      return res.status(503).json({ error: "Upstox not connected. Cannot place LIVE order." });
+    }
     const entryPrem = Number(premium);
-    const isLiveMode = !!(upstoxAccessToken && upstoxApiKey);
+    const isLiveMode = true;
     let upstoxOrderId: string | null = null;
-    let upstoxOrderStatus = "PAPER";
+    let upstoxOrderStatus = "PENDING";
 
-    if (isLiveMode) {
-      try {
-        const lotSize = 65;
-        const quantity = Number(lots || 1) * lotSize;
-        const expiryStr = expiry || "";
-        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
+    try {
+      const lotSize = 65;
+      const quantity = Number(lots || 1) * lotSize;
 
-        const upstoxPayload = {
-          quantity,
-          product: "D",
-          validity: "DAY",
-          price: entryPrem,
-          tag: `M3R-${Date.now()}`,
-          instrument_token: instrumentKey,
-          order_type: "LIMIT",
-          transaction_type: "BUY",
-          disclosed_quantity: 0,
-          trigger_price: 0,
-          is_amo: false,
-        };
-
-        console.log("[LIVE POSITION] Placing Upstox order:", JSON.stringify(upstoxPayload));
-
-        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${upstoxAccessToken}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(upstoxPayload),
-        });
-
-        const upstoxData = await upstoxRes.json();
-        console.log("[LIVE POSITION] Upstox response:", JSON.stringify(upstoxData));
-
-        if (upstoxData.status === "success") {
-          upstoxOrderId = upstoxData.data?.order_id || null;
-          upstoxOrderStatus = "LIVE_EXECUTED";
-        } else {
-          upstoxOrderStatus = "LIVE_REJECTED";
-          console.log("[LIVE POSITION] Order rejected:", upstoxData.message);
+      let instrumentKey = reqInstrumentKey;
+      if (!instrumentKey) {
+        const chainRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}${expiry ? `&expiry_date=${expiry}` : ""}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const chainData = await chainRes.json();
+        if (chainData.status === "success" && chainData.data) {
+          const match = chainData.data.find((item: any) => item.strike_price === Number(strike));
+          if (match) {
+            instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+          }
         }
-      } catch (err: any) {
-        console.error("[LIVE POSITION] Upstox order error:", err.message);
-        upstoxOrderStatus = "LIVE_ERROR";
+        if (!instrumentKey) {
+          return res.status(400).json({ error: `Cannot find Upstox instrument key for ${type} ${strike}. Please select from option chain.` });
+        }
       }
+
+      const upstoxPayload = {
+        quantity,
+        product: "I",
+        validity: "DAY",
+        price: entryPrem,
+        tag: `M3R-${Date.now()}`,
+        instrument_token: instrumentKey,
+        order_type: "LIMIT",
+        transaction_type: "BUY",
+        disclosed_quantity: 0,
+        trigger_price: 0,
+        is_amo: false,
+      };
+
+      console.log("[LIVE ORDER] Placing Upstox order:", JSON.stringify(upstoxPayload));
+
+      const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(upstoxPayload),
+      });
+
+      const upstoxData = await upstoxRes.json();
+      console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
+
+      if (upstoxData.status === "success") {
+        upstoxOrderId = upstoxData.data?.order_id || null;
+        upstoxOrderStatus = "LIVE_EXECUTED";
+      } else {
+        upstoxOrderStatus = "LIVE_REJECTED";
+        console.log("[LIVE ORDER] Order rejected:", upstoxData.message);
+      }
+    } catch (err: any) {
+      console.error("[LIVE ORDER] Upstox order error:", err.message);
+      upstoxOrderStatus = "LIVE_ERROR";
     }
 
     const position: ActivePosition = {
@@ -3217,9 +3242,8 @@ Provide the full 10-section comprehensive analysis now.`;
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChatId) {
-      const modeLabel = isLiveMode ? `LIVE (${upstoxOrderStatus})` : "PAPER";
       const msg = [
-        `📊 POSITION OPENED [${modeLabel}]`,
+        `📊 POSITION OPENED [LIVE ${upstoxOrderStatus}]`,
         `BUY ${position.type} ${position.strike}`,
         `Premium: Rs.${position.entryPremium} | Lots: ${position.lots}`,
         `Target: Rs.${position.target} | SL: Rs.${position.stopLoss}`,
@@ -3236,7 +3260,7 @@ Provide the full 10-section comprehensive analysis now.`;
     res.json({ 
       success: true, 
       position, 
-      mode: isLiveMode ? "live" : "paper",
+      mode: "live",
       upstoxOrderId,
       upstoxOrderStatus,
     });
@@ -3318,7 +3342,7 @@ Provide the full 10-section comprehensive analysis now.`;
   });
 
   app.post("/api/order/place", async (req, res) => {
-    const { type, strike, lots, premium, action, target, stopLoss, pin, mode, expiry } = req.body;
+    const { type, strike, lots, premium, action, target, stopLoss, pin, mode, expiry, instrumentKey: reqInstrumentKey } = req.body;
 
     if (!pin || pin !== currentPin) {
       console.log("[ORDER] PIN rejected");
@@ -3329,132 +3353,109 @@ Provide the full 10-section comprehensive analysis now.`;
       return res.status(400).json({ error: "Missing order details" });
     }
 
+    if (!upstoxAccessToken) {
+      return res.status(503).json({ error: "Upstox not connected. Cannot place LIVE order." });
+    }
+
     const orderAction = (action || "BUY") as "BUY" | "SELL";
-    const orderMode = mode || (upstoxAccessToken ? "live" : "paper");
 
-    if (orderMode === "live" && upstoxAccessToken) {
-      try {
-        const lotSize = 65;
-        const quantity = Number(lots) * lotSize;
+    try {
+      const lotSize = 65;
+      const quantity = Number(lots) * lotSize;
 
-        const expiryStr = expiry || "";
-        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
-
-        const upstoxPayload = {
-          quantity,
-          product: "D",
-          validity: "DAY",
-          price: Number(premium),
-          tag: `LAMY-${Date.now()}`,
-          instrument_token: instrumentKey,
-          order_type: "LIMIT",
-          transaction_type: orderAction === "BUY" ? "BUY" : "SELL",
-          disclosed_quantity: 0,
-          trigger_price: 0,
-          is_amo: false,
-        };
-
-        console.log("[LIVE ORDER] Placing via Upstox:", JSON.stringify(upstoxPayload));
-
-        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${upstoxAccessToken}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(upstoxPayload),
-        });
-
-        const upstoxData = await upstoxRes.json();
-        console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
-
-        const order = {
-          id: upstoxData.data?.order_id || `LIVE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-          type: type as "CE" | "PE",
-          strike: Number(strike),
-          lots: Number(lots),
-          premium: Number(premium),
-          action: orderAction,
-          status: upstoxData.status === "success" ? "EXECUTED" as const : "REJECTED" as const,
-          target: Number(target || 0),
-          stopLoss: Number(stopLoss || 0),
-          createdAt: new Date().toISOString(),
-          executedAt: new Date().toISOString(),
-          pnl: null,
-          mode: "live" as const,
-          upstoxOrderId: upstoxData.data?.order_id || null,
-          upstoxMessage: upstoxData.message || null,
-        };
-
-        orderBook.push(order);
-
-        const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-        const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-        if (tgToken && tgChatId) {
-          const msg = [
-            `🔴 LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
-            `${order.action} ${order.type} ${order.strike}`,
-            `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
-            `Upstox ID: ${order.upstoxOrderId || "N/A"}`,
-            `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
-          ].join("\n");
-          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
-          }).catch(() => {});
+      let instrumentKey = reqInstrumentKey;
+      if (!instrumentKey) {
+        const chainRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}${expiry ? `&expiry_date=${expiry}` : ""}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const chainData = await chainRes.json();
+        if (chainData.status === "success" && chainData.data) {
+          const match = chainData.data.find((item: any) => item.strike_price === Number(strike));
+          if (match) {
+            instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+          }
         }
-
-        if (upstoxData.status === "success") {
-          return res.json({ success: true, order, mode: "live" });
-        } else {
-          return res.json({ success: false, error: upstoxData.message || "Upstox order failed", order, mode: "live" });
+        if (!instrumentKey) {
+          return res.status(400).json({ error: `Cannot find instrument key for ${type} ${strike}` });
         }
-      } catch (error: any) {
-        console.error("[LIVE ORDER] Error:", error);
-        return res.status(500).json({ error: `Live order failed: ${error.message}`, mode: "live" });
       }
-    }
 
-    const order = {
-      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-      type: type as "CE" | "PE",
-      strike: Number(strike),
-      lots: Number(lots),
-      premium: Number(premium),
-      action: orderAction,
-      status: "EXECUTED" as const,
-      target: Number(target || 0),
-      stopLoss: Number(stopLoss || 0),
-      createdAt: new Date().toISOString(),
-      executedAt: new Date().toISOString(),
-      pnl: null,
-      mode: "paper" as const,
-    };
+      const upstoxPayload = {
+        quantity,
+        product: "I",
+        validity: "DAY",
+        price: Number(premium),
+        tag: `LAMY-${Date.now()}`,
+        instrument_token: instrumentKey,
+        order_type: "LIMIT",
+        transaction_type: orderAction === "BUY" ? "BUY" : "SELL",
+        disclosed_quantity: 0,
+        trigger_price: 0,
+        is_amo: false,
+      };
 
-    orderBook.push(order);
+      console.log("[LIVE ORDER] Placing via Upstox:", JSON.stringify(upstoxPayload));
 
-    const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-    const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-    if (tgToken && tgChatId) {
-      const msg = [
-        `📋 PAPER ORDER EXECUTED`,
-        `${order.action} ${order.type} ${order.strike}`,
-        `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
-        `Target: Rs.${order.target} | SL: Rs.${order.stopLoss}`,
-        `Order ID: ${order.id}`,
-        `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
-      ].join("\n");
-
-      globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+      const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: tgChatId, text: msg }),
-      }).catch(() => {});
-    }
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(upstoxPayload),
+      });
 
-    res.json({ success: true, order, mode: "paper" });
+      const upstoxData = await upstoxRes.json();
+      console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
+
+      const order = {
+        id: upstoxData.data?.order_id || `LIVE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        type: type as "CE" | "PE",
+        strike: Number(strike),
+        lots: Number(lots),
+        premium: Number(premium),
+        action: orderAction,
+        status: upstoxData.status === "success" ? "EXECUTED" as const : "REJECTED" as const,
+        target: Number(target || 0),
+        stopLoss: Number(stopLoss || 0),
+        createdAt: new Date().toISOString(),
+        executedAt: new Date().toISOString(),
+        pnl: null,
+        mode: "live" as const,
+        upstoxOrderId: upstoxData.data?.order_id || null,
+        upstoxMessage: upstoxData.message || null,
+      };
+
+      orderBook.push(order);
+
+      const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+      const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+      if (tgToken && tgChatId) {
+        const msg = [
+          `🔴 LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
+          `${order.action} ${order.type} ${order.strike}`,
+          `Lots: ${order.lots} (Qty: ${quantity}) | Premium: Rs.${order.premium}`,
+          `Upstox ID: ${order.upstoxOrderId || "N/A"}`,
+          `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+        ].join("\n");
+        globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+        }).catch(() => {});
+      }
+
+      if (upstoxData.status === "success") {
+        return res.json({ success: true, order, mode: "live" });
+      } else {
+        return res.json({ success: false, error: upstoxData.message || "Upstox order failed", order, mode: "live" });
+      }
+    } catch (error: any) {
+      console.error("[LIVE ORDER] Error:", error.message);
+      return res.status(500).json({ error: `Live order failed: ${error.message}`, mode: "live" });
+    }
   });
 
   app.get("/api/order/book", (_req, res) => {
