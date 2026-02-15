@@ -2424,8 +2424,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       chainData = liveData.chainData;
       console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}`);
     } else {
-      spot = 24200 + (Math.random() - 0.5) * 400;
-      console.log(`[LAMY SCAN] SIM data — Spot: ${spot.toFixed(0)}`);
+      console.log(`[LAMY SCAN] Upstox OFFLINE — Cannot scan without live data`);
+      return null;
     }
 
     const atmStrike = Math.round(spot / 50) * 50;
@@ -2950,6 +2950,7 @@ Provide the full 10-section comprehensive analysis now.`;
     atrStopLoss: number;
     kissPhase: "NONE" | "DROPPING" | "BOTTOMED" | "RECOVERING" | "KISS_BOUNCE";
     lossAlerted: boolean;
+    instrumentKey: string;
   }
 
   const activePositions: ActivePosition[] = [];
@@ -2987,13 +2988,28 @@ Provide the full 10-section comprehensive analysis now.`;
     return { phase: "NONE", shouldBook: false, description: "Monitoring..." };
   }
 
-  function simulatePositionPriceMovement() {
+  async function updatePositionPricesFromUpstox() {
+    if (!upstoxAccessToken) return;
     for (const pos of activePositions) {
       if (pos.status !== "ACTIVE") continue;
-      const drift = (Math.random() - 0.48) * 3;
-      const volatility = (Math.random() - 0.5) * pos.entryPremium * 0.04;
-      pos.currentPremium = Math.max(0.5, pos.currentPremium + drift + volatility);
-      pos.currentPremium = parseFloat(pos.currentPremium.toFixed(2));
+      try {
+        const ik = pos.instrumentKey;
+        if (!ik) continue;
+        const quoteRes: any = await globalThis.fetch(
+          `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const quoteData: any = await quoteRes.json();
+        if (quoteData.status === "success" && quoteData.data) {
+          const key = Object.keys(quoteData.data)[0];
+          if (key && quoteData.data[key]?.last_price) {
+            pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+          }
+        }
+      } catch (e) {
+        console.error(`[LIVE POSITION] Failed to fetch price for ${pos.id}:`, e);
+        continue;
+      }
       pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
       pos.pnlPercent = parseFloat((((pos.currentPremium - pos.entryPremium) / pos.entryPremium) * 100).toFixed(2));
 
@@ -3057,12 +3073,12 @@ Provide the full 10-section comprehensive analysis now.`;
     }
   }
 
-  function startPositionSimulation() {
+  function startPositionMonitoring() {
     if (positionSimInterval) return;
-    positionSimInterval = setInterval(simulatePositionPriceMovement, 2000);
+    positionSimInterval = setInterval(updatePositionPricesFromUpstox, 5000);
   }
 
-  function stopPositionSimulation() {
+  function stopPositionMonitoring() {
     if (positionSimInterval) {
       clearInterval(positionSimInterval);
       positionSimInterval = null;
@@ -3149,6 +3165,7 @@ Provide the full 10-section comprehensive analysis now.`;
     const isLiveMode = true;
     let upstoxOrderId: string | null = null;
     let upstoxOrderStatus = "PENDING";
+    let resolvedInstrumentKey = reqInstrumentKey || "";
 
     try {
       const lotSize = 65;
@@ -3170,6 +3187,7 @@ Provide the full 10-section comprehensive analysis now.`;
         if (!instrumentKey) {
           return res.status(400).json({ error: `Cannot find Upstox instrument key for ${type} ${strike}. Please select from option chain.` });
         }
+        resolvedInstrumentKey = instrumentKey;
       }
 
       const upstoxPayload = {
@@ -3235,9 +3253,10 @@ Provide the full 10-section comprehensive analysis now.`;
       atrStopLoss: entryPrem * 0.85,
       kissPhase: "NONE",
       lossAlerted: false,
+      instrumentKey: resolvedInstrumentKey,
     };
     activePositions.push(position);
-    startPositionSimulation();
+    startPositionMonitoring();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
@@ -3288,7 +3307,7 @@ Provide the full 10-section comprehensive analysis now.`;
     pos.pnl = finalPnl;
 
     const activeRemaining = activePositions.filter(p => p.status === "ACTIVE");
-    if (activeRemaining.length === 0) stopPositionSimulation();
+    if (activeRemaining.length === 0) stopPositionMonitoring();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
