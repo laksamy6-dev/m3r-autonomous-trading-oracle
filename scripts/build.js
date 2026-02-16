@@ -121,7 +121,10 @@ async function startMetro(expoPublicDomain) {
   metroProcess = spawn("npm", ["run", "expo:start:static:build"], {
     stdio: ["ignore", "pipe", "pipe"],
     detached: false,
-    env,
+    env: {
+      ...env,
+      NODE_OPTIONS: "--max-old-space-size=4096",
+    },
   });
 
   if (metroProcess.stdout) {
@@ -246,35 +249,13 @@ async function downloadBundlesAndManifests(timestamp) {
   console.log("This may take several minutes for production builds...");
 
   try {
-    const results = await Promise.allSettled([
-      downloadBundle("ios", timestamp),
-      downloadBundle("android", timestamp),
-      downloadManifest("ios"),
-      downloadManifest("android"),
-    ]);
+    console.log("Building bundles sequentially to reduce memory pressure...");
 
-    const failures = results
-      .map((result, index) => ({ result, index }))
-      .filter(({ result }) => result.status === "rejected");
+    await downloadBundle("ios", timestamp);
+    await downloadBundle("android", timestamp);
 
-    if (failures.length > 0) {
-      const errorMessages = failures.map(({ result, index }) => {
-        const names = [
-          "iOS bundle",
-          "Android bundle",
-          "iOS manifest",
-          "Android manifest",
-        ];
-        return `  - ${names[index]}: ${result.reason?.message || result.reason}`;
-      });
-
-      exitWithError(`Download failed:\n${errorMessages.join("\n")}`);
-    }
-
-    const iosManifest =
-      results[2].status === "fulfilled" ? results[2].value : null;
-    const androidManifest =
-      results[3].status === "fulfilled" ? results[3].value : null;
+    const iosManifest = await downloadManifest("ios");
+    const androidManifest = await downloadManifest("android");
 
     console.log("All downloads completed successfully");
     return { ios: iosManifest, android: androidManifest };
@@ -510,7 +491,7 @@ async function main() {
 
   await startMetro(domain);
 
-  const downloadTimeout = 300000;
+  const downloadTimeout = 600000;
   const downloadPromise = downloadBundlesAndManifests(timestamp);
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
