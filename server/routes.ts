@@ -2,7 +2,7 @@
  * ╔══════════════════════════════════════════════════════════════════════════════════╗
  * ║                          M3R NEURAL ENGINE v2.0                                ║
  * ║                                                                                ║
- * ║  © 2025 M3R INNOVATIVE FINTECH SOLUTIONS. All Rights Reserved.                 ║
+ * ║  © 2026 M3R INNOVATIVE FINTECH SOLUTIONS. All Rights Reserved.                 ║
  * ║  Founder & Sole Proprietor: MANIKANDAN RAJENDRAN                               ║
  * ║  Legal Contact: laksamy6@gmail.com                                             ║
  * ║                                                                                ║
@@ -1040,19 +1040,6 @@ Keep responses in trading language. Use INR for prices. Format key signals promi
 Weekly expiry is every Thursday on NSE.`;
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.use((_req, res, next) => {
-    res.setHeader("X-Powered-By", "M3R Neural Engine v2.0 | M3R Innovative Fintech Solutions");
-    res.setHeader("X-Creator", "MANIKANDAN RAJENDRAN | Founder, M3R Innovative Fintech Solutions");
-    res.setHeader("X-Copyright", "© 2025 M3R Innovative Fintech Solutions. All Rights Reserved. Sole Owner: MANIKANDAN RAJENDRAN");
-    res.setHeader("X-Legal-Contact", "laksamy6@gmail.com");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss: ws: https:; media-src 'self' data: blob:;");
-    next();
-  });
 
   app.get("/api/system/copyright", (_req, res) => {
     res.json({
@@ -1063,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       founder: "MANIKANDAN RAJENDRAN",
       role: "Founder & Sole Proprietor",
       legalEmail: "laksamy6@gmail.com",
-      copyright: "© 2025 M3R Innovative Fintech Solutions. All Rights Reserved.",
+      copyright: "© 2026 M3R Innovative Fintech Solutions. All Rights Reserved.",
       exclusiveOwner: "MANIKANDAN RAJENDRAN — ONLY authorized person to modify, update, distribute, or license this software.",
       legalProtection: [
         "Indian Copyright Act, 1957 (Sections 51, 63, 63A)",
