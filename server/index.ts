@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { securityMiddleware, registerSecurityRoutes } from "./security-engine";
+import { registerEvolutionRoutes, initSelfEvolutionDB } from "./self-evolution-engine";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -263,6 +264,16 @@ function setupErrorHandler(app: express.Application) {
 
   registerSecurityRoutes(app);
   console.log("[SECURITY] M3R Security Engine v1.0 — Intrusion Detection ACTIVE");
+
+  registerEvolutionRoutes(app);
+
+  {
+    const pg = await import("pg");
+    if (process.env.DATABASE_URL) {
+      const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 2 });
+      initSelfEvolutionDB(pool);
+    }
+  }
 
   configureExpoAndLanding(app);
 
