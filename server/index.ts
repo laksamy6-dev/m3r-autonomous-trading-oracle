@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { securityMiddleware, registerSecurityRoutes } from "./security-engine";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -257,7 +258,11 @@ function setupErrorHandler(app: express.Application) {
   setupCors(app);
   setupSecurityHeaders(app);
   setupBodyParsing(app);
+  app.use(securityMiddleware);
   setupRequestLogging(app);
+
+  registerSecurityRoutes(app);
+  console.log("[SECURITY] M3R Security Engine v1.0 — Intrusion Detection ACTIVE");
 
   configureExpoAndLanding(app);
 
