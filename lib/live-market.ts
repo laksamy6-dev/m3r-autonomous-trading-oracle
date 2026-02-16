@@ -1,5 +1,5 @@
 import { getApiUrl } from "./query-client";
-import { OptionChainData, generateOptionChain } from "./options";
+import { OptionChainData } from "./options";
 
 let cachedUpstoxStatus: { configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string } | null = null;
 let statusLastFetched = 0;
@@ -58,7 +58,7 @@ export async function fetchLiveOptionChain(expiry?: string): Promise<{ chain: Op
       }
     }
   } catch {}
-  return { chain: generateOptionChain(), isLive: false };
+  return { chain: { spotPrice: 0, expiryDate: "", expiryDates: [], options: [], overallPCR: 0, maxPainStrike: 0, atmStrike: 0, source: "error" as const }, isLive: false };
 }
 
 export async function fetchLiveSpotPrice(): Promise<{ spotPrice: number; isLive: boolean }> {

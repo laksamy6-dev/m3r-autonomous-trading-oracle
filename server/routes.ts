@@ -634,7 +634,57 @@ async function getMemoriesForContext(): Promise<string> {
   return `\n[SIR'S PERMANENT MEMORIES - NEVER FORGET THESE:\n${memLines}\n]`;
 }
 
+async function saveChatMessage(role: string, content: string) {
+  if (!dbPool) return;
+  try {
+    await dbPool.query(
+      `INSERT INTO lamy_conversations (role, content, created_at, session_date) VALUES ($1, $2, NOW(), CURRENT_DATE)`,
+      [role, content.slice(0, 50000)]
+    );
+  } catch (e: any) { console.error("[CHAT DB] Save failed:", e.message); }
+}
+
+async function loadRecentChatHistory(): Promise<Array<{ role: "user" | "model"; parts: any[] }>> {
+  if (!dbPool) return [];
+  try {
+    const result = await dbPool.query(
+      `SELECT role, content, created_at FROM lamy_conversations ORDER BY created_at DESC LIMIT 50`
+    );
+    const rows = result.rows.reverse();
+    return rows.map(r => ({
+      role: r.role === "user" ? "user" as const : "model" as const,
+      parts: [{ text: r.content }]
+    }));
+  } catch (e: any) {
+    console.error("[CHAT DB] Load failed:", e.message);
+    return [];
+  }
+}
+
+async function getChatHistoryForDate(date: string): Promise<Array<{ role: string; content: string; created_at: string }>> {
+  if (!dbPool) return [];
+  try {
+    const result = await dbPool.query(
+      `SELECT role, content, created_at FROM lamy_conversations WHERE session_date = $1 ORDER BY created_at ASC`,
+      [date]
+    );
+    return result.rows;
+  } catch (e: any) {
+    console.error("[CHAT DB] Date query failed:", e.message);
+    return [];
+  }
+}
+
+async function loadChatHistoryOnStartup() {
+  const history = await loadRecentChatHistory();
+  if (history.length > 0) {
+    m3rChatHistory = history;
+    console.log(`[CHAT DB] Loaded ${history.length} conversation messages from database`);
+  }
+}
+
 loadBrainFromDb();
+loadChatHistoryOnStartup();
 
 setInterval(() => {
   saveBrainToDb();
@@ -3933,6 +3983,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       brainStats.totalInteractions++;
       detectSlangProfile(message);
+      saveChatMessage("user", message);
 
       const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
@@ -3949,8 +4000,8 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const userMessage = message + brainContext + memoryContext + tradingContext + codeContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
-      if (m3rChatHistory.length > 20) {
-        m3rChatHistory = m3rChatHistory.slice(-10);
+      if (m3rChatHistory.length > 50) {
+        m3rChatHistory = m3rChatHistory.slice(-30);
       }
 
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
@@ -3975,6 +4026,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       m3rChatHistory.push({ role: "model", parts: [{ text: fullText }] });
+      saveChatMessage("model", fullText);
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error: any) {
@@ -3985,6 +4037,23 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       } else {
         res.status(500).json({ error: "M3R chat failed: " + error.message });
       }
+    }
+  });
+
+  app.get("/api/m3r/chat-history", async (req, res) => {
+    try {
+      const { date } = req.query;
+      if (date) {
+        const history = await getChatHistoryForDate(date as string);
+        return res.json({ conversations: history, date });
+      }
+      if (!dbPool) return res.json({ conversations: [], total: 0 });
+      const result = await dbPool.query(
+        `SELECT role, content, created_at, session_date FROM lamy_conversations ORDER BY created_at DESC LIMIT 100`
+      );
+      res.json({ conversations: result.rows.reverse(), total: result.rows.length });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
@@ -4039,7 +4108,8 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       m3rChatHistory.push({ role: "user", parts });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
+      saveChatMessage("user", message || `[File: ${file?.originalname}]`);
+      if (m3rChatHistory.length > 50) m3rChatHistory = m3rChatHistory.slice(-30);
 
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
@@ -4064,6 +4134,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       if (!fullResponse) fullResponse = "சார், processing பண்ணிட்டேன். மறுபடியும் try பண்ணுங்க.";
       m3rChatHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+      saveChatMessage("model", fullResponse);
 
       res.write(`data: [DONE]\n\n`);
       res.end();
@@ -4155,6 +4226,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       brainStats.totalInteractions++;
       detectSlangProfile(userText);
+      saveChatMessage("user", `[VOICE] ${userText}`);
 
       const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
 
@@ -4169,7 +4241,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       const fullUserMsg = userText + brainContext + slangCtx + memoryContext + tradingContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: fullUserMsg }] });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
+      if (m3rChatHistory.length > 50) m3rChatHistory = m3rChatHistory.slice(-30);
 
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
@@ -4185,6 +4257,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const aiText = result.text || "சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.";
 
       m3rChatHistory.push({ role: "model", parts: [{ text: aiText }] });
+      saveChatMessage("model", aiText);
       console.log("[M3R VOICE] AI response:", aiText.slice(0, 100));
 
       let audioBase64: string | null = null;
@@ -4218,9 +4291,13 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     }
   });
 
-  app.post("/api/m3r/reset", (_req, res) => {
+  app.post("/api/m3r/reset", async (_req, res) => {
     m3rChatHistory = [];
-    res.json({ success: true });
+    const history = await loadRecentChatHistory();
+    if (history.length > 0) {
+      m3rChatHistory = history;
+    }
+    res.json({ success: true, message: "Chat UI cleared, but all conversations are permanently saved in database" });
   });
 
   const ALLOWED_CODE_PATHS: Record<string, string> = {
