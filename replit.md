@@ -2,7 +2,7 @@
 
 ## Overview
 
-M3R Fintech is an Indian stock market analysis application developed with Expo (React Native) for the frontend and Express.js for the backend. It specializes in Nifty 50 options trading, leveraging AI for stock analysis, portfolio management, and volatility-based trading strategies. The application offers both LIVE trading capabilities, integrated with the Upstox broker API for real market data and order execution, and a PAPER/SIM mode for simulated trading. AI integrations, primarily through OpenAI and Gemini, provide chat-based analysis and options trading recommendations, with a unique AI persona named LAMY.
+M3R Fintech is an Indian stock market analysis application developed with Expo (React Native) for the frontend and Express.js for the backend. It specializes in Nifty 50 options trading, leveraging AI for stock analysis, portfolio management, and volatility-based trading strategies. The application operates in LIVE-ONLY mode with Upstox broker API for real market data and order execution. When Upstox is offline, system shows "OFFLINE" status (no mock/sim/paper trading). AI integrations, primarily through Gemini, provide chat-based analysis and options trading recommendations, with a unique AI persona named LAMY.
 
 ## User Preferences
 
@@ -24,7 +24,13 @@ The LAMY Brain Engine (M3R-LAMY v3.0) is a continuously learning AI system with 
 
 ### Database
 
-Drizzle ORM with PostgreSQL is used for database interactions. The schema defines tables for `users`, `conversations`, `messages`, `brain_state`, and `memories`. Chat storage is handled by Drizzle/Postgres, while user storage is currently in-memory. Database migrations are managed with Drizzle Kit.
+Drizzle ORM with PostgreSQL is used for database interactions. The schema defines tables for `brain_state`, `brain_memories`, `brain_knowledge_log`, and `lamy_conversations`. Chat storage is handled by PostgreSQL with full conversation persistence — LAMY remembers all conversations across sessions permanently. Every message (text, voice, file) is saved to `lamy_conversations` table with role, content, timestamp, and session_date. On server startup, recent 50 messages are loaded into memory so LAMY has immediate context. Chat history can be queried by date via `/api/m3r/chat-history?date=YYYY-MM-DD`. Database migrations are managed with Drizzle Kit.
+
+### Critical Constants
+- **Nifty 50 Lot Size**: 65 (updated from 75)
+- **Trading Mode**: LIVE ONLY — no mock/sim/paper mode
+- **Expiry Dates**: Fetched from Upstox API (`/v2/option/contract`), NOT calculated locally
+- **Fallback behavior**: When Upstox is offline, system returns empty data, NOT fake random data
 
 ### Replit Integrations
 
