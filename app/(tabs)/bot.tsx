@@ -357,21 +357,39 @@ export default function BotScreen() {
   const liveLoopRef = useRef(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ uri: string; name: string; type: string; base64?: string } | null>(null);
+  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
+  const [tradingPnl, setTradingPnl] = useState<number | null>(null);
+  const [activeTradeCount, setActiveTradeCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
     const poll = async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/brain/status`);
-        if (res.ok && alive) {
-          const data = await res.json();
+        const [brainRes, upstoxRes] = await Promise.all([
+          globalThis.fetch(`${baseUrl}api/brain/status`),
+          globalThis.fetch(`${baseUrl}api/upstox/status`).catch(() => null),
+        ]);
+        if (brainRes.ok && alive) {
+          const data = await brainRes.json();
           setBrainStatus(data);
         }
+        if (upstoxRes?.ok && alive) {
+          const data = await upstoxRes.json();
+          setUpstoxStatus({ configured: data.configured || false, connected: data.connected || false });
+        }
+        try {
+          const tradRes = await globalThis.fetch(`${baseUrl}api/trading/summary`);
+          if (tradRes.ok && alive) {
+            const data = await tradRes.json();
+            setTradingPnl(data.totalPnl || 0);
+            setActiveTradeCount(data.activeCount || 0);
+          }
+        } catch {}
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 5000);
     return () => {
       alive = false;
       clearInterval(interval);
@@ -1092,11 +1110,14 @@ export default function BotScreen() {
       <BrandHeader />
 
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>
-            M3R <Text style={{ color: CYAN }}>AI</Text>
-          </Text>
-          <Text style={styles.subtitle}>Personal Assistant</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <PulsingDot color={brainStatus?.isTraining ? AMBER : NEON_GREEN} />
+          <View>
+            <Text style={styles.title}>
+              M3R <Text style={{ color: CYAN }}>LAMY</Text>
+            </Text>
+            <Text style={styles.subtitle}>Personal AI Assistant</Text>
+          </View>
         </View>
         <View style={styles.headerRight}>
           <Pressable onPress={() => setAutoSpeak(!autoSpeak)}>
@@ -1106,12 +1127,23 @@ export default function BotScreen() {
               color={autoSpeak ? CYAN : "rgba(255,255,255,0.3)"}
             />
           </Pressable>
-          <PulsingDot
-            color={brainStatus?.isTraining ? AMBER : NEON_GREEN}
-          />
-          <Text style={styles.phaseText}>
-            {brainStatus?.currentPhase || "OFFLINE"}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,243,255,0.08)", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: upstoxStatus.connected ? NEON_GREEN : RED }} />
+            <Text style={{ fontSize: 9, fontFamily: "DMSans_500Medium", color: upstoxStatus.connected ? NEON_GREEN : RED }}>
+              {upstoxStatus.connected ? "LIVE" : "OFFLINE"}
+            </Text>
+          </View>
+          {activeTradeCount > 0 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(57,255,20,0.08)", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Ionicons name="pulse" size={9} color={NEON_GREEN} />
+              <Text style={{ fontSize: 9, fontFamily: "DMSans_500Medium", color: NEON_GREEN }}>{activeTradeCount}</Text>
+            </View>
+          )}
+          {tradingPnl !== null && tradingPnl !== 0 && (
+            <Text style={{ fontSize: 9, fontFamily: "DMSans_700Bold", color: tradingPnl >= 0 ? NEON_GREEN : RED }}>
+              {"\u20B9"}{tradingPnl.toFixed(0)}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -1204,12 +1236,12 @@ export default function BotScreen() {
                   iq={brainStatus?.iq || 0}
                   powerLevel={brainStatus?.powerLevel || "EVOLVING"}
                 />
-                <Text style={styles.emptyTitle}>M3R AI Assistant</Text>
+                <Text style={styles.emptyTitle}>LAMY</Text>
                 <Text style={styles.emptySubtitle}>
-                  M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN
+                  M3R Innovative Fintech Solutions
                 </Text>
                 <Text style={styles.emptyHint}>
-                  உங்க personal assistant ready! எதையும் கேளுங்க...
+                  அண்ணா, நான் ready! எதையும் கேளுங்க...{"\n"}Trading, Analysis, Code — எல்லாம் செய்வேன்
                 </Text>
 
                 <View style={styles.suggestionsGrid}>
