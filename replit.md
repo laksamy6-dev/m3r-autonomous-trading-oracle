@@ -32,6 +32,27 @@ Drizzle ORM with PostgreSQL is used for database interactions. The schema define
 - **Expiry Dates**: Fetched from Upstox API (`/v2/option/contract`), NOT calculated locally
 - **Fallback behavior**: When Upstox is offline, system returns empty data, NOT fake random data
 
+### LAMY Self-Evolution Engine (v1.0)
+
+LAMY can read, analyze, and modify her own source code files through the Self-Evolution Engine (`server/self-evolution-engine.ts`). Key features:
+- **Code Access**: LAMY can read any of her source files (30+ files across server/, lib/, app/)
+- **AI Analysis**: LAMY uses Gemini to analyze her own code and suggest improvements (`POST /api/evolution/analyze`)
+- **Proposal System**: All changes go through a proposal → approve → apply workflow
+- **Owner Permission**: Only the owner (அண்ணா) can approve code changes
+- **Direct Write**: For urgent fixes, `POST /api/evolution/write` auto-approves and applies
+- **History Tracking**: All evolution events are permanently stored in `lamy_evolution_log` database table
+- **Telegram Alerts**: Every proposal and applied change sends notifications to owner
+- **Evolution APIs**: `/api/evolution/status`, `/api/evolution/pending`, `/api/evolution/history`, `/api/evolution/files`, `/api/evolution/read`, `/api/evolution/analyze`, `/api/evolution/propose`, `/api/evolution/approve/:id`, `/api/evolution/reject/:id`, `/api/evolution/approve-all`, `/api/evolution/write`
+
+### M3R Security Engine (v1.0)
+
+Real-time intrusion detection system (`server/security-engine.ts`) with:
+- Attack pattern recognition (SQL injection, path traversal, XSS, bot scanning)
+- Automatic IP blocking after suspicious activity
+- Telegram alerts for security events
+- Rate limiting and brute force protection
+- Security APIs: `/api/security/status`, `/api/security/events`, `/api/security/block`, `/api/security/unblock`
+
 ### Replit Integrations
 
 Pre-built modules in `server/replit_integrations/` handle chat (with Postgres persistence and streaming completions), audio (recording, speech-to-text, text-to-speech, voice chat), image generation (using gpt-image-1), and batch processing (rate-limited with retry logic).
