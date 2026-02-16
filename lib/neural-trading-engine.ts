@@ -1,7 +1,7 @@
 import { OptionChainData, OptionData, analyzeMarketBias } from "@/lib/options";
 import { calculateGreeks, Greeks, VolatilityMetrics, calculateVolatilityMetrics } from "@/lib/volatility-strategy";
 
-const NIFTY_LOT_SIZE = 75;
+const NIFTY_LOT_SIZE = 65;
 const SENSEX_LOT_SIZE = 10;
 const RISK_FREE_RATE = 0.065;
 const MONTE_CARLO_PATHS = 10000;
@@ -2313,7 +2313,7 @@ function computeZeroLossStrategy(
   const atrStopLoss = Math.round(atrValue * atrMultiplier * 100) / 100;
 
   const premium = decision.premium;
-  const lotSize = 75;
+  const lotSize = 65;
   const targetPremiumGain = MIN_TARGET / lotSize;
   const targetPremium = premium + targetPremiumGain;
   const estimatedPnl = (targetPremium - premium) * lotSize - BROKERAGE;

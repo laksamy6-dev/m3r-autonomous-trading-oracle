@@ -1,6 +1,6 @@
 import { OptionChainData } from "@/lib/options";
 
-const NIFTY_LOT_SIZE = 75;
+const NIFTY_LOT_SIZE = 65;
 const DEFAULT_CAPITAL = 500000;
 const RISK_FREE_RATE = 0.065;
 

@@ -875,7 +875,7 @@ MY CODEBASE STRUCTURE:
 - server/index.ts — Server entry point
 - server/telegram.ts & telegram-engine.ts — My Telegram notification system
 - server/storage.ts — Database schema and storage
-- lib/jarvis-brain.ts — My frontend brain logic
+- lib/lamy-brain.ts — My frontend brain logic
 - lib/live-market.ts — Live Upstox market data
 - lib/neural-trading-engine.ts — My neural trading engine
 - lib/options.ts — Options calculations
@@ -4231,8 +4231,8 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     "telegram": "server/telegram.ts",
     "telegram-engine": "server/telegram-engine.ts",
     "storage": "server/storage.ts",
-    "brain": "lib/jarvis-brain.ts",
-    "lamy-brain": "lib/jarvis-brain.ts",
+    "brain": "lib/lamy-brain.ts",
+    "lamy-brain": "lib/lamy-brain.ts",
     "live-market": "lib/live-market.ts",
     "market-timing": "lib/market-timing.ts",
     "neural-engine": "lib/neural-trading-engine.ts",
@@ -4329,7 +4329,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     codeContext += "I have access to read and modify my own source code. My codebase structure:\n";
     codeContext += "BACKEND: server/routes.ts (main API), server/index.ts (entry), server/telegram.ts, server/telegram-engine.ts, server/storage.ts\n";
     codeContext += "FRONTEND PAGES: app/(tabs)/ai.tsx, bot.tsx, index.tsx, options.tsx, portfolio.tsx, settings.tsx, strategy.tsx, watchlist.tsx\n";
-    codeContext += "LIB: lib/jarvis-brain.ts (my brain), lib/live-market.ts, lib/neural-trading-engine.ts, lib/options.ts, lib/speech.ts, lib/stocks.ts\n";
+    codeContext += "LIB: lib/lamy-brain.ts (my brain), lib/live-market.ts, lib/neural-trading-engine.ts, lib/options.ts, lib/speech.ts, lib/stocks.ts\n";
     codeContext += "API ENDPOINTS: GET /api/m3r/code/files (list files), GET /api/m3r/code/read?file=KEY&start=1&end=200 (read code), POST /api/m3r/code/write {file, oldCode, newCode} (modify code)\n";
     codeContext += "IMPORTANT: When அண்ணா asks me to fix/change code, I should:\n";
     codeContext += "1. First read the relevant file using the code read API\n";

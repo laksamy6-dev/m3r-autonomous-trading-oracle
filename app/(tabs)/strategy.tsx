@@ -30,7 +30,7 @@ import {
   EvolutionEvent,
   LearnedPattern,
   TrainingSession,
-} from "@/lib/jarvis-brain";
+} from "@/lib/lamy-brain";
 import {
   runNeuralEngine,
   NeuralEngineOutput,
