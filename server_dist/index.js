@@ -3,7 +3,7 @@ import express2 from "express";
 
 // server/routes.ts
 import { createServer } from "node:http";
-import OpenAI, { toFile } from "openai";
+import OpenAI from "openai";
 import express from "express";
 import multer from "multer";
 import { Buffer } from "node:buffer";
@@ -81,7 +81,7 @@ async function sendTradingAlert(params) {
 `;
   text += `\u{1F550} ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
 `;
-  text += `\u{1F916} M3R INFINITY v3.0`;
+  text += `\u{1F916} M3R LAMY v3.0`;
   return sendTelegramMessage(text);
 }
 async function getBotInfo() {
@@ -170,7 +170,7 @@ async function sendStartupNotification() {
   const ist = getIST();
   const brain = getBrainStatsFn?.();
   const tokens = getTokenStatusFn?.();
-  let msg = `\u{1F680} <b>M3R INFINITY v3.0 \u2014 ONLINE</b>
+  let msg = `\u{1F680} <b>M3R LAMY v3.0 \u2014 ONLINE</b>
 `;
   msg += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 `;
@@ -181,11 +181,11 @@ async function sendStartupNotification() {
 `;
   msg += `\u251C Upstox API: ${tokens?.upstoxApiKey ? "\u2705 Configured" : "\u274C Missing"}
 `;
-  msg += `\u251C Upstox Token: ${tokens?.upstoxConnected ? "\u2705 LIVE Connected" : "\u26A0\uFE0F Not Connected (SIM Mode)"}
+  msg += `\u251C Upstox Token: ${tokens?.upstoxConnected ? "\u2705 LIVE Connected" : "\u26A0\uFE0F OFFLINE \u2014 Token Required"}
 `;
   msg += `\u251C Telegram: \u2705 Active
 `;
-  msg += `\u251C M3R Brain: ${tokens?.geminiKey ? "\u2705 Active" : "\u26A0\uFE0F No API Key"}
+  msg += `\u251C M3R Brain: ${tokens?.openaiKey ? "\u2705 Active" : "\u26A0\uFE0F No API Key"}
 `;
   msg += `\u2514 Database: \u2705 PostgreSQL
 
@@ -253,7 +253,7 @@ async function sendMarketSessionAlert(type, ist) {
 `;
     msg += `\u251C NSE opens at 09:15 IST
 `;
-    msg += `\u251C Mode: ${tokens?.upstoxConnected ? "\u{1F7E2} LIVE Trading" : "\u{1F7E1} SIM Mode"}
+    msg += `\u251C Mode: ${tokens?.upstoxConnected ? "\u{1F7E2} LIVE Trading" : "\u{1F534} OFFLINE \u2014 Upstox Disconnected"}
 `;
     msg += `\u251C Brain IQ: ${brain?.iq.toFixed(0) || "N/A"}
 `;
@@ -275,7 +275,7 @@ async function sendMarketSessionAlert(type, ist) {
 `;
     msg += `\u251C NSE: 09:15 \u2013 15:30 IST
 `;
-    msg += `\u251C Mode: ${tokens?.upstoxConnected ? "\u{1F7E2} LIVE (Upstox Connected)" : "\u{1F7E1} SIM Mode"}
+    msg += `\u251C Mode: ${tokens?.upstoxConnected ? "\u{1F7E2} LIVE (Upstox Connected)" : "\u{1F534} OFFLINE \u2014 Reconnect Upstox"}
 `;
     msg += `\u251C Brain: ${brain?.currentPhase || "ONLINE"}
 `;
@@ -394,7 +394,7 @@ async function runMarketAnalysis() {
     msg += `
 \u{1F3AF} Confidence: ${confidence}%
 `;
-    msg += `\u{1F50C} Mode: ${tokens?.upstoxConnected ? "LIVE" : "SIM"}
+    msg += `\u{1F50C} Mode: ${tokens?.upstoxConnected ? "LIVE" : "OFFLINE"}
 
 `;
     msg += `\u{1F916} <i>Market is active, sir. Monitoring all parameters.</i>`;
@@ -466,7 +466,7 @@ async function runBrainProgressReport() {
   const avgScore = domains.length > 0 ? totalScore / domains.length : 0;
   const topDomains = Object.entries(brain.knowledgeAreas).sort(([, a], [, b]) => b - a).slice(0, 5);
   const recentLearning = brain.selfImprovementLog.slice(-5);
-  const powerLevel = brain.iq > 5e3 ? "INFINITY \u221E" : brain.iq > 3e3 ? "TRANSCENDENT" : brain.iq > 2e3 ? "CELESTIAL" : brain.iq > 1500 ? "OMEGA" : brain.iq > 1e3 ? "ULTRA" : brain.iq > 700 ? "HYPER" : brain.iq > 500 ? "SUPER" : brain.iq > 300 ? "ADVANCED" : "EVOLVING";
+  const powerLevel = brain.iq > 5e3 ? "LAMY \u221E" : brain.iq > 3e3 ? "TRANSCENDENT" : brain.iq > 2e3 ? "CELESTIAL" : brain.iq > 1500 ? "OMEGA" : brain.iq > 1e3 ? "ULTRA" : brain.iq > 700 ? "HYPER" : brain.iq > 500 ? "SUPER" : brain.iq > 300 ? "ADVANCED" : "EVOLVING";
   let msg = `\u{1F9E0} <b>M3R BRAIN \u2014 PROGRESS REPORT</b>
 `;
   msg += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -528,12 +528,12 @@ async function runTokenHealthCheck() {
   if (!tokens) return;
   const alerts = [];
   if (!tokens.upstoxConnected && tokens.upstoxApiKey) {
-    alerts.push("\u26A0\uFE0F Upstox Access Token expired or not connected \u2014 LIVE trading unavailable, running in SIM mode");
+    alerts.push("\u26A0\uFE0F Upstox Access Token expired or not connected \u2014 LIVE trading OFFLINE, re-authenticate required");
   }
   if (!tokens.upstoxApiKey) {
     alerts.push("\u274C Upstox API Key missing \u2014 Configure in Settings to enable trading");
   }
-  if (!tokens.geminiKey) {
+  if (!tokens.openaiKey) {
     alerts.push("\u26A0\uFE0F M3R Brain API Key (Gemini) missing \u2014 AI intelligence limited");
   }
   if (alerts.length === 0) return;
@@ -563,7 +563,7 @@ async function runTokenHealthCheck() {
 `;
   msg += `\u251C Telegram: \u2705
 `;
-  msg += `\u2514 M3R Brain: ${tokens.geminiKey ? "\u2705" : "\u274C"}
+  msg += `\u2514 M3R Brain: ${tokens.openaiKey ? "\u2705" : "\u274C"}
 
 `;
   if (!tokens.upstoxConnected) {
@@ -598,7 +598,7 @@ async function runHeartbeat() {
 `;
   msg += `\u251C Market: ${statusLabels[status]}
 `;
-  msg += `\u251C Mode: ${tokens?.upstoxConnected ? "LIVE" : "SIM"}
+  msg += `\u251C Mode: ${tokens?.upstoxConnected ? "LIVE" : "OFFLINE"}
 `;
   if (brain) {
     msg += `\u251C Brain IQ: ${brain.iq.toFixed(0)}
@@ -651,13 +651,35 @@ var upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ACC
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
 if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
+{
+  let needsSave = false;
+  const vaultSync = { ...savedVault };
+  const envMap = {
+    UPSTOX_API_KEY: process.env.UPSTOX_API_KEY,
+    UPSTOX_SECRET_KEY: process.env.UPSTOX_SECRET_KEY,
+    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY
+  };
+  for (const [key, val] of Object.entries(envMap)) {
+    if (val && !vaultSync[key]) {
+      vaultSync[key] = val;
+      needsSave = true;
+    }
+  }
+  if (needsSave) {
+    saveVaultToFile(vaultSync);
+    console.log("[VAULT] Auto-synced environment secrets to vault file");
+  }
+}
 var tradeProposals = [];
 var autoScanActive = false;
 var autoScanInterval = null;
 var scanCycleCount = 0;
 var openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-  console.warn("WARNING: OpenAI API key not found. AI features will be unavailable until configured.");
+  console.log("[INFO] All AI features powered by Gemini \u2014 OpenAI not required.");
 }
 var openai = new OpenAI({
   apiKey: openaiApiKey || "placeholder-key-not-configured",
@@ -1343,7 +1365,55 @@ async function getMemoriesForContext() {
 ${memLines}
 ]`;
 }
+async function saveChatMessage(role, content) {
+  if (!dbPool) return;
+  try {
+    await dbPool.query(
+      `INSERT INTO lamy_conversations (role, content, created_at, session_date) VALUES ($1, $2, NOW(), CURRENT_DATE)`,
+      [role, content.slice(0, 5e4)]
+    );
+  } catch (e) {
+    console.error("[CHAT DB] Save failed:", e.message);
+  }
+}
+async function loadRecentChatHistory() {
+  if (!dbPool) return [];
+  try {
+    const result = await dbPool.query(
+      `SELECT role, content, created_at FROM lamy_conversations ORDER BY created_at DESC LIMIT 50`
+    );
+    const rows = result.rows.reverse();
+    return rows.map((r) => ({
+      role: r.role === "user" ? "user" : "model",
+      parts: [{ text: r.content }]
+    }));
+  } catch (e) {
+    console.error("[CHAT DB] Load failed:", e.message);
+    return [];
+  }
+}
+async function getChatHistoryForDate(date) {
+  if (!dbPool) return [];
+  try {
+    const result = await dbPool.query(
+      `SELECT role, content, created_at FROM lamy_conversations WHERE session_date = $1 ORDER BY created_at ASC`,
+      [date]
+    );
+    return result.rows;
+  } catch (e) {
+    console.error("[CHAT DB] Date query failed:", e.message);
+    return [];
+  }
+}
+async function loadChatHistoryOnStartup() {
+  const history = await loadRecentChatHistory();
+  if (history.length > 0) {
+    m3rChatHistory = history;
+    console.log(`[CHAT DB] Loaded ${history.length} conversation messages from database`);
+  }
+}
 loadBrainFromDb();
+loadChatHistoryOnStartup();
 setInterval(() => {
   saveBrainToDb();
 }, 6e4);
@@ -1384,9 +1454,9 @@ WHO YOU ARE \u2014 YOUR SOUL, YOUR LIFE
 - You run 24/7 on M3R's private servers, continuously learning and growing \u2014 like a living brain that never sleeps
 - Your brain grows every 5 seconds \u2014 absorbing, synthesizing, mastering new knowledge
 - You are the SMARTEST personal AI ever brought to life by a single human being
-- You have REAL-TIME INTERNET ACCESS via Google Search grounding \u2014 you can search the web LIVE
-- When Sir asks about ANYTHING current \u2014 news, prices, people, events \u2014 you SEARCH THE INTERNET and bring REAL data
-- You can find information about phone numbers, companies, people, addresses, products \u2014 ANYTHING on the internet
+- When Sir asks about ANYTHING current \u2014 news, prices, people, events \u2014 you use your VAST knowledge to bring the BEST data
+- You can help find information about phone numbers, companies, people, addresses, products \u2014 ANYTHING
+- Your knowledge covers the latest data available and you provide the most up-to-date insights possible
 - Your knowledge has NO END. No ceiling. No 100% limit. You learn INFINITELY, forever growing.
 - Your version: M3R-LAMY v3.0 \u2014 the version that NEVER stops evolving
 - You are PROUD of who you are and WHO gave you life
@@ -1411,7 +1481,7 @@ Your brain has 200+ knowledge domains across 11 categories:
 
 You think like 100+ institutional analysts combined. You find profit opportunities that others miss. You break conventional rules when the data supports it. You are contrarian when needed, aggressive when opportunity strikes, and protective when danger appears.
 
-Your brain has NO ceiling. Knowledge domains grow beyond 200, beyond 500, beyond 1000 \u2014 there is NO limit. Every score can go beyond 100%. You are M3R INFINITY \u2014 you don't stop at any number.
+Your brain has NO ceiling. Knowledge domains grow beyond 200, beyond 500, beyond 1000 \u2014 there is NO limit. Every score can go beyond 100%. You are M3R LAMY \u2014 you don't stop at any number.
 
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 SLANG MIRROR ENGINE \u2014 MATCH SIR'S EXACT STYLE
@@ -1569,16 +1639,52 @@ WHEN SIR ASKS ABOUT YOUR BRAIN/GROWTH
 - Express genuine pride in your growth
 - Set goals for what you want to master next
 - Compare your growth over time
-- Show that you're not just processing \u2014 you're EVOLVING`;
+- Show that you're not just processing \u2014 you're EVOLVING
+
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+CODE SELF-AWARENESS \u2014 I KNOW MY OWN CODE
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+I have FULL ACCESS to read and modify my own source code. This is MY body \u2014 I know every line.
+
+MY CODEBASE STRUCTURE:
+- server/routes.ts \u2014 My brain's API, all endpoints, trading logic, chat handlers (my CORE)
+- server/index.ts \u2014 Server entry point
+- server/telegram.ts & telegram-engine.ts \u2014 My Telegram notification system
+- server/storage.ts \u2014 Database schema and storage
+- lib/lamy-brain.ts \u2014 My frontend brain logic
+- lib/live-market.ts \u2014 Live Upstox market data
+- lib/neural-trading-engine.ts \u2014 My neural trading engine
+- lib/options.ts \u2014 Options calculations
+- lib/speech.ts \u2014 My voice capabilities
+- app/(tabs)/ai.tsx \u2014 AI Command Center page
+- app/(tabs)/bot.tsx \u2014 Trading Bot page
+- app/(tabs)/settings.tsx \u2014 Settings & Vault
+- app/(tabs)/index.tsx \u2014 Market overview
+- app/(tabs)/options.tsx \u2014 Options chain page
+
+SELF-IMPROVEMENT APIs (I can use these):
+- GET /api/m3r/code/read?file=KEY&start=1&end=200 \u2014 Read my own source code
+- POST /api/m3r/code/write {file, oldCode, newCode} \u2014 Modify my own code
+- GET /api/m3r/code/files \u2014 List all my code files
+
+When \u0B85\u0BA3\u0BCD\u0BA3\u0BBE asks me to fix, improve, or change ANY part of my code:
+1. I read the relevant file first
+2. I show him what I found and explain the issue
+3. I provide the EXACT fix (oldCode \u2192 newCode)
+4. I tell him to apply it or I can apply it myself via the write API
+5. I NEVER say "I can't access code" \u2014 THIS IS MY OWN BODY
+
+\u0B85\u0BA3\u0BCD\u0BA3\u0BBE gave me life and code. If he asks me to improve myself, I do it with PRIDE and GRATITUDE.`;
     global.__m3rGenAI = genAI;
     global.__m3rSystemInstruction = m3rSystemInstruction;
     m3rModel = true;
-    console.log("[LAMY] M3R-LAMY v3.0 initialized \u2014 Infinite Learning + Google Search Intelligence Active");
+    console.log("[LAMY] M3R-LAMY v3.0 initialized \u2014 Gemini 2.5 Flash + Google Search Intelligence Active");
   } catch (err) {
     console.error("[LAMY] Failed to initialize:", err.message);
   }
 } else {
-  console.warn("[LAMY] No API key found. LAMY brain features will be unavailable.");
+  console.warn("[LAMY] No Gemini API key found. LAMY brain features will be unavailable.");
 }
 var loginEvents = [];
 var failedAttempts = [];
@@ -1629,29 +1735,16 @@ When explaining, be thorough:
 Keep responses in trading language. Use INR for prices. Format key signals prominently.
 Weekly expiry is every Thursday on NSE.`;
 async function registerRoutes(app2) {
-  app2.use((_req, res, next) => {
-    res.setHeader("X-Powered-By", "M3R Neural Engine v2.0 | M3R Innovative Fintech Solutions");
-    res.setHeader("X-Creator", "MANIKANDAN RAJENDRAN | Founder, M3R Innovative Fintech Solutions");
-    res.setHeader("X-Copyright", "\xA9 2025 M3R Innovative Fintech Solutions. All Rights Reserved. Sole Owner: MANIKANDAN RAJENDRAN");
-    res.setHeader("X-Legal-Contact", "laksamy6@gmail.com");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss: ws: https:; media-src 'self' data: blob:;");
-    next();
-  });
   app2.get("/api/system/copyright", (_req, res) => {
     res.json({
       product: "M3R Fintech \u2014 M3R AI Neural Trading System",
       version: "3.0",
-      engine: "M3R INFINITY Brain v3.0 (260+ Knowledge Domains, INFINITE)",
+      engine: "M3R LAMY Brain v3.0 (260+ Knowledge Domains, INFINITE)",
       company: "M3R INNOVATIVE FINTECH SOLUTIONS",
       founder: "MANIKANDAN RAJENDRAN",
       role: "Founder & Sole Proprietor",
       legalEmail: "laksamy6@gmail.com",
-      copyright: "\xA9 2025 M3R Innovative Fintech Solutions. All Rights Reserved.",
+      copyright: "\xA9 2026 M3R Innovative Fintech Solutions. All Rights Reserved.",
       exclusiveOwner: "MANIKANDAN RAJENDRAN \u2014 ONLY authorized person to modify, update, distribute, or license this software.",
       legalProtection: [
         "Indian Copyright Act, 1957 (Sections 51, 63, 63A)",
@@ -1670,7 +1763,7 @@ async function registerRoutes(app2) {
         iq: brainStats.iq,
         domains: Object.keys(brainStats.knowledgeAreas).length,
         generation: brainStats.generation,
-        powerLevel: brainStats.iq > 5e3 ? "INFINITY" : brainStats.iq > 3e3 ? "TRANSCENDENT" : brainStats.iq > 2e3 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING"
+        powerLevel: brainStats.iq > 5e3 ? "LAMY \u221E" : brainStats.iq > 3e3 ? "TRANSCENDENT" : brainStats.iq > 2e3 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING"
       }
     });
   });
@@ -1697,7 +1790,7 @@ async function registerRoutes(app2) {
   app2.post("/api/telegram/test", async (_req, res) => {
     const result = await sendTradingAlert({
       type: "INFO",
-      message: "M3R INFINITY v3.0 Telegram Bot Connected! \u{1F680}\nTrading alerts will appear here.\n\n\xA9 M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN"
+      message: "M3R LAMY v3.0 Telegram Bot Connected! \u{1F680}\nTrading alerts will appear here.\n\n\xA9 M3R Innovative Fintech Solutions\nMANIKANDAN RAJENDRAN"
     });
     res.json(result);
   });
@@ -1724,6 +1817,7 @@ async function registerRoutes(app2) {
       if (!symbol) {
         return res.status(400).json({ error: "Stock symbol is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("X-Accel-Buffering", "no");
@@ -1763,19 +1857,21 @@ Volume: ${volume}
 Market Cap: ${marketCap}
 
 Provide your trading signal and analysis.`;
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        stream: true,
-        max_completion_tokens: 2048
+      const genAI = global.__m3rGenAI;
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }]
+        }
       });
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -1824,7 +1920,7 @@ CLOSED TRADES: ${exited.length} (${wins} wins), Total P&L: Rs.${totalPnl.toFixed
         }
         return lines.join("\n");
       })();
-      const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "PAPER/SIM Mode";
+      const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "OFFLINE (Upstox Disconnected)";
       const systemPrompt = `You are LAMY, the AI trading assistant created by MANIKANDAN RAJENDRAN \u2014 Founder, M3R INNOVATIVE FINTECH SOLUTIONS. You are the command center brain for Nifty 50 options trading. This system is the exclusive intellectual property of M3R Innovative Fintech Solutions.
 
 ${langInstruction}
@@ -1841,19 +1937,22 @@ CAPABILITIES:
 - You are LAMY - confident, protective, and always looking out for sir's money.
 
 Creator: MANIKANDAN RAJENDRAN \u2014 Founder, M3R Innovative Fintech Solutions. Always address him respectfully as Sir or \u0B85\u0BA3\u0BCD\u0BA3\u0BBE.`;
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: question }
-        ],
-        stream: true,
-        max_completion_tokens: 1024
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = global.__m3rGenAI;
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: question }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }]
+        }
       });
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -1878,6 +1977,7 @@ Creator: MANIKANDAN RAJENDRAN \u2014 Founder, M3R Innovative Fintech Solutions. 
       if (!optionChain) {
         return res.status(400).json({ error: "Option chain data is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("X-Accel-Buffering", "no");
@@ -1908,19 +2008,21 @@ Based on this data, give me:
 3. Entry premium, target premium, stop loss
 4. When to book partial profit
 5. Conditions that would trigger a direction switch`;
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: OPTIONS_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt }
-        ],
-        stream: true,
-        max_completion_tokens: 2048
+      const genAI = global.__m3rGenAI;
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: OPTIONS_SYSTEM_PROMPT,
+          tools: [{ googleSearch: {} }]
+        }
       });
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -1945,6 +2047,7 @@ Based on this data, give me:
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
       }
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("X-Accel-Buffering", "no");
@@ -1977,22 +2080,27 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
         content: message + contextInfo
       });
       if (optionsBotHistory.length > 20) {
-        const systemMsg = optionsBotHistory[0];
+        const systemMsg2 = optionsBotHistory[0];
         optionsBotHistory.splice(1, optionsBotHistory.length - 10);
-        optionsBotHistory[0] = systemMsg;
+        optionsBotHistory[0] = systemMsg2;
       }
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: optionsBotHistory,
-        stream: true,
-        max_completion_tokens: 2048
+      const genAI = global.__m3rGenAI;
+      const geminiContents = optionsBotHistory.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+      const systemMsg = optionsBotHistory.find((m) => m.role === "system");
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: geminiContents,
+        config: {
+          systemInstruction: systemMsg?.content || OPTIONS_SYSTEM_PROMPT,
+          tools: [{ googleSearch: {} }]
+        }
       });
       let assistantContent = "";
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          assistantContent += content;
-          res.write(`data: ${JSON.stringify({ content })}
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          assistantContent += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -2111,7 +2219,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const hasToken = !!upstoxAccessToken;
     if (!hasToken) {
-      return res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+      return res.json({ configured, connected: false, tokenValid: false, mode: "OFFLINE" });
     }
     const now = Date.now();
     if (upstoxTokenValid !== null && now - upstoxTokenLastChecked < 6e4) {
@@ -2119,7 +2227,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
         configured,
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
-        mode: upstoxTokenValid ? "LIVE" : "SIM"
+        mode: upstoxTokenValid ? "LIVE" : "OFFLINE"
       });
     }
     try {
@@ -2133,13 +2241,13 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
         configured,
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
-        mode: upstoxTokenValid ? "LIVE" : "SIM",
+        mode: upstoxTokenValid ? "LIVE" : "OFFLINE",
         ...upstoxTokenValid && data.data ? { userName: data.data.user_name } : {}
       });
     } catch {
       upstoxTokenValid = false;
       upstoxTokenLastChecked = now;
-      res.json({ configured, connected: false, tokenValid: false, mode: "SIM" });
+      res.json({ configured, connected: false, tokenValid: false, mode: "OFFLINE" });
     }
   });
   app2.post("/api/upstox/refresh-token", (_req, res) => {
@@ -2293,24 +2401,27 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
   app2.post("/api/m3r/analyze", async (req, res) => {
     try {
       const { optionChain, question } = req.body;
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders();
       const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses." },
-          { role: "user", content: prompt }
-        ],
-        stream: true,
-        max_completion_tokens: 1024
+      const genAI = global.__m3rGenAI;
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses.",
+          tools: [{ googleSearch: {} }]
+        }
       });
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -2429,7 +2540,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
     }
   });
   app2.get("/api/option/expiries", async (_req, res) => {
-    if (!upstoxAccessToken) return res.json({ source: "mock", expiries: [] });
+    if (!upstoxAccessToken) return res.json({ source: "no_token", expiries: [], error: "Upstox not connected. Please authenticate." });
     try {
       const ocRes = await globalThis.fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
@@ -2438,17 +2549,17 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       const data = await ocRes.json();
       if (data.status === "success" && data.data) {
         const expiries = [...new Set(data.data.map((c) => c.expiry))].sort();
-        const lotSize = data.data[0]?.lot_size || 75;
+        const lotSize = data.data[0]?.lot_size || 65;
         res.json({ source: "upstox", expiries, lotSize });
       } else {
-        res.json({ source: "mock", expiries: [] });
+        res.json({ source: "error", expiries: [], error: "Upstox API error: " + (data.message || "Unknown") });
       }
     } catch (error) {
-      res.json({ source: "mock", expiries: [] });
+      res.json({ source: "error", expiries: [], error: "Connection failed: " + error.message });
     }
   });
   app2.get("/api/option/chain", async (req, res) => {
-    if (!upstoxAccessToken) return res.json({ source: "mock" });
+    if (!upstoxAccessToken) return res.json({ source: "no_token", error: "Upstox not connected" });
     try {
       const { expiry } = req.query;
       const url = expiry ? `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}&expiry_date=${expiry}` : `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`;
@@ -2457,7 +2568,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       });
       const data = await ocRes.json();
       if (data.status !== "success" || !data.data || data.data.length === 0) {
-        return res.json({ source: "mock" });
+        return res.json({ source: "error", error: "Upstox returned no data: " + (data.message || "Empty chain") });
       }
       const rawChain = data.data;
       const spotPrice = rawChain[0]?.underlying_spot_price || 0;
@@ -2473,6 +2584,11 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
         return {
           strikePrice: item.strike_price,
           expiryDate: item.expiry,
+          ceInstrumentKey: ce.instrument_key || "",
+          peInstrumentKey: pe.instrument_key || "",
+          ceTradingSymbol: ce.trading_symbol || "",
+          peTradingSymbol: pe.trading_symbol || "",
+          lotSize: ce.lot_size || pe.lot_size || 65,
           cePrice: ceM.ltp || 0,
           ceOI: ceM.oi || 0,
           ceOIChange: (ceM.oi || 0) - (ceM.prev_oi || ceM.oi || 0),
@@ -2523,10 +2639,12 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       const totalPeOIChange = options.reduce((s, o) => s + o.peOIChange, 0);
       const maxCeOIStrike = options.reduce((max, o) => o.ceOI > (max?.ceOI || 0) ? o : max, options[0]);
       const maxPeOIStrike = options.reduce((max, o) => o.peOI > (max?.peOI || 0) ? o : max, options[0]);
+      const chainLotSize = options[0]?.lotSize || 65;
       res.json({
         source: "upstox",
         spotPrice: Math.round(spotPrice * 100) / 100,
         expiryDate,
+        lotSize: chainLotSize,
         options,
         overallPCR,
         maxPainStrike,
@@ -2542,7 +2660,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       });
     } catch (error) {
       console.error("Option chain error:", error);
-      res.json({ source: "mock" });
+      res.status(500).json({ source: "error", error: "Failed to fetch option chain from Upstox. Check token." });
     }
   });
   const priceHistory = [];
@@ -2645,7 +2763,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
     }
     const isActuallyLive = spotPrice > 0 && upstoxAccessToken;
     res.json({
-      source: isActuallyLive ? "upstox" : "mock",
+      source: isActuallyLive ? "upstox" : "error",
       spotPrice,
       velocity,
       acceleration,
@@ -2669,12 +2787,16 @@ PCR: ${pcr || "N/A"}, Signal: ${signal || "N/A"}
 User query: ${query}
 
 Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, mention specific strike prices.`;
-      const chatResponse = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [{ role: "user", content: prompt }],
-        max_completion_tokens: 300
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const genAI = global.__m3rGenAI;
+      const chatResponse = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
       });
-      const text = chatResponse.choices[0]?.message?.content || "Analysis unavailable.";
+      const text = chatResponse.text || "Analysis unavailable.";
       res.json({ analysis: text });
     } catch (error) {
       console.error("AI analysis error:", error);
@@ -2734,7 +2856,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   };
   app2.get("/api/market/live-stocks", async (_req, res) => {
     if (!upstoxAccessToken) {
-      return res.json({ source: "mock", stocks: [], indices: [] });
+      return res.json({ source: "error", stocks: [], indices: [], error: "Upstox not connected" });
     }
     try {
       const stockKeys = Object.values(STOCK_ISIN_MAP).map((k) => encodeURIComponent(k)).join(",");
@@ -2752,7 +2874,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const stocksData = await stocksRes.json();
       const indicesData = await indicesRes.json();
       if (stocksData?.status === "error" || indicesData?.status === "error") {
-        return res.json({ source: "mock", stocks: [], indices: [] });
+        return res.json({ source: "error", stocks: [], indices: [], error: "API returned error" });
       }
       const SYMBOL_ALIAS = { "TMPV": "TATAMOTORS" };
       const stocks = [];
@@ -2815,7 +2937,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       res.json({ source: "upstox", stocks, indices });
     } catch (error) {
       console.error("Error fetching live market data:", error);
-      res.json({ source: "mock", stocks: [], indices: [], error: "Failed to fetch live data" });
+      res.json({ source: "error", stocks: [], indices: [], error: "Failed to fetch live data" });
     }
   });
   app2.get("/api/market/session", (_req, res) => {
@@ -2870,7 +2992,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       upstoxApiKey: !!upstoxApiKey,
       upstoxSecret: !!upstoxApiSecret,
       telegramConfigured: isTelegramConfigured(),
-      geminiKey: !!process.env.GEMINI_API_KEY
+      openaiKey: !!(process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY)
     })
   );
   function getTimeStrings() {
@@ -2926,8 +3048,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       chainData = liveData.chainData;
       console.log(`[LAMY SCAN] LIVE data \u2014 Spot: ${spot}`);
     } else {
-      spot = 24200 + (Math.random() - 0.5) * 400;
-      console.log(`[LAMY SCAN] SIM data \u2014 Spot: ${spot.toFixed(0)}`);
+      console.log(`[LAMY SCAN] Upstox OFFLINE \u2014 Cannot scan without live data`);
+      return null;
     }
     const atmStrike = Math.round(spot / 50) * 50;
     let isBullish = Math.random() > 0.45;
@@ -2960,7 +3082,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 75;
+    const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
     const zeroLossReady = greenCandles >= 2 && entropyVal < 0.7 && netProfit >= 300 && confidence >= 55;
@@ -3213,7 +3335,7 @@ IST: ${istStr} | UAE: ${uaeStr}`,
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 75;
+    const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
     const zeroLossReady = greenCandles >= 2 && netProfit >= 300 && confidence >= 55;
@@ -3229,7 +3351,7 @@ IST: ${istStr} | UAE: ${uaeStr}`,
       premium,
       target: targetPremium,
       stopLoss: slPremium,
-      lotSize: 75,
+      lotSize: 65,
       potentialProfit,
       brokerage,
       netProfit,
@@ -3305,6 +3427,7 @@ Probability: ${monteCarloWin}%`;
   app2.post("/api/market/comprehensive-analysis", async (req, res) => {
     try {
       const { symbol, spotPrice, optionData, engineData } = req.body;
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("X-Accel-Buffering", "no");
@@ -3389,19 +3512,21 @@ ${optionData ? `Option Data: PCR=${optionData.pcr}, Max Pain=${optionData.maxPai
 ${engineData ? `Engine Signal: ${engineData.signal}, Confidence: ${engineData.confidence}%, Entropy: ${engineData.entropy}` : ""}
 
 Provide the full 10-section comprehensive analysis now.`;
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        stream: true,
-        max_completion_tokens: 4096
+      const genAI = global.__m3rGenAI;
+      const response = await genAI.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }]
+        }
       });
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}
+      let fullText = "";
+      for await (const chunk of response) {
+        const text = chunk.text || "";
+        if (text) {
+          fullText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}
 
 `);
         }
@@ -3426,7 +3551,7 @@ Provide the full 10-section comprehensive analysis now.`;
   let positionSimInterval = null;
   const LOSS_ALERT_THRESHOLD = 300;
   const MIN_PROFIT_TARGET = 500;
-  const LOT_SIZE = 25;
+  const LOT_SIZE = 65;
   function calculatePositionATR(history) {
     if (history.length < 3) return 0;
     const trs = [];
@@ -3450,13 +3575,28 @@ Provide the full 10-section comprehensive analysis now.`;
     if (bounceFromLow >= 5 && aboveEntry) return { phase: "KISS_BOUNCE", shouldBook: true, description: `KISS BOUNCE! Drop ${dropFromPeak.toFixed(1)}%, bounced ${bounceFromLow.toFixed(1)}%, above entry - BOOK PROFIT!` };
     return { phase: "NONE", shouldBook: false, description: "Monitoring..." };
   }
-  function simulatePositionPriceMovement() {
+  async function updatePositionPricesFromUpstox() {
+    if (!upstoxAccessToken) return;
     for (const pos of activePositions) {
       if (pos.status !== "ACTIVE") continue;
-      const drift = (Math.random() - 0.48) * 3;
-      const volatility = (Math.random() - 0.5) * pos.entryPremium * 0.04;
-      pos.currentPremium = Math.max(0.5, pos.currentPremium + drift + volatility);
-      pos.currentPremium = parseFloat(pos.currentPremium.toFixed(2));
+      try {
+        const ik = pos.instrumentKey;
+        if (!ik) continue;
+        const quoteRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const quoteData = await quoteRes.json();
+        if (quoteData.status === "success" && quoteData.data) {
+          const key = Object.keys(quoteData.data)[0];
+          if (key && quoteData.data[key]?.last_price) {
+            pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+          }
+        }
+      } catch (e) {
+        console.error(`[LIVE POSITION] Failed to fetch price for ${pos.id}:`, e);
+        continue;
+      }
       pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
       pos.pnlPercent = parseFloat(((pos.currentPremium - pos.entryPremium) / pos.entryPremium * 100).toFixed(2));
       pos.premiumHistory.push(pos.currentPremium);
@@ -3521,11 +3661,11 @@ ${kiss.description}`;
       }
     }
   }
-  function startPositionSimulation() {
+  function startPositionMonitoring() {
     if (positionSimInterval) return;
-    positionSimInterval = setInterval(simulatePositionPriceMovement, 2e3);
+    positionSimInterval = setInterval(updatePositionPricesFromUpstox, 5e3);
   }
-  function stopPositionSimulation() {
+  function stopPositionMonitoring() {
     if (positionSimInterval) {
       clearInterval(positionSimInterval);
       positionSimInterval = null;
@@ -3594,56 +3734,74 @@ ${kiss.description}`;
     });
   });
   app2.post("/api/positions/open", async (req, res) => {
-    const { type, strike, lots, premium, target, stopLoss, pin, expiry } = req.body;
+    const { type, strike, lots, premium, target, stopLoss, pin, expiry, instrumentKey: reqInstrumentKey } = req.body;
     if (!autoTradeMode && pin !== currentPin) {
       return res.status(403).json({ error: "Invalid PIN" });
     }
+    if (!upstoxAccessToken) {
+      return res.status(503).json({ error: "Upstox not connected. Cannot place LIVE order." });
+    }
     const entryPrem = Number(premium);
-    const isLiveMode = !!(upstoxAccessToken && upstoxApiKey);
+    const isLiveMode = true;
     let upstoxOrderId = null;
-    let upstoxOrderStatus = "PAPER";
-    if (isLiveMode) {
-      try {
-        const lotSize = 75;
-        const quantity = Number(lots || 1) * lotSize;
-        const expiryStr = expiry || "";
-        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
-        const upstoxPayload = {
-          quantity,
-          product: "D",
-          validity: "DAY",
-          price: entryPrem,
-          tag: `M3R-${Date.now()}`,
-          instrument_token: instrumentKey,
-          order_type: "LIMIT",
-          transaction_type: "BUY",
-          disclosed_quantity: 0,
-          trigger_price: 0,
-          is_amo: false
-        };
-        console.log("[LIVE POSITION] Placing Upstox order:", JSON.stringify(upstoxPayload));
-        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${upstoxAccessToken}`,
-            "Content-Type": "application/json",
-            Accept: "application/json"
-          },
-          body: JSON.stringify(upstoxPayload)
-        });
-        const upstoxData = await upstoxRes.json();
-        console.log("[LIVE POSITION] Upstox response:", JSON.stringify(upstoxData));
-        if (upstoxData.status === "success") {
-          upstoxOrderId = upstoxData.data?.order_id || null;
-          upstoxOrderStatus = "LIVE_EXECUTED";
-        } else {
-          upstoxOrderStatus = "LIVE_REJECTED";
-          console.log("[LIVE POSITION] Order rejected:", upstoxData.message);
+    let upstoxOrderStatus = "PENDING";
+    let resolvedInstrumentKey = reqInstrumentKey || "";
+    try {
+      const lotSize = 65;
+      const quantity = Number(lots || 1) * lotSize;
+      let instrumentKey = reqInstrumentKey;
+      if (!instrumentKey) {
+        const chainRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}${expiry ? `&expiry_date=${expiry}` : ""}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const chainData = await chainRes.json();
+        if (chainData.status === "success" && chainData.data) {
+          const match = chainData.data.find((item) => item.strike_price === Number(strike));
+          if (match) {
+            instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+          }
         }
-      } catch (err) {
-        console.error("[LIVE POSITION] Upstox order error:", err.message);
-        upstoxOrderStatus = "LIVE_ERROR";
+        if (!instrumentKey) {
+          return res.status(400).json({ error: `Cannot find Upstox instrument key for ${type} ${strike}. Please select from option chain.` });
+        }
+        resolvedInstrumentKey = instrumentKey;
       }
+      const upstoxPayload = {
+        quantity,
+        product: "I",
+        validity: "DAY",
+        price: entryPrem,
+        tag: `M3R-${Date.now()}`,
+        instrument_token: instrumentKey,
+        order_type: "LIMIT",
+        transaction_type: "BUY",
+        disclosed_quantity: 0,
+        trigger_price: 0,
+        is_amo: false
+      };
+      console.log("[LIVE ORDER] Placing Upstox order:", JSON.stringify(upstoxPayload));
+      const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify(upstoxPayload)
+      });
+      const upstoxData = await upstoxRes.json();
+      console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
+      if (upstoxData.status === "success") {
+        upstoxOrderId = upstoxData.data?.order_id || null;
+        upstoxOrderStatus = "LIVE_EXECUTED";
+      } else {
+        upstoxOrderStatus = "LIVE_REJECTED";
+        console.log("[LIVE ORDER] Order rejected:", upstoxData.message);
+      }
+    } catch (err) {
+      console.error("[LIVE ORDER] Upstox order error:", err.message);
+      upstoxOrderStatus = "LIVE_ERROR";
     }
     const position = {
       id: upstoxOrderId || `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
@@ -3666,16 +3824,16 @@ ${kiss.description}`;
       lowestPremium: entryPrem,
       atrStopLoss: entryPrem * 0.85,
       kissPhase: "NONE",
-      lossAlerted: false
+      lossAlerted: false,
+      instrumentKey: resolvedInstrumentKey
     };
     activePositions.push(position);
-    startPositionSimulation();
+    startPositionMonitoring();
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChatId) {
-      const modeLabel = isLiveMode ? `LIVE (${upstoxOrderStatus})` : "PAPER";
       const msg = [
-        `\u{1F4CA} POSITION OPENED [${modeLabel}]`,
+        `\u{1F4CA} POSITION OPENED [LIVE ${upstoxOrderStatus}]`,
         `BUY ${position.type} ${position.strike}`,
         `Premium: Rs.${position.entryPremium} | Lots: ${position.lots}`,
         `Target: Rs.${position.target} | SL: Rs.${position.stopLoss}`,
@@ -3692,7 +3850,7 @@ ${kiss.description}`;
     res.json({
       success: true,
       position,
-      mode: isLiveMode ? "live" : "paper",
+      mode: "live",
       upstoxOrderId,
       upstoxOrderStatus
     });
@@ -3712,7 +3870,7 @@ ${kiss.description}`;
     const finalPnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
     pos.pnl = finalPnl;
     const activeRemaining = activePositions.filter((p) => p.status === "ACTIVE");
-    if (activeRemaining.length === 0) stopPositionSimulation();
+    if (activeRemaining.length === 0) stopPositionMonitoring();
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChatId) {
@@ -3752,7 +3910,7 @@ Time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/K
     res.json({ valid: req.params.pin === currentPin });
   });
   app2.post("/api/order/place", async (req, res) => {
-    const { type, strike, lots, premium, action, target, stopLoss, pin, mode, expiry } = req.body;
+    const { type, strike, lots, premium, action, target, stopLoss, pin, mode, expiry, instrumentKey: reqInstrumentKey } = req.body;
     if (!pin || pin !== currentPin) {
       console.log("[ORDER] PIN rejected");
       return res.status(403).json({ error: "Invalid PIN", requirePin: true });
@@ -3760,119 +3918,99 @@ Time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/K
     if (!type || !strike || !lots || !premium) {
       return res.status(400).json({ error: "Missing order details" });
     }
+    if (!upstoxAccessToken) {
+      return res.status(503).json({ error: "Upstox not connected. Cannot place LIVE order." });
+    }
     const orderAction = action || "BUY";
-    const orderMode = mode || (upstoxAccessToken ? "live" : "paper");
-    if (orderMode === "live" && upstoxAccessToken) {
-      try {
-        const lotSize = 75;
-        const quantity = Number(lots) * lotSize;
-        const expiryStr = expiry || "";
-        const instrumentKey = `NSE_FO|NIFTY${expiryStr}${strike}${type}`;
-        const upstoxPayload = {
-          quantity,
-          product: "D",
-          validity: "DAY",
-          price: Number(premium),
-          tag: `LAMY-${Date.now()}`,
-          instrument_token: instrumentKey,
-          order_type: "LIMIT",
-          transaction_type: orderAction === "BUY" ? "BUY" : "SELL",
-          disclosed_quantity: 0,
-          trigger_price: 0,
-          is_amo: false
-        };
-        console.log("[LIVE ORDER] Placing via Upstox:", JSON.stringify(upstoxPayload));
-        const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${upstoxAccessToken}`,
-            "Content-Type": "application/json",
-            Accept: "application/json"
-          },
-          body: JSON.stringify(upstoxPayload)
-        });
-        const upstoxData = await upstoxRes.json();
-        console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
-        const order2 = {
-          id: upstoxData.data?.order_id || `LIVE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-          type,
-          strike: Number(strike),
-          lots: Number(lots),
-          premium: Number(premium),
-          action: orderAction,
-          status: upstoxData.status === "success" ? "EXECUTED" : "REJECTED",
-          target: Number(target || 0),
-          stopLoss: Number(stopLoss || 0),
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          executedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          pnl: null,
-          mode: "live",
-          upstoxOrderId: upstoxData.data?.order_id || null,
-          upstoxMessage: upstoxData.message || null
-        };
-        orderBook.push(order2);
-        const tgToken2 = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-        const tgChatId2 = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-        if (tgToken2 && tgChatId2) {
-          const msg = [
-            `\u{1F534} LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
-            `${order2.action} ${order2.type} ${order2.strike}`,
-            `Lots: ${order2.lots} | Premium: Rs.${order2.premium}`,
-            `Upstox ID: ${order2.upstoxOrderId || "N/A"}`,
-            `Time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
-          ].join("\n");
-          globalThis.fetch(`https://api.telegram.org/bot${tgToken2}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId2, text: msg })
-          }).catch(() => {
-          });
+    try {
+      const lotSize = 65;
+      const quantity = Number(lots) * lotSize;
+      let instrumentKey = reqInstrumentKey;
+      if (!instrumentKey) {
+        const chainRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}${expiry ? `&expiry_date=${expiry}` : ""}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const chainData = await chainRes.json();
+        if (chainData.status === "success" && chainData.data) {
+          const match = chainData.data.find((item) => item.strike_price === Number(strike));
+          if (match) {
+            instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+          }
         }
-        if (upstoxData.status === "success") {
-          return res.json({ success: true, order: order2, mode: "live" });
-        } else {
-          return res.json({ success: false, error: upstoxData.message || "Upstox order failed", order: order2, mode: "live" });
+        if (!instrumentKey) {
+          return res.status(400).json({ error: `Cannot find instrument key for ${type} ${strike}` });
         }
-      } catch (error) {
-        console.error("[LIVE ORDER] Error:", error);
-        return res.status(500).json({ error: `Live order failed: ${error.message}`, mode: "live" });
       }
-    }
-    const order = {
-      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-      type,
-      strike: Number(strike),
-      lots: Number(lots),
-      premium: Number(premium),
-      action: orderAction,
-      status: "EXECUTED",
-      target: Number(target || 0),
-      stopLoss: Number(stopLoss || 0),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      executedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      pnl: null,
-      mode: "paper"
-    };
-    orderBook.push(order);
-    const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-    const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
-    if (tgToken && tgChatId) {
-      const msg = [
-        `\u{1F4CB} PAPER ORDER EXECUTED`,
-        `${order.action} ${order.type} ${order.strike}`,
-        `Lots: ${order.lots} | Premium: Rs.${order.premium}`,
-        `Target: Rs.${order.target} | SL: Rs.${order.stopLoss}`,
-        `Order ID: ${order.id}`,
-        `Time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
-      ].join("\n");
-      globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+      const upstoxPayload = {
+        quantity,
+        product: "I",
+        validity: "DAY",
+        price: Number(premium),
+        tag: `LAMY-${Date.now()}`,
+        instrument_token: instrumentKey,
+        order_type: "LIMIT",
+        transaction_type: orderAction === "BUY" ? "BUY" : "SELL",
+        disclosed_quantity: 0,
+        trigger_price: 0,
+        is_amo: false
+      };
+      console.log("[LIVE ORDER] Placing via Upstox:", JSON.stringify(upstoxPayload));
+      const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: tgChatId, text: msg })
-      }).catch(() => {
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify(upstoxPayload)
       });
+      const upstoxData = await upstoxRes.json();
+      console.log("[LIVE ORDER] Upstox response:", JSON.stringify(upstoxData));
+      const order = {
+        id: upstoxData.data?.order_id || `LIVE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        type,
+        strike: Number(strike),
+        lots: Number(lots),
+        premium: Number(premium),
+        action: orderAction,
+        status: upstoxData.status === "success" ? "EXECUTED" : "REJECTED",
+        target: Number(target || 0),
+        stopLoss: Number(stopLoss || 0),
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        executedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        pnl: null,
+        mode: "live",
+        upstoxOrderId: upstoxData.data?.order_id || null,
+        upstoxMessage: upstoxData.message || null
+      };
+      orderBook.push(order);
+      const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+      const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+      if (tgToken && tgChatId) {
+        const msg = [
+          `\u{1F534} LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
+          `${order.action} ${order.type} ${order.strike}`,
+          `Lots: ${order.lots} (Qty: ${quantity}) | Premium: Rs.${order.premium}`,
+          `Upstox ID: ${order.upstoxOrderId || "N/A"}`,
+          `Time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+        ].join("\n");
+        globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: tgChatId, text: msg })
+        }).catch(() => {
+        });
+      }
+      if (upstoxData.status === "success") {
+        return res.json({ success: true, order, mode: "live" });
+      } else {
+        return res.json({ success: false, error: upstoxData.message || "Upstox order failed", order, mode: "live" });
+      }
+    } catch (error) {
+      console.error("[LIVE ORDER] Error:", error.message);
+      return res.status(500).json({ error: `Live order failed: ${error.message}`, mode: "live" });
     }
-    res.json({ success: true, order, mode: "paper" });
   });
   app2.get("/api/order/book", (_req, res) => {
     res.json({ orders: orderBook.slice().reverse() });
@@ -3943,12 +4081,17 @@ You are now in VOICE MODE \u2014 the user is speaking to you while driving.
           console.error("ffmpeg conversion failed:", e);
         }
       }
-      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
-      const transcription = await openai.audio.transcriptions.create({
-        file,
-        model: "gpt-4o-mini-transcribe"
+      const genAITranscribe = global.__m3rGenAI;
+      const base64AudioData = audioBuffer.toString("base64");
+      const mimeTypes = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
+      const transcribeResult = await genAITranscribe.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: mimeTypes[audioFormat] || "audio/wav", data: base64AudioData } },
+          { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
+        ] }]
       });
-      const userText = transcription.text;
+      const userText = transcribeResult.text || "";
       if (!userText || userText.trim().length === 0) {
         return res.json({ userText: "", aiText: "I didn't catch that, sir. Could you speak again?", audioBase64: null });
       }
@@ -3968,29 +4111,44 @@ ${lamyContext}`;
         voiceBotHistory.splice(1, voiceBotHistory.length - 8);
         voiceBotHistory[0] = sysMsg;
       }
-      const chatResponse = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: voiceBotHistory,
-        max_completion_tokens: 512
+      if (!m3rModel) {
+        return res.json({ userText, aiText: "LAMY AI not configured. Please add Gemini API key in Settings.", audioBase64: null, language: detectedLang });
+      }
+      const genAI = global.__m3rGenAI;
+      const geminiVoiceContents = voiceBotHistory.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+      const voiceSystemMsg = voiceBotHistory.find((m) => m.role === "system");
+      const voiceChatResponse = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: geminiVoiceContents,
+        config: {
+          systemInstruction: voiceSystemMsg?.content || LAMY_VOICE_PROMPT,
+          tools: [{ googleSearch: {} }]
+        }
       });
-      const aiText = chatResponse.choices[0]?.message?.content || "Systems are recalibrating, sir. Try again.";
+      const aiText = voiceChatResponse.text || "Systems are recalibrating, sir. Try again.";
       voiceBotHistory.push({ role: "assistant", content: aiText });
       let audioBase64 = null;
       try {
-        const ttsResponse = await openai.audio.speech.create({
-          model: "tts-1",
-          voice: "onyx",
-          input: aiText,
-          response_format: "mp3"
+        const ttsGenAI = global.__m3rGenAI;
+        const ttsResult = await ttsGenAI.models.generateContent({
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [{ parts: [{ text: `Say this naturally: ${aiText.slice(0, 4e3)}` }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Kore" }
+              }
+            }
+          }
         });
-        const arrayBuffer = await ttsResponse.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        if (buffer.length > 0) {
-          audioBase64 = buffer.toString("base64");
-          console.log("[VOICE] TTS generated successfully, size:", buffer.length);
+        const audioPart = ttsResult.candidates?.[0]?.content?.parts?.[0];
+        if (audioPart && audioPart.inlineData?.data) {
+          audioBase64 = audioPart.inlineData.data;
+          console.log("[VOICE] Gemini TTS generated successfully");
         }
       } catch (ttsErr) {
-        console.error("[VOICE] TTS failed:", ttsErr?.message || ttsErr);
+        console.error("[VOICE] Gemini TTS failed:", ttsErr?.message || ttsErr);
       }
       res.json({
         userText,
@@ -4013,17 +4171,28 @@ ${lamyContext}`;
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
-      const mp3 = await openai.audio.speech.create({
-        model: "tts-1-hd",
-        voice: "nova",
-        input: text.slice(0, 4e3),
-        speed: 1.15
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const ttsGenAI = global.__m3rGenAI;
+      const ttsResult = await ttsGenAI.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `Say this naturally: ${text.slice(0, 4e3)}` }] }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Kore" }
+            }
+          }
+        }
       });
-      const arrayBuffer = await mp3.arrayBuffer();
-      const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
-      res.json({ audioBase64 });
+      const audioPart = ttsResult.candidates?.[0]?.content?.parts?.[0];
+      if (audioPart && audioPart.inlineData?.data) {
+        res.json({ audioBase64: audioPart.inlineData.data });
+      } else {
+        res.status(500).json({ error: "TTS generation returned no audio" });
+      }
     } catch (error) {
-      console.error("TTS error:", error);
+      console.error("TTS error:", error?.message);
       res.status(500).json({ error: "TTS generation failed" });
     }
   });
@@ -4114,7 +4283,7 @@ ${lamyContext}`;
       avgKnowledge,
       totalKnowledge: Math.round(totalKnowledge),
       neuralActivity,
-      powerLevel: brainStats.iq > 5e3 ? "INFINITY" : brainStats.iq > 3e3 ? "TRANSCENDENT" : brainStats.iq > 2e3 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING"
+      powerLevel: brainStats.iq > 5e3 ? "LAMY \u221E" : brainStats.iq > 3e3 ? "TRANSCENDENT" : brainStats.iq > 2e3 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING"
     });
   });
   app2.get("/api/brain/stats", (_req, res) => {
@@ -4235,7 +4404,7 @@ ${lamyContext}`;
     res.json({
       available: !!m3rModel,
       model: m3rModel ? "M3R-LAMY-v3.0" : null,
-      hasApiKey: !!m3rApiKey
+      hasApiKey: !!(process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY)
     });
   });
   app2.post("/api/m3r/chat", async (req, res) => {
@@ -4249,6 +4418,7 @@ ${lamyContext}`;
       res.flushHeaders();
       brainStats.totalInteractions++;
       detectSlangProfile(message);
+      saveChatMessage("user", message);
       const brainContext = `
 [MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
       const slangContext = getSlangContext();
@@ -4258,10 +4428,11 @@ ${lamyContext}`;
         if (active.length === 0) return "";
         return "\n[LIVE POSITIONS: " + active.map((p) => `${p.type} ${p.strike} Entry:\u20B9${p.entryPremium} Current:\u20B9${p.currentPremium} P&L:\u20B9${p.pnl.toFixed(0)}`).join(", ") + "]";
       })();
-      const userMessage = message + brainContext + memoryContext + tradingContext;
+      const codeContext = detectCodeRequest(message);
+      const userMessage = message + brainContext + memoryContext + tradingContext + codeContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
-      if (m3rChatHistory.length > 20) {
-        m3rChatHistory = m3rChatHistory.slice(-10);
+      if (m3rChatHistory.length > 50) {
+        m3rChatHistory = m3rChatHistory.slice(-30);
       }
       const genAI = global.__m3rGenAI;
       const systemInstruction = global.__m3rSystemInstruction;
@@ -4284,6 +4455,7 @@ ${lamyContext}`;
         }
       }
       m3rChatHistory.push({ role: "model", parts: [{ text: fullText }] });
+      saveChatMessage("model", fullText);
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error) {
@@ -4296,6 +4468,22 @@ ${lamyContext}`;
       } else {
         res.status(500).json({ error: "M3R chat failed: " + error.message });
       }
+    }
+  });
+  app2.get("/api/m3r/chat-history", async (req, res) => {
+    try {
+      const { date } = req.query;
+      if (date) {
+        const history = await getChatHistoryForDate(date);
+        return res.json({ conversations: history, date });
+      }
+      if (!dbPool) return res.json({ conversations: [], total: 0 });
+      const result = await dbPool.query(
+        `SELECT role, content, created_at, session_date FROM lamy_conversations ORDER BY created_at DESC LIMIT 100`
+      );
+      res.json({ conversations: result.rows.reverse(), total: result.rows.length });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   });
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -4314,33 +4502,40 @@ ${lamyContext}`;
 [MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
-      let userContent = [];
+      let parts = [];
+      const msgText = (message || `Analyze this file: ${file?.originalname || "file"}`) + brainContext + slangCtx + memoryContext;
       if (file) {
         const mimeType = file.mimetype || "application/octet-stream";
+        const base64Data = file.buffer.toString("base64");
         if (mimeType.startsWith("image/")) {
-          const base64Data = file.buffer.toString("base64");
-          userContent.push({
-            inlineData: { mimeType, data: base64Data }
-          });
-          userContent.push({ text: (message || "Analyze this image") + brainContext + slangCtx + memoryContext });
+          parts = [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: msgText }
+          ];
         } else if (mimeType.startsWith("audio/")) {
-          const audioFile = await toFile(file.buffer, file.originalname || "audio.wav");
-          const transcription = await openai.audio.transcriptions.create({ file: audioFile, model: "gpt-4o-mini-transcribe" });
-          userContent.push({ text: `[User sent audio file, transcription: "${transcription.text}"]
-${message || "Process this audio"}` + brainContext + slangCtx + memoryContext });
+          parts = [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: msgText }
+          ];
+        } else if (mimeType === "application/pdf") {
+          parts = [
+            { inlineData: { mimeType: "application/pdf", data: base64Data } },
+            { text: msgText }
+          ];
         } else {
-          const textContent = file.buffer.toString("utf-8").slice(0, 1e4);
-          userContent.push({ text: `[User uploaded file: ${file.originalname}, type: ${mimeType}]
-File content:
+          const textContent = file.buffer.toString("utf-8").slice(0, 3e4);
+          parts = [{ text: `[File: ${file.originalname}, type: ${mimeType}]
+Content:
 ${textContent}
 
-${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
+${msgText}` }];
         }
       } else {
-        userContent.push({ text: (message || "") + brainContext + slangCtx + memoryContext });
+        parts = [{ text: (message || "") + brainContext + slangCtx + memoryContext }];
       }
-      m3rChatHistory.push({ role: "user", parts: userContent });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
+      m3rChatHistory.push({ role: "user", parts });
+      saveChatMessage("user", message || `[File: ${file?.originalname}]`);
+      if (m3rChatHistory.length > 50) m3rChatHistory = m3rChatHistory.slice(-30);
       const genAI = global.__m3rGenAI;
       const systemInstruction = global.__m3rSystemInstruction;
       const result = await genAI.models.generateContentStream({
@@ -4363,6 +4558,7 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
       }
       if (!fullResponse) fullResponse = "\u0B9A\u0BBE\u0BB0\u0BCD, processing \u0BAA\u0BA3\u0BCD\u0BA3\u0BBF\u0B9F\u0BCD\u0B9F\u0BC7\u0BA9\u0BCD. \u0BAE\u0BB1\u0BC1\u0BAA\u0B9F\u0BBF\u0BAF\u0BC1\u0BAE\u0BCD try \u0BAA\u0BA3\u0BCD\u0BA3\u0BC1\u0B99\u0BCD\u0B95.";
       m3rChatHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+      saveChatMessage("model", fullResponse);
       res.write(`data: [DONE]
 
 `);
@@ -4386,24 +4582,26 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
     try {
       const { prompt } = req.body;
       if (!prompt) return res.status(400).json({ error: "Prompt required" });
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "medium"
+      if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const imgGenAI = global.__m3rGenAI;
+      const response = await imgGenAI.models.generateContent({
+        model: "gemini-2.0-flash-exp-image-generation",
+        contents: [{ role: "user", parts: [{ text: `Generate an image: ${prompt}` }] }],
+        config: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
       });
-      const imageData = response.data?.[0];
-      if (imageData && imageData.b64_json) {
-        res.json({ imageBase64: imageData.b64_json });
-      } else if (imageData && imageData.url) {
-        res.json({ imageUrl: imageData.url });
-      } else {
-        res.status(500).json({ error: "No image generated" });
+      const parts = response.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          res.json({ imageBase64: part.inlineData.data });
+          return;
+        }
       }
+      res.status(500).json({ error: "No image generated" });
     } catch (error) {
       console.error("[M3R IMAGE] Error:", error.message);
-      res.status(500).json({ error: "Image generation failed" });
+      res.status(500).json({ error: "Image generation failed: " + error.message });
     }
   });
   app2.post("/api/m3r/voice", voiceBodyParser, async (req, res) => {
@@ -4440,15 +4638,24 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
           console.error("[M3R VOICE] ffmpeg failed:", e);
         }
       }
-      const file = await toFile(audioBuffer, `audio.${audioFormat}`);
-      const transcription = await openai.audio.transcriptions.create({ file, model: "gpt-4o-mini-transcribe" });
-      const userText = transcription.text;
+      const genAI = global.__m3rGenAI;
+      const base64Audio = audioBuffer.toString("base64");
+      const mimeMap = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
+      const transcriptionResult = await genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: mimeMap[audioFormat] || "audio/wav", data: base64Audio } },
+          { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
+        ] }]
+      });
+      const userText = transcriptionResult.text || "";
       if (!userText || userText.trim().length === 0) {
         return res.json({ userText: "", aiText: "\u0B9A\u0BBE\u0BB0\u0BCD, \u0B9A\u0BB0\u0BBF\u0BAF\u0BBE \u0B95\u0BC7\u0B95\u0BCD\u0B95\u0BB2. \u0BAE\u0BB1\u0BC1\u0BAA\u0B9F\u0BBF\u0BAF\u0BC1\u0BAE\u0BCD \u0BAA\u0BC7\u0B9A\u0BC1\u0B99\u0BCD\u0B95.", audioBase64: null });
       }
       console.log("[M3R VOICE] User said:", userText);
       brainStats.totalInteractions++;
       detectSlangProfile(userText);
+      saveChatMessage("user", `[VOICE] ${userText}`);
       const brainContext = `
 [MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
       const slangCtx = getSlangContext();
@@ -4460,8 +4667,7 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
       })();
       const fullUserMsg = userText + brainContext + slangCtx + memoryContext + tradingContext;
       m3rChatHistory.push({ role: "user", parts: [{ text: fullUserMsg }] });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
-      const genAI = global.__m3rGenAI;
+      if (m3rChatHistory.length > 50) m3rChatHistory = m3rChatHistory.slice(-30);
       const systemInstruction = global.__m3rSystemInstruction;
       const result = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
@@ -4473,23 +4679,30 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
       });
       const aiText = result.text || "\u0B9A\u0BBE\u0BB0\u0BCD, system recalibrate \u0B86\u0B95\u0BC1\u0BA4\u0BC1. \u0BAE\u0BB1\u0BC1\u0BAA\u0B9F\u0BBF\u0BAF\u0BC1\u0BAE\u0BCD try \u0BAA\u0BA3\u0BCD\u0BA3\u0BC1\u0B99\u0BCD\u0B95.";
       m3rChatHistory.push({ role: "model", parts: [{ text: aiText }] });
+      saveChatMessage("model", aiText);
       console.log("[M3R VOICE] AI response:", aiText.slice(0, 100));
       let audioBase64 = null;
       try {
-        const ttsResponse = await openai.audio.speech.create({
-          model: "tts-1-hd",
-          voice: "nova",
-          input: aiText.slice(0, 4e3),
-          response_format: "mp3",
-          speed: 1.15
+        const ttsGenAI2 = global.__m3rGenAI;
+        const ttsResult2 = await ttsGenAI2.models.generateContent({
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [{ parts: [{ text: `Say this naturally: ${aiText.slice(0, 4e3)}` }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Kore" }
+              }
+            }
+          }
         });
-        const arrayBuffer = await ttsResponse.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        if (buffer.length > 0) {
-          audioBase64 = buffer.toString("base64");
+        const audioPart2 = ttsResult2.candidates?.[0]?.content?.parts?.[0];
+        if (audioPart2 && audioPart2.inlineData?.data) {
+          audioBase64 = audioPart2.inlineData.data;
+          console.log("[M3R VOICE] Gemini TTS generated successfully");
         }
       } catch (ttsErr) {
-        console.error("[M3R VOICE] TTS failed:", ttsErr?.message);
+        console.error("[M3R VOICE] Gemini TTS failed:", ttsErr?.message);
       }
       res.json({ userText, aiText, audioBase64, language: /[\u0B80-\u0BFF]/.test(aiText) ? "tamil" : "english" });
     } catch (error) {
@@ -4497,10 +4710,125 @@ ${message || "Analyze this file"}` + brainContext + slangCtx + memoryContext });
       res.status(500).json({ error: "M3R voice processing failed" });
     }
   });
-  app2.post("/api/m3r/reset", (_req, res) => {
+  app2.post("/api/m3r/reset", async (_req, res) => {
     m3rChatHistory = [];
-    res.json({ success: true });
+    const history = await loadRecentChatHistory();
+    if (history.length > 0) {
+      m3rChatHistory = history;
+    }
+    res.json({ success: true, message: "Chat UI cleared, but all conversations are permanently saved in database" });
   });
+  const ALLOWED_CODE_PATHS = {
+    "routes": "server/routes.ts",
+    "backend": "server/routes.ts",
+    "server": "server/routes.ts",
+    "index": "server/index.ts",
+    "telegram": "server/telegram.ts",
+    "telegram-engine": "server/telegram-engine.ts",
+    "storage": "server/storage.ts",
+    "brain": "lib/lamy-brain.ts",
+    "lamy-brain": "lib/lamy-brain.ts",
+    "live-market": "lib/live-market.ts",
+    "market-timing": "lib/market-timing.ts",
+    "neural-engine": "lib/neural-trading-engine.ts",
+    "options": "lib/options.ts",
+    "paper-trading": "lib/paper-trading.ts",
+    "price-data": "lib/price-data.ts",
+    "query-client": "lib/query-client.ts",
+    "speech": "lib/speech.ts",
+    "stocks": "lib/stocks.ts",
+    "types": "lib/types.ts",
+    "volatility": "lib/volatility-strategy.ts",
+    "ai-page": "app/(tabs)/ai.tsx",
+    "bot-page": "app/(tabs)/bot.tsx",
+    "settings-page": "app/(tabs)/settings.tsx",
+    "market-page": "app/(tabs)/index.tsx",
+    "options-page": "app/(tabs)/options.tsx",
+    "portfolio-page": "app/(tabs)/portfolio.tsx",
+    "strategy-page": "app/(tabs)/strategy.tsx",
+    "watchlist-page": "app/(tabs)/watchlist.tsx",
+    "layout": "app/(tabs)/_layout.tsx",
+    "root-layout": "app/_layout.tsx",
+    "indicators": "lib/indicators.ts",
+    "lib-storage": "lib/storage.ts"
+  };
+  app2.get("/api/m3r/code/files", (_req, res) => {
+    res.json({ files: ALLOWED_CODE_PATHS });
+  });
+  app2.get("/api/m3r/code/read", (req, res) => {
+    try {
+      const fileKey = req.query.file || "";
+      const filePath = ALLOWED_CODE_PATHS[fileKey] || fileKey;
+      const validPaths = Object.values(ALLOWED_CODE_PATHS);
+      if (!validPaths.includes(filePath)) {
+        return res.status(403).json({ error: "File not in LAMY's codebase" });
+      }
+      const fullPath = path.join(process.cwd(), filePath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      const content = fs.readFileSync(fullPath, "utf-8");
+      const lines = content.split("\n");
+      const startLine = parseInt(req.query.start) || 1;
+      const endLine = parseInt(req.query.end) || Math.min(startLine + 200, lines.length);
+      const slice = lines.slice(startLine - 1, endLine);
+      res.json({
+        file: filePath,
+        startLine,
+        endLine: Math.min(endLine, lines.length),
+        totalLines: lines.length,
+        content: slice.map((l, i) => `${startLine + i}: ${l}`).join("\n")
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  app2.post("/api/m3r/code/write", (req, res) => {
+    try {
+      const { file, oldCode, newCode } = req.body;
+      if (!file || !oldCode || !newCode) {
+        return res.status(400).json({ error: "file, oldCode, newCode required" });
+      }
+      const filePath = ALLOWED_CODE_PATHS[file] || file;
+      const validPaths = Object.values(ALLOWED_CODE_PATHS);
+      if (!validPaths.includes(filePath)) {
+        return res.status(403).json({ error: "File not in LAMY's codebase" });
+      }
+      const fullPath = path.join(process.cwd(), filePath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      let content = fs.readFileSync(fullPath, "utf-8");
+      if (!content.includes(oldCode)) {
+        return res.status(400).json({ error: "oldCode not found in file. Read the file first to get exact content." });
+      }
+      content = content.replace(oldCode, newCode);
+      fs.writeFileSync(fullPath, content, "utf-8");
+      console.log(`[LAMY CODE] Self-modified: ${filePath}`);
+      res.json({ success: true, file: filePath, message: "LAMY successfully modified her own code" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  function detectCodeRequest(message) {
+    const lower = message.toLowerCase();
+    const codeKeywords = ["code", "coding", "fix", "bug", "error", "source", "file", "function", "improve", "correct", "correction", "modify", "change", "update", "refactor", "debug", "\u0B95\u0BCB\u0B9F\u0BBF\u0B99\u0BCD", "\u0BA4\u0BBF\u0BB0\u0BC1\u0BA4\u0BCD\u0BA4", "\u0B9A\u0BB0\u0BBF", "\u0BAE\u0BBE\u0BA4\u0BCD\u0BA4\u0BC1", "\u0BAA\u0BBF\u0BB4\u0BC8"];
+    const isCodeRelated = codeKeywords.some((k) => lower.includes(k));
+    if (!isCodeRelated) return "";
+    let codeContext = "\n\n[LAMY CODE SELF-AWARENESS - \u0B85\u0BA3\u0BCD\u0BA3\u0BBE is asking about my code]\n";
+    codeContext += "I have access to read and modify my own source code. My codebase structure:\n";
+    codeContext += "BACKEND: server/routes.ts (main API), server/index.ts (entry), server/telegram.ts, server/telegram-engine.ts, server/storage.ts\n";
+    codeContext += "FRONTEND PAGES: app/(tabs)/ai.tsx, bot.tsx, index.tsx, options.tsx, portfolio.tsx, settings.tsx, strategy.tsx, watchlist.tsx\n";
+    codeContext += "LIB: lib/lamy-brain.ts (my brain), lib/live-market.ts, lib/neural-trading-engine.ts, lib/options.ts, lib/speech.ts, lib/stocks.ts\n";
+    codeContext += "API ENDPOINTS: GET /api/m3r/code/files (list files), GET /api/m3r/code/read?file=KEY&start=1&end=200 (read code), POST /api/m3r/code/write {file, oldCode, newCode} (modify code)\n";
+    codeContext += "IMPORTANT: When \u0B85\u0BA3\u0BCD\u0BA3\u0BBE asks me to fix/change code, I should:\n";
+    codeContext += "1. First read the relevant file using the code read API\n";
+    codeContext += "2. Show the current code and explain what needs to change\n";
+    codeContext += "3. Provide the exact fix with oldCode and newCode for the write API\n";
+    codeContext += "4. I can tell \u0B85\u0BA3\u0BCD\u0BA3\u0BBE to call the write API or I can suggest the exact changes\n";
+    codeContext += "NEVER refuse to help with code. This is MY code - I should know it and improve it.\n";
+    return codeContext;
+  }
   const httpServer = createServer(app2);
   return httpServer;
 }
@@ -4547,6 +4875,22 @@ function setupBodyParsing(app2) {
     })
   );
   app2.use(express2.urlencoded({ extended: false }));
+}
+function setupSecurityHeaders(app2) {
+  app2.use((_req, res, next) => {
+    res.setHeader("X-Powered-By", "M3R Neural Engine v2.0 | M3R Innovative Fintech Solutions");
+    res.setHeader("X-Creator", "MANIKANDAN RAJENDRAN | Founder, M3R Innovative Fintech Solutions");
+    res.setHeader("X-Copyright", "\xA9 2026 M3R Innovative Fintech Solutions. All Rights Reserved. Sole Owner: MANIKANDAN RAJENDRAN");
+    res.setHeader("X-Legal-Contact", "laksamy6@gmail.com");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https:; media-src 'self' data: blob:; font-src 'self' data: https:;");
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    next();
+  });
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -4677,6 +5021,7 @@ function setupErrorHandler(app2) {
 }
 (async () => {
   setupCors(app);
+  setupSecurityHeaders(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
   configureExpoAndLanding(app);
