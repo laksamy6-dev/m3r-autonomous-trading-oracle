@@ -4312,12 +4312,17 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         }
       }
 
+      const tradeKeywords = /\b(buy|sell|trade|order|place|execute|nifty|option|strike|premium|call|put|ce\b|pe\b|position|fund|margin|lot|expiry|spot|price|chain|portfolio|holding)/i;
+      const isTradeRelated = tradeKeywords.test(userMessage);
+
       const response = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
         contents: m3rChatHistory,
         config: {
-          systemInstruction: systemInstruction + slangContext + "\n\nIMPORTANT: When Sir asks to trade, BUY, SELL, or place an order, you MUST use the place_upstox_order function. NEVER just describe what you would do — actually DO it by calling the function. Check spot price and option chain first using the available functions, then place the order. Lot size is 65.",
-          tools: [{ googleSearch: {} }, { functionDeclarations: tradeFunctionDeclarations as any }],
+          systemInstruction: systemInstruction + slangContext + (isTradeRelated ? "\n\nIMPORTANT: When Sir asks to trade, BUY, SELL, or place an order, you MUST use the place_upstox_order function. NEVER just describe what you would do — actually DO it by calling the function. Check spot price and option chain first using the available functions, then place the order. Lot size is 65. You can also check positions and funds." : ""),
+          tools: isTradeRelated
+            ? [{ functionDeclarations: tradeFunctionDeclarations as any }]
+            : [{ googleSearch: {} }],
         }
       });
 
@@ -4364,8 +4369,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
           model: "gemini-2.5-flash",
           contents: m3rChatHistory,
           config: {
-            systemInstruction: systemInstruction + slangContext,
-            tools: [{ googleSearch: {} }, { functionDeclarations: tradeFunctionDeclarations as any }],
+            systemInstruction: systemInstruction + slangContext + "\n\nYou just executed trading functions. Now summarize the results clearly for Sir. If an order was placed, confirm the details. If there was an error, explain it simply.",
           }
         });
 
