@@ -4531,6 +4531,175 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     return codeContext;
   }
 
+  app.get("/update-token", (req, res) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>M3R - Update Token</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a1a;color:#e0e0e0;font-family:-apple-system,sans-serif;padding:16px;min-height:100vh}
+.container{max-width:500px;margin:0 auto}
+.logo{text-align:center;margin:20px 0}
+.logo h1{color:#00d4ff;font-size:22px}
+.logo span{color:#888;font-size:12px}
+.card{background:#111;border:1px solid #222;border-radius:12px;padding:20px;margin:16px 0}
+.card h2{color:#00d4ff;font-size:16px;margin-bottom:12px}
+label{display:block;color:#aaa;font-size:13px;margin-bottom:6px;margin-top:14px}
+input,textarea{width:100%;background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;color:#fff;font-size:14px;outline:none}
+input:focus,textarea:focus{border-color:#00d4ff}
+textarea{height:80px;resize:vertical;font-family:monospace;font-size:12px}
+.btn{width:100%;padding:14px;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:16px}
+.btn-primary{background:#00d4ff;color:#000}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+.btn-danger{background:#ff4444;color:#fff;font-size:14px;padding:10px;margin-top:10px}
+.status{padding:12px;border-radius:8px;margin-top:12px;font-size:14px;display:none}
+.status.success{display:block;background:#0a3d0a;color:#4caf50;border:1px solid #2e7d32}
+.status.error{display:block;background:#3d0a0a;color:#ff5252;border:1px solid #c62828}
+.current{background:#1a1a2e;border-radius:8px;padding:10px;margin-top:8px;font-family:monospace;font-size:11px;color:#888;word-break:break-all}
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-left:8px}
+.badge-on{background:#0a3d0a;color:#4caf50}
+.badge-off{background:#3d0a0a;color:#ff5252}
+.key-card{background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin:8px 0}
+.key-name{color:#00d4ff;font-size:13px;font-weight:bold}
+.key-val{color:#888;font-size:11px;margin-top:4px;font-family:monospace}
+.flex{display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="logo">
+<h1>M3R Token Manager</h1>
+<span>Direct API Key Update</span>
+</div>
+
+<div class="card" id="loginCard">
+<h2>Owner PIN</h2>
+<input type="password" id="pin" placeholder="Enter PIN" inputmode="numeric" pattern="[0-9]*">
+<button class="btn btn-primary" onclick="login()">Unlock</button>
+<div class="status" id="loginStatus"></div>
+</div>
+
+<div id="mainPanel" style="display:none">
+
+<div class="card">
+<h2>Connection Status</h2>
+<div id="statusList">Loading...</div>
+</div>
+
+<div class="card">
+<h2>Update Upstox Access Token</h2>
+<p style="color:#ff9800;font-size:12px;margin-bottom:8px">Token expires daily. Paste new token below.</p>
+<textarea id="tokenInput" placeholder="Paste new access token here..."></textarea>
+<button class="btn btn-primary" id="tokenBtn" onclick="updateToken()">Update Token</button>
+<div class="status" id="tokenStatus"></div>
+</div>
+
+<div class="card">
+<h2>All Vault Keys</h2>
+<div id="keysList">Loading...</div>
+</div>
+
+<div class="card">
+<h2>Update Any Key</h2>
+<select id="keySelect" style="width:100%;background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;color:#fff;font-size:14px">
+<option value="">Select key to update...</option>
+<option value="UPSTOX_ACCESS_TOKEN">Upstox Access Token</option>
+<option value="UPSTOX_API_KEY">Upstox API Key</option>
+<option value="UPSTOX_SECRET_KEY">Upstox Secret Key</option>
+<option value="TELEGRAM_BOT_TOKEN">Telegram Bot Token</option>
+<option value="TELEGRAM_CHAT_ID">Telegram Chat ID</option>
+<option value="GEMINI_API_KEY">Gemini API Key</option>
+</select>
+<textarea id="keyValue" placeholder="Paste value..." style="margin-top:8px"></textarea>
+<div class="flex" style="margin-top:8px">
+<button class="btn btn-primary" style="flex:1" onclick="updateKey()">Save Key</button>
+<button class="btn btn-danger" style="flex:1" onclick="deleteKey()">Delete Key</button>
+</div>
+<div class="status" id="keyStatus"></div>
+</div>
+</div>
+</div>
+
+<script>
+let pin='';
+async function login(){
+  pin=document.getElementById('pin').value;
+  const s=document.getElementById('loginStatus');
+  try{
+    const r=await fetch('/api/vault/keys?pin='+pin);
+    if(r.ok){
+      document.getElementById('loginCard').style.display='none';
+      document.getElementById('mainPanel').style.display='block';
+      loadAll();
+    }else{s.className='status error';s.textContent='Wrong PIN';}
+  }catch(e){s.className='status error';s.textContent='Connection error';}
+}
+async function loadAll(){
+  try{
+    const[tg,up,vk]=await Promise.all([
+      fetch('/api/telegram/status').then(r=>r.json()),
+      fetch('/api/upstox/status').then(r=>r.json()),
+      fetch('/api/vault/keys?pin='+pin).then(r=>r.json())
+    ]);
+    let sh='';
+    sh+='<div class="key-card"><span class="key-name">Telegram</span><span class="badge '+(tg.configured?'badge-on':'badge-off')+'">'+(tg.configured?'Active':'Not Set')+'</span></div>';
+    sh+='<div class="key-card"><span class="key-name">Upstox API</span><span class="badge '+(up.connected?'badge-on':up.configured?'badge-off':'badge-off')+'">'+(up.connected?'LIVE':up.configured?(up.tokenValid?'Ready':'Token Expired'):'Not Set')+'</span></div>';
+    sh+='<div class="key-card"><span class="key-name">OpenAI</span><span class="badge badge-on">Active</span></div>';
+    const gk=vk.keys?.find(k=>k.id==='GEMINI_API_KEY');
+    sh+='<div class="key-card"><span class="key-name">Gemini</span><span class="badge '+(gk?.hasValue?'badge-on':'badge-off')+'">'+(gk?.hasValue?'Active':'Not Set')+'</span></div>';
+    document.getElementById('statusList').innerHTML=sh;
+    let kh='';
+    (vk.keys||[]).forEach(k=>{
+      kh+='<div class="key-card"><span class="key-name">'+k.label+'</span><span class="badge '+(k.hasValue?'badge-on':'badge-off')+'">'+(k.hasValue?'Set':'Empty')+'</span>';
+      if(k.hasValue)kh+='<div class="key-val">'+k.maskedValue+'</div>';
+      kh+='</div>';
+    });
+    document.getElementById('keysList').innerHTML=kh||'<p style="color:#888">No keys found</p>';
+  }catch(e){console.error(e);}
+}
+async function updateToken(){
+  const v=document.getElementById('tokenInput').value.trim();
+  const s=document.getElementById('tokenStatus');
+  if(!v){s.className='status error';s.textContent='Paste a token first';return;}
+  try{
+    const r=await fetch('/api/vault/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,keyId:'UPSTOX_ACCESS_TOKEN',value:v})});
+    if(r.ok){s.className='status success';s.textContent='Token updated! Checking connection...';document.getElementById('tokenInput').value='';loadAll();}
+    else{s.className='status error';s.textContent='Failed: '+(await r.text());}
+  }catch(e){s.className='status error';s.textContent='Error: '+e.message;}
+}
+async function updateKey(){
+  const kid=document.getElementById('keySelect').value;
+  const v=document.getElementById('keyValue').value.trim();
+  const s=document.getElementById('keyStatus');
+  if(!kid){s.className='status error';s.textContent='Select a key first';return;}
+  if(!v){s.className='status error';s.textContent='Enter a value';return;}
+  try{
+    const r=await fetch('/api/vault/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,keyId:kid,value:v})});
+    if(r.ok){s.className='status success';s.textContent=kid+' updated!';document.getElementById('keyValue').value='';loadAll();}
+    else{s.className='status error';s.textContent='Failed';}
+  }catch(e){s.className='status error';s.textContent='Error: '+e.message;}
+}
+async function deleteKey(){
+  const kid=document.getElementById('keySelect').value;
+  const s=document.getElementById('keyStatus');
+  if(!kid){s.className='status error';s.textContent='Select a key first';return;}
+  if(!confirm('Delete '+kid+'?'))return;
+  try{
+    const r=await fetch('/api/vault/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,keyId:kid})});
+    if(r.ok){s.className='status success';s.textContent=kid+' deleted!';loadAll();}
+    else{s.className='status error';s.textContent='Failed';}
+  }catch(e){s.className='status error';s.textContent='Error: '+e.message;}
+}
+document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+</script>
+</body>
+</html>`);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

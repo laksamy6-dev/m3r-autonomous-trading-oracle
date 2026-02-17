@@ -284,9 +284,9 @@ function setupErrorHandler(app: express.Application) {
     }
   }
 
-  configureExpoAndLanding(app);
-
   const server = await registerRoutes(app);
+
+  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 
