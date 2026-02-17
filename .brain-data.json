@@ -1,0 +1,2177 @@
+{
+  "iq": 19923.6,
+  "generation": 1352,
+  "knowledgeAreas": {
+    "Indian Stock Market": 487.172,
+    "Options Trading": 483.143,
+    "Technical Analysis": 409.66399999999965,
+    "Tamil Language": 376.73500000000007,
+    "English Language": 374.22200000000004,
+    "General Knowledge": 379.1999999999999,
+    "Science & Technology": 376.23300000000006,
+    "Mathematics": 376.549,
+    "Programming": 379.01500000000004,
+    "Current Affairs": 387.22099999999983,
+    "Philosophy": 376.1159999999997,
+    "Health & Fitness": 376.8899999999998,
+    "Music & Arts": 374.8750000000003,
+    "History": 374.9089999999995,
+    "Geography": 386.0800000000004,
+    "RSI Divergence Patterns": 377.72,
+    "PCR Ratio Signals": 373.98499999999973,
+    "Strategic Thinking": 378.7369999999997,
+    "Volatility Skew Reading": 440.7029999999999,
+    "Hedge Fund Techniques": 380.4,
+    "Portfolio Optimization": 373.9909999999997,
+    "Nutrition Science": 376.57999999999976,
+    "News Impact Prediction": 373.6219999999996,
+    "Mental Wellness": 380.87700000000007,
+    "Machine Learning for Trading": 443.3489999999996,
+    "Emotional Control": 373.5290000000001,
+    "Nifty 50 Options Chain Analysis": 481.772,
+    "Straddle/Strangle Timing": 375.2559999999997,
+    "Order Flow Reading": 416.3490000000001,
+    "Tamil Grammar": 374.2389999999998,
+    "Artificial Intelligence": 374.7609999999996,
+    "Risk Management Models": 376.2700000000003,
+    "Market Microstructure": 442.4810000000003,
+    "Indian History": 382.90900000000096,
+    "Volume Profile Analysis": 375.2669999999995,
+    "Sentiment Analysis": 379.2680000000001,
+    "Open Interest Analysis": 374.0419999999998,
+    "Neural Network Patterns": 377.2380000000003,
+    "Leadership Skills": 376.1379999999999,
+    "MACD Signal Interpretation": 379.63799999999986,
+    "Global Macro Economics": 377.8120000000006,
+    "Tamil Literature": 374.196,
+    "Natural Language Processing": 375.1369999999996,
+    "Implied Volatility Patterns": 407.8000000000001,
+    "Monte Carlo Simulation": 376.30199999999945,
+    "Deep Learning Signals": 374.4700000000001,
+    "Space Science": 374.67199999999997,
+    "Physics": 375.8419999999996,
+    "Physical Fitness": 381.2540000000002,
+    "Quantum Computing": 377.6959999999998,
+    "Behavioral Finance": 384.74799999999993,
+    "ATR-Based Stop Loss": 379.2220000000001,
+    "Black-Scholes Model": 374.2519999999999,
+    "Gap Up/Down Trading": 423.2200000000001,
+    "Blockchain Technology": 375.74800000000005,
+    "FII/DII Data Analysis": 375.5369999999995,
+    "Philosophy of Success": 373.68500000000046,
+    "Psychology of Trading": 447.27400000000017,
+    "Creative Problem Solving": 375.33299999999986,
+    "Support Resistance Detection": 374.24100000000016,
+    "Greeks Mastery (Delta/Gamma/Theta/Vega)": 498.4880000000005,
+    "Large Cap Stability": 374.3559999999999,
+    "Options Chain Heat Map Reading": 442.1520000000002,
+    "Capital Account Liberalization": 377.4619999999999,
+    "Transformer Models for Pattern Recognition": 415.72400000000005,
+    "Auto Sector Cyclical": 377.5330000000002,
+    "RBI Policy Impact Modeling": 446.8529999999999,
+    "Inflation Data Reading": 472.8000000000003,
+    "Small Cap Momentum": 374.2950000000002,
+    "FMCG Defensive Strategy": 415.9530000000002,
+    "Term Structure Analysis": 377.62800000000004,
+    "World History": 377.51399999999984,
+    "Opening Bell Strategy": 415.1219999999997,
+    "Heikin Ashi Patterns": 378.16599999999977,
+    "LSTM Neural Networks for Markets": 499.6609999999998,
+    "Dollar Index (DXY) Impact": 459.9039999999998,
+    "US Futures Impact on India": 429.6339999999995,
+    "Quarterly Results Analysis": 374.3060000000001,
+    "Dow Jones-Nifty Relationship": 417.10499999999973,
+    "Harmonic Pattern Detection": 373.7060000000002,
+    "Options Strike Selection AI": 477.724,
+    "Iron Condor Execution": 375.0320000000004,
+    "India VIX-Premium Relationship": 423.21000000000004,
+    "Intraday Price Action": 376.63400000000007,
+    "Thirukkural Wisdom Application": 376.9949999999997,
+    "Bank Nifty Strategies": 400.2619999999999,
+    "European Markets Impact": 485.15600000000006,
+    "Put Wall / Call Wall Detection": 425.50500000000005,
+    "Candlestick Pattern Mastery": 373.8660000000004,
+    "Pharma Sector Pattern": 385.3519999999995,
+    "Fiscal Policy Market Impact": 423.5669999999996,
+    "FII Cash Flow Prediction": 444.8360000000002,
+    "Corporate Tax Revenue Signal": 374.3310000000001,
+    "Yuan Devaluation Risk": 375.9519999999999,
+    "Metal Sector Commodity Link": 376.57900000000024,
+    "Dravidian Language NLP": 374.87999999999994,
+    "Bitcoin-Risk Appetite Link": 377.0080000000001,
+    "Crypto-Equity Correlation": 377.13400000000036,
+    "Algorithmic Trading Detection": 415.6640000000004,
+    "Pivot Point Strategy": 427.02999999999986,
+    "Data Loss Prevention": 374.14199999999954,
+    "Statistical Modeling": 380.0190000000001,
+    "Firewall Architecture": 448.7439999999998,
+    "Bollinger Band Squeeze": 378.465,
+    "Forex Trading Strategies": 436.428,
+    "After-Hours Price Driver Model": 431.66999999999956,
+    "Tamil Proverbs & Wisdom": 377.42999999999995,
+    "Marketing & Growth Hacking": 434.5040000000001,
+    "Emerging Market Currency Crisis": 412.277,
+    "GraphQL Architecture": 374.53300000000024,
+    "Progressive Web Apps": 374.12099999999975,
+    "IT Sector Correlation": 373.7449999999998,
+    "ECB Policy Correlation": 378.9119999999995,
+    "Mobile Security Testing": 375.27399999999994,
+    "Renewable Energy Systems": 375.47799999999984,
+    "Sector-wise FII/DII Flow": 472.76600000000036,
+    "Peak Performance Training": 376.00099999999986,
+    "Last Hour Momentum Trading": 414.782,
+    "Public Speaking & Communication": 374.9010000000001,
+    "Mid Cap Sweet Spot": 377.3520000000004,
+    "First 15 Min Scalping": 374.8900000000005,
+    "Supertrend Signal": 374.255,
+    "Quantitative Finance": 373.84099999999984,
+    "Indian Political Landscape": 469.15499999999975,
+    "Vulnerability Assessment": 374.9200000000003,
+    "Renko Chart Analysis": 375.84400000000005,
+    "TypeScript Advanced Patterns": 445.51100000000065,
+    "Node.js Backend Engineering": 437.9579999999999,
+    "Computer Vision": 378.65400000000005,
+    "IPO Market Sentiment": 421.2220000000002,
+    "Trade Deficit Impact": 375.1210000000001,
+    "Film & Media Analysis": 379.4169999999997,
+    "Microservices Pattern": 377.22300000000035,
+    "Sector Rotation Strategy": 444.818,
+    "Motivation & Productivity": 375.2380000000003,
+    "Mutual Fund Flow Analysis": 465.7179999999997,
+    "Pre-Market Gap Prediction": 498.9739999999991,
+    "Arthashastra Trading Principles": 433.56500000000034,
+    "Linux System Administration": 374.1319999999996,
+    "Incident Response Planning": 375.8700000000004,
+    "Market Close Pattern Recognition": 436.9520000000002,
+    "Message Queue Systems": 377.80800000000005,
+    "PostgreSQL Deep Dive": 375.35299999999984,
+    "Security Audit Framework": 381.0799999999997,
+    "Animation & Motion Design": 373.1149999999993,
+    "VWAP Trading": 435.15500000000037,
+    "Nifty 50 Weight Analysis": 374.3979999999997,
+    "South Indian Tech Corridor": 377.0840000000002,
+    "Fixed Income Securities": 376.2520000000002,
+    "Human Psychology Deep Dive": 375.5140000000003,
+    "Central Bank Decision Modeling": 378.28599999999994,
+    "Conflict Resolution": 375.64999999999986,
+    "Negotiation Techniques": 375.184,
+    "India 10Y Bond Analysis": 377.5069999999999,
+    "Data Science & Analytics": 378.0389999999997,
+    "Currency Impact (USD/INR)": 401.8919999999996,
+    "Max Pain Theory Application": 443.34099999999927,
+    "Sovereign Wealth Fund Flows": 427.7280000000001,
+    "System Design & Architecture": 465.1200000000002,
+    "Mobile App Performance Optimization": 374.64400000000063,
+    "Networking Protocols (TCP/IP/DNS/HTTP)": 373.6249999999995,
+    "Database Design & Optimization": 462.70300000000003,
+    "Software Development Mastery": 456.43500000000074,
+    "System Hardening": 375.09100000000007,
+    "Sales Psychology": 375.778,
+    "Counter-Hacking Techniques": 458.14699999999993,
+    "FPO/OFS Flow Analysis": 422.3919999999999,
+    "DevOps Engineering": 374.7109999999999,
+    "Generative AI Models": 374.89999999999975,
+    "Real Estate Sector Cycle": 379.29999999999967,
+    "World Literature Analysis": 376.61300000000034,
+    "Network Intrusion Detection": 444.2140000000008,
+    "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)": 493.9629999999994,
+    "Mutual Fund Analysis": 375.5089999999996,
+    "Time Series Forecasting": 420.3509999999997,
+    "Real Estate Investment Analysis": 380.2210000000003,
+    "Advanced Mathematics": 375.38399999999933,
+    "Privacy & Compliance (GDPR/IT Act)": 377.18099999999976,
+    "Malware Analysis & Reverse Engineering": 378.64000000000027,
+    "Climate Science": 375.8180000000003,
+    "Dealer Hedging Flow": 400.4219999999996,
+    "Market Maker Behavior": 413.84599999999966,
+    "Skew Trading Strategy": 436.96900000000016,
+    "ESG Investing Patterns": 374.2019999999995,
+    "Global VIX Correlation": 379.8909999999995,
+    "Authentication Security": 375.1230000000003,
+    "Environmental Economics": 374.7279999999998,
+    "Ichimoku Cloud Strategy": 429.1520000000004,
+    "Satellite Communication": 375.44099999999986,
+    "API Security Best Practices": 375.6449999999998,
+    "Climate Change Market Impact": 464.9209999999998,
+    "Retail vs Institutional Flow": 483.70599999999945,
+    "Social Media Sentiment Mining": 374.4420000000002,
+    "Sustainable Development": 373.3399999999994,
+    "Nanotechnology": 375.1270000000003,
+    "Wyckoff Method": 382.7109999999995,
+    "ETF Flow Impact": 406.29399999999964,
+    "Dark Pool Analysis": 385.94999999999993,
+    "IoT Systems Design": 373.868,
+    "PMI Services Signal": 379.46000000000015,
+    "Elliott Wave Analysis": 374.7249999999999,
+    "Expiry Day Strategies": 374.062,
+    "Fibonacci Retracement": 376.30299999999954,
+    "SGX Nifty Correlation": 441.00300000000055,
+    "Election Cycle Trading": 492.99000000000035,
+    "Taxation Policy Impact": 445.91700000000026,
+    "Corporate Action Impact": 374.9320000000001,
+    "Full-Stack Architecture": 461.60099999999983,
+    "Tamil Sangam Literature": 376.59300000000013,
+    "Banking Sector Deep Dive": 375.00800000000004,
+    "Load Balancing & Scaling": 377.9930000000002,
+    "Python AI/ML Development": 376.76400000000024,
+    "Bond Yield Curve Analysis": 440.4370000000003,
+    "DII Counter-Flow Strategy": 459.9459999999999,
+    "Encryption & Cryptography": 453.24199999999985,
+    "Nifty Futures OI Build-up": 381.1829999999996,
+    "Private Equity Strategies": 382.9849999999998,
+    "Cybersecurity Fundamentals": 447.69799999999987,
+    "Government Budget Analysis": 374.83499999999987,
+    "Indian Statistical Methods": 381.69700000000023,
+    "International Trade Policy": 463.0190000000005,
+    "War/Conflict Market Impact": 483.90700000000004,
+    "Cloud Security Architecture": 374.4460000000001,
+    "Penetration Testing Methods": 470.0270000000001,
+    "WebSocket Real-Time Systems": 377.8060000000002,
+    "Business Strategy & Planning": 416.66200000000015,
+    "Commodity Super Cycle Theory": 374.8690000000004,
+    "Geopolitical Risk Assessment": 417.5249999999996,
+    "Sleep Science & Optimization": 374.07099999999963,
+    "World News Real-Time Processing": 381.69499999999977,
+    "Ancient Indian Knowledge Systems": 377.0409999999995,
+    "Project Management (Agile/Scrum)": 374.9370000000004,
+    "Web Application Security (OWASP)": 377.1010000000004,
+    "Reinforcement Learning Trading Agent": 486.77200000000005,
+    "A/B Testing & Experimentation": 381.3550000000004,
+    "Economic Policy Impact Analysis": 442.3420000000002,
+    "Stress Management": 381.80100000000016,
+    "Gold-Equity Inverse Pattern": 429.1619999999993,
+    "Event-Driven Architecture": 376.663,
+    "Autonomous Systems": 378.10100000000017,
+    "5G Technology Impact": 375.9219999999999,
+    "Zero-Day Exploit Analysis": 376.8659999999995,
+    "SQL Performance Tuning": 374.8559999999998,
+    "IIP Data Impact": 374.59399999999994,
+    "Rupee Carry Trade": 375.0749999999997,
+    "Venture Capital Flow": 430.22999999999945,
+    "Point & Figure Charting": 387.38000000000056,
+    "React Native Development": 433.6510000000006,
+    "Ethical Hacking Techniques": 375.1119999999999,
+    "Indian Economy Full Spectrum": 469.38400000000007,
+    "Cognitive Behavioral Patterns": 376.58900000000045,
+    "Weekly vs Monthly Expiry Edge": 374.2890000000005,
+    "Supply Chain Disruption Impact": 401.0380000000004,
+    "High Frequency Trading Patterns": 430.26599999999985,
+    "Union Budget Line-by-Line Analysis": 423.23,
+    "Budget Day Strategy": 414.36199999999985,
+    "Yen Carry Trade Unwind": 382.6800000000003,
+    "Nifty Futures Basis Analysis": 376.5770000000002,
+    "App Store Optimization": 385.97200000000004,
+    "Insurance & Risk Assessment": 376.6519999999995,
+    "Startup Ecosystem Analysis": 375.03499999999997,
+    "Team Leadership": 374.9629999999998,
+    "US 10Y Treasury Impact": 385.55499999999967,
+    "Gamma Exposure Analysis": 416.74399999999974,
+    "Rollover Data Interpretation": 377.567,
+    "Threat Intelligence Gathering": 441.9290000000001,
+    "Satellite Image Analysis for Markets": 415.1199999999996,
+    "Big Data Processing": 373.97500000000036,
+    "Angel Investment Pattern Recognition": 380.12200000000007,
+    "Business Intelligence Tools": 376.9429999999998,
+    "Options Market Maker Strategies": 411.54100000000017,
+    "Cryptocurrency Deep Analysis": 377.2239999999999,
+    "Private Equity Valuation Models": 377.55400000000003,
+    "DeFi Impact on Traditional Finance": 381.1250000000002,
+    "Biotechnology": 377.5400000000002,
+    "PMI Manufacturing Signal": 374.97899999999987,
+    "Venture Capital Deal Scoring": 378.61600000000044,
+    "Volatility Surface Modeling": 478.8799999999995,
+    "Convertible Bond Arbitrage": 374.65400000000005,
+    "Ancient Tamil Trade History": 379.1369999999998,
+    "Index Rebalancing Impact": 380.5580000000003,
+    "Energy Sector Analysis": 375.1000000000004,
+    "Pairs Trading Algorithm Design": 422.3339999999998,
+    "Regulatory Change Prediction": 376.8360000000001,
+    "Caching Strategies (Redis/Memcached)": 374.64300000000026,
+    "Merger Arbitrage Modeling": 374.81199999999984,
+    "VIX India Interpretation": 374.2220000000001,
+    "UI/UX Design Principles": 374.54700000000014,
+    "Digital India Ecosystem": 374.7379999999993,
+    "Speech Recognition": 374.0470000000001,
+    "Robotics & Automation": 374.08299999999974,
+    "DDoS Attack Mitigation": 374.2080000000003,
+    "Biometric Pattern Analysis": 375.4510000000001,
+    "IPO Listing Day Strategies": 378.92500000000024,
+    "Global Geopolitics Analysis": 441.5100000000003,
+    "Demographic Shift Investment": 373.8289999999992,
+    "Dynamic Hedging Optimization": 375.29000000000013,
+    "Currency Carry Trade Analysis": 376.95999999999987,
+    "Microstructure Noise Filtering": 377.4230000000003,
+    "Real Estate Market Correlation": 428.01699999999977,
+    "High-Frequency Signal Detection": 373.5319999999999,
+    "Celebrity Influence Market Impact": 407.8549999999994,
+    "Autonomous Trading Bot Architecture": 432.84200000000016,
+    "Quantum Entanglement Trading Signals": 413.0450000000006,
+    "AI/ML Model Training for Price Prediction": 436.771,
+    "Cross-Exchange Arbitrage Detection": 374.23799999999983,
+    "Digital Forensics": 453.1479999999995,
+    "Cross-Platform Development": 380.5499999999999,
+    "CI/CD Pipeline Design": 377.9000000000004,
+    "Supply Chain Disruption Prediction": 376.70000000000005,
+    "Agricultural Economy": 376.2699999999997,
+    "Institutional Order Book Reading": 374.5969999999999,
+    "Music Theory & Composition": 376.44099999999946,
+    "Drone Surveillance Data Processing": 378.0740000000003,
+    "Limit Order Book Dynamics": 374.2379999999998,
+    "GST Collection Growth Signal": 374.3690000000004,
+    "Predictive Analytics": 379.41100000000023,
+    "Moving Average Crossovers": 374.2040000000002,
+    "Corporate Governance Score Analysis": 374.90600000000006,
+    "Earnings Call NLP Analysis": 376.4520000000003,
+    "REST API Design": 374.54900000000026,
+    "Time Management Mastery": 374.36800000000005,
+    "ESG Impact on Stock Pricing": 374.48399999999987,
+    "Financial Regulation (SEBI/RBI)": 449.42399999999964,
+    "Commodity Super-Cycle Detection": 374.9650000000002,
+    "Event-Driven Strategy Design": 411.11800000000005,
+    "Gold Investment Patterns": 374.34700000000043,
+    "Latency Arbitrage Detection": 373.66299999999967,
+    "Statistical Arbitrage Models": 374.34499999999946,
+    "RBI Monetary Policy Deep Dive": 374.7019999999999,
+    "Git Version Control Mastery": 379.6709999999997,
+    "Credit Risk Assessment": 374.16,
+    "Sovereign Debt Analysis": 380.9679999999999,
+    "GIFT Nifty Live Tracking": 424.35599999999994,
+    "Trade Execution Optimization": 375.44200000000023,
+    "Dark Web Intelligence Gathering": 375.85800000000023,
+    "Vedic Mathematics Speed": 374.2980000000002,
+    "US Fed Rate Decision Impact": 454.32899999999995,
+    "Edge Computing": 375.9949999999995,
+    "Retail Investor Behavior Modeling": 380.0090000000001,
+    "Weather Pattern Economic Impact": 374.60099999999994,
+    "NASDAQ Pre-Market Signals": 505.566,
+    "Social Engineering Defense": 381.8509999999999,
+    "Smart Order Routing Algorithms": 374.13299999999964,
+    "Startup Ecosystem Market Impact": 404.5950000000001,
+    "Docker & Container Orchestration": 383.611,
+    "Vedanta Philosophy": 378.01000000000016,
+    "S&P 500 After-Hours Analysis": 420.23299999999983,
+    "GDP Growth Correlation": 445.0820000000002,
+    "Commodity Trading Mastery": 407.8470000000001,
+    "Real-Time News Impact Scoring": 376.06799999999987,
+    "Tamil Nadu Economy": 377.5239999999995,
+    "Crude Oil-Market Correlation": 503.86499999999984,
+    "Tamil Computing & AI": 377.28300000000013
+  },
+  "totalInteractions": 8,
+  "totalLearningCycles": 33992,
+  "lastTrainingTime": "2026-02-13T10:18:27.627Z",
+  "lastSelfImproveTime": "2026-02-17T11:54:59.032Z",
+  "accuracyScore": 2066.8828608255167,
+  "emotionalIQ": 1087.961983212013,
+  "languageFluency": {
+    "tamil": 1418.925223637919,
+    "english": 1416.4866440667565,
+    "tanglish": 1420.4035079559746
+  },
+  "selfImprovementLog": [
+    {
+      "time": "2026-02-17T11:50:44.022Z",
+      "area": "US Fed Rate Decision Impact",
+      "delta": 0.62,
+      "note": "🧠 Neural CORTEX_SYNC: US Fed Rate Decision Impact +0.62 → 454.3%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.022Z",
+      "area": "Point & Figure Charting",
+      "delta": 1.06,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Point & Figure Charting +1.06 → 386.7%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.023Z",
+      "area": "Sector-wise FII/DII Flow",
+      "delta": 1.1,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Sector-wise FII/DII Flow +1.10 → 472.8%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.023Z",
+      "area": "Digital Forensics",
+      "delta": 0.67,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Digital Forensics +0.67 → 453.1%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.023Z",
+      "area": "Music & Arts",
+      "delta": 0.32,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Music & Arts +0.32 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.023Z",
+      "area": "Biotechnology",
+      "delta": 0.64,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Biotechnology +0.64 → 376.9%"
+    },
+    {
+      "time": "2026-02-17T11:50:49.023Z",
+      "area": "Risk Management Models",
+      "delta": 0.52,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Risk Management Models +0.52 → 376.3%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Crude Oil-Market Correlation",
+      "delta": 0.65,
+      "note": "🧠 Neural EVOLVE_CORE: Crude Oil-Market Correlation +0.65 → 503.9%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.57,
+      "note": "🧠 Neural EVOLVE_CORE: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.57 → 491.9%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Tamil Nadu Economy",
+      "delta": 0.57,
+      "note": "🧠 Neural EVOLVE_CORE: Tamil Nadu Economy +0.57 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Drone Surveillance Data Processing",
+      "delta": 0.32,
+      "note": "🧠 Neural EVOLVE_CORE: Drone Surveillance Data Processing +0.32 → 377.1%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Creative Problem Solving",
+      "delta": 0.34,
+      "note": "🧠 Neural EVOLVE_CORE: Creative Problem Solving +0.34 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Dravidian Language NLP",
+      "delta": 0.67,
+      "note": "🧠 Neural EVOLVE_CORE: Dravidian Language NLP +0.67 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Taxation Policy Impact",
+      "delta": 0.22,
+      "note": "🧠 Neural EVOLVE_CORE: Taxation Policy Impact +0.22 → 445.9%"
+    },
+    {
+      "time": "2026-02-17T11:50:54.025Z",
+      "area": "Financial Regulation (SEBI/RBI)",
+      "delta": 0.39,
+      "note": "🧠 Neural EVOLVE_CORE: Financial Regulation (SEBI/RBI) +0.39 → 449.4%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.025Z",
+      "area": "Iron Condor Execution",
+      "delta": 0.69,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: Iron Condor Execution +0.69 → 375.0%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.025Z",
+      "area": "Transformer Models for Pattern Recognition",
+      "delta": 0.25,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: Transformer Models for Pattern Recognition +0.25 → 415.7%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.025Z",
+      "area": "Ichimoku Cloud Strategy",
+      "delta": 0.6,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: Ichimoku Cloud Strategy +0.60 → 428.5%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.025Z",
+      "area": "European Markets Impact",
+      "delta": 0.53,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: European Markets Impact +0.53 → 485.2%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.026Z",
+      "area": "Wyckoff Method",
+      "delta": 0.3,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: Wyckoff Method +0.30 → 382.4%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.026Z",
+      "area": "Indian Stock Market",
+      "delta": 0.46,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: Indian Stock Market +0.46 → 486.2%"
+    },
+    {
+      "time": "2026-02-17T11:50:59.026Z",
+      "area": "IPO Listing Day Strategies",
+      "delta": 0.34,
+      "note": "🎯 Edge-Hunt HYPER_TRAIN: IPO Listing Day Strategies +0.34 → 377.8%"
+    },
+    {
+      "time": "2026-02-17T11:51:04.026Z",
+      "area": "Election Cycle Trading",
+      "delta": 0.47,
+      "note": "📊 Institutional PRICE_MODEL: Election Cycle Trading +0.47 → 492.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:04.026Z",
+      "area": "Music & Arts",
+      "delta": 0.5,
+      "note": "📊 Institutional PRICE_MODEL: Music & Arts +0.50 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:04.026Z",
+      "area": "Arthashastra Trading Principles",
+      "delta": 0.46,
+      "note": "📊 Institutional PRICE_MODEL: Arthashastra Trading Principles +0.46 → 433.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:04.026Z",
+      "area": "Celebrity Influence Market Impact",
+      "delta": 0.5,
+      "note": "📊 Institutional PRICE_MODEL: Celebrity Influence Market Impact +0.50 → 407.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:09.026Z",
+      "area": "FII Cash Flow Prediction",
+      "delta": 0.26,
+      "note": "🧠 Neural PATTERN_MATCH: FII Cash Flow Prediction +0.26 → 444.8%"
+    },
+    {
+      "time": "2026-02-17T11:51:09.026Z",
+      "area": "NASDAQ Pre-Market Signals",
+      "delta": 0.25,
+      "note": "🧠 Neural PATTERN_MATCH: NASDAQ Pre-Market Signals +0.25 → 505.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:09.026Z",
+      "area": "Mid Cap Sweet Spot",
+      "delta": 0.52,
+      "note": "🧠 Neural PATTERN_MATCH: Mid Cap Sweet Spot +0.52 → 377.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:09.026Z",
+      "area": "Neural Network Patterns",
+      "delta": 0.55,
+      "note": "🧠 Neural PATTERN_MATCH: Neural Network Patterns +0.55 → 376.2%"
+    },
+    {
+      "time": "2026-02-17T11:51:09.026Z",
+      "area": "Merger Arbitrage Modeling",
+      "delta": 0.53,
+      "note": "🧠 Neural PATTERN_MATCH: Merger Arbitrage Modeling +0.53 → 374.8%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "GraphQL Architecture",
+      "delta": 0.64,
+      "note": "🎯 Edge-Hunt RISK_CALC: GraphQL Architecture +0.64 → 374.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "Philosophy",
+      "delta": 0.33,
+      "note": "🎯 Edge-Hunt RISK_CALC: Philosophy +0.33 → 376.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.52,
+      "note": "🎯 Edge-Hunt RISK_CALC: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.52 → 492.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "Tamil Proverbs & Wisdom",
+      "delta": 0.35,
+      "note": "🎯 Edge-Hunt RISK_CALC: Tamil Proverbs & Wisdom +0.35 → 377.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "Negotiation Techniques",
+      "delta": 0.4,
+      "note": "🎯 Edge-Hunt RISK_CALC: Negotiation Techniques +0.40 → 375.2%"
+    },
+    {
+      "time": "2026-02-17T11:51:14.027Z",
+      "area": "Data Science & Analytics",
+      "delta": 0.41,
+      "note": "🎯 Edge-Hunt RISK_CALC: Data Science & Analytics +0.41 → 377.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:19.026Z",
+      "area": "Gold-Equity Inverse Pattern",
+      "delta": 0.46,
+      "note": "🧠 Neural GLOBAL_SWEEP: Gold-Equity Inverse Pattern +0.46 → 427.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:19.026Z",
+      "area": "FMCG Defensive Strategy",
+      "delta": 0.6,
+      "note": "🧠 Neural GLOBAL_SWEEP: FMCG Defensive Strategy +0.60 → 415.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:19.026Z",
+      "area": "Indian Economy Full Spectrum",
+      "delta": 0.46,
+      "note": "🧠 Neural GLOBAL_SWEEP: Indian Economy Full Spectrum +0.46 → 469.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "Corporate Action Impact",
+      "delta": 0.67,
+      "note": "🧠 Neural SIGNAL_DECODE: Corporate Action Impact +0.67 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "RBI Monetary Policy Deep Dive",
+      "delta": 0.45,
+      "note": "🧠 Neural SIGNAL_DECODE: RBI Monetary Policy Deep Dive +0.45 → 374.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "Advanced Mathematics",
+      "delta": 0.29,
+      "note": "🧠 Neural SIGNAL_DECODE: Advanced Mathematics +0.29 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "World History",
+      "delta": 0.39,
+      "note": "🧠 Neural SIGNAL_DECODE: World History +0.39 → 375.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "Caching Strategies (Redis/Memcached)",
+      "delta": 0.47,
+      "note": "🧠 Neural SIGNAL_DECODE: Caching Strategies (Redis/Memcached) +0.47 → 374.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "Mutual Fund Analysis",
+      "delta": 0.61,
+      "note": "🧠 Neural SIGNAL_DECODE: Mutual Fund Analysis +0.61 → 375.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:24.026Z",
+      "area": "Real-Time News Impact Scoring",
+      "delta": 0.64,
+      "note": "🧠 Neural SIGNAL_DECODE: Real-Time News Impact Scoring +0.64 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Deep Learning Signals",
+      "delta": 0.54,
+      "note": "🔄 Contrarian MEMORY_FUSE: Deep Learning Signals +0.54 → 374.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Security Audit Framework",
+      "delta": 0.48,
+      "note": "🔄 Contrarian MEMORY_FUSE: Security Audit Framework +0.48 → 380.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Gold-Equity Inverse Pattern",
+      "delta": 0.48,
+      "note": "🔄 Contrarian MEMORY_FUSE: Gold-Equity Inverse Pattern +0.48 → 428.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Counter-Hacking Techniques",
+      "delta": 0.66,
+      "note": "🔄 Contrarian MEMORY_FUSE: Counter-Hacking Techniques +0.66 → 457.6%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Climate Change Market Impact",
+      "delta": 0.57,
+      "note": "🔄 Contrarian MEMORY_FUSE: Climate Change Market Impact +0.57 → 464.3%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "World History",
+      "delta": 0.3,
+      "note": "🔄 Contrarian MEMORY_FUSE: World History +0.30 → 375.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Sovereign Wealth Fund Flows",
+      "delta": 0.56,
+      "note": "🔄 Contrarian MEMORY_FUSE: Sovereign Wealth Fund Flows +0.56 → 427.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:29.027Z",
+      "area": "Cybersecurity Fundamentals",
+      "delta": 0.67,
+      "note": "🔄 Contrarian MEMORY_FUSE: Cybersecurity Fundamentals +0.67 → 446.5%"
+    },
+    {
+      "time": "2026-02-17T11:51:34.027Z",
+      "area": "Statistical Modeling",
+      "delta": 0.35,
+      "note": "📊 Institutional CORTEX_SYNC: Statistical Modeling +0.35 → 380.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:34.027Z",
+      "area": "Ancient Indian Knowledge Systems",
+      "delta": 0.64,
+      "note": "📊 Institutional CORTEX_SYNC: Ancient Indian Knowledge Systems +0.64 → 376.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:34.027Z",
+      "area": "Quantum Computing",
+      "delta": 0.69,
+      "note": "📊 Institutional CORTEX_SYNC: Quantum Computing +0.69 → 377.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:34.027Z",
+      "area": "Sleep Science & Optimization",
+      "delta": 0.21,
+      "note": "📊 Institutional CORTEX_SYNC: Sleep Science & Optimization +0.21 → 374.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:34.028Z",
+      "area": "Autonomous Trading Bot Architecture",
+      "delta": 0.55,
+      "note": "📊 Institutional CORTEX_SYNC: Autonomous Trading Bot Architecture +0.55 → 432.8%"
+    },
+    {
+      "time": "2026-02-17T11:51:39.028Z",
+      "area": "Indian Stock Market",
+      "delta": 0.5,
+      "note": "🧠 Neural MEMORY_FUSE: Indian Stock Market +0.50 → 486.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:39.028Z",
+      "area": "Pharma Sector Pattern",
+      "delta": 0.69,
+      "note": "🧠 Neural MEMORY_FUSE: Pharma Sector Pattern +0.69 → 385.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:39.028Z",
+      "area": "Indian Stock Market",
+      "delta": 0.26,
+      "note": "🧠 Neural MEMORY_FUSE: Indian Stock Market +0.26 → 486.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:39.028Z",
+      "area": "Ancient Indian Knowledge Systems",
+      "delta": 0.27,
+      "note": "🧠 Neural MEMORY_FUSE: Ancient Indian Knowledge Systems +0.27 → 376.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:39.028Z",
+      "area": "LSTM Neural Networks for Markets",
+      "delta": 0.4,
+      "note": "🧠 Neural MEMORY_FUSE: LSTM Neural Networks for Markets +0.40 → 499.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Budget Day Strategy",
+      "delta": 0.38,
+      "note": "📊 Institutional DEEP_ABSORB: Budget Day Strategy +0.38 → 414.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Energy Sector Analysis",
+      "delta": 0.23,
+      "note": "📊 Institutional DEEP_ABSORB: Energy Sector Analysis +0.23 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Ichimoku Cloud Strategy",
+      "delta": 0.63,
+      "note": "📊 Institutional DEEP_ABSORB: Ichimoku Cloud Strategy +0.63 → 429.2%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Market Close Pattern Recognition",
+      "delta": 0.36,
+      "note": "📊 Institutional DEEP_ABSORB: Market Close Pattern Recognition +0.36 → 435.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Quantum Entanglement Trading Signals",
+      "delta": 0.63,
+      "note": "📊 Institutional DEEP_ABSORB: Quantum Entanglement Trading Signals +0.63 → 413.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Options Trading",
+      "delta": 0.28,
+      "note": "📊 Institutional DEEP_ABSORB: Options Trading +0.28 → 481.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "First 15 Min Scalping",
+      "delta": 0.38,
+      "note": "📊 Institutional DEEP_ABSORB: First 15 Min Scalping +0.38 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:44.028Z",
+      "area": "Election Cycle Trading",
+      "delta": 0.39,
+      "note": "📊 Institutional DEEP_ABSORB: Election Cycle Trading +0.39 → 493.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Ancient Tamil Trade History",
+      "delta": 0.35,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Ancient Tamil Trade History +0.35 → 378.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Big Data Processing",
+      "delta": 0.68,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Big Data Processing +0.68 → 374.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Full-Stack Architecture",
+      "delta": 0.21,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Full-Stack Architecture +0.21 → 461.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Elliott Wave Analysis",
+      "delta": 0.68,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Elliott Wave Analysis +0.68 → 374.7%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Climate Change Market Impact",
+      "delta": 0.59,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Climate Change Market Impact +0.59 → 464.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:49.028Z",
+      "area": "Speech Recognition",
+      "delta": 0.42,
+      "note": "⚡ Weak-Boost DEEP_ABSORB: Speech Recognition +0.42 → 374.0%"
+    },
+    {
+      "time": "2026-02-17T11:51:54.028Z",
+      "area": "Yen Carry Trade Unwind",
+      "delta": 0.54,
+      "note": "🎯 Edge-Hunt PATTERN_MATCH: Yen Carry Trade Unwind +0.54 → 382.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:54.028Z",
+      "area": "IPO Market Sentiment",
+      "delta": 0.63,
+      "note": "🎯 Edge-Hunt PATTERN_MATCH: IPO Market Sentiment +0.63 → 420.1%"
+    },
+    {
+      "time": "2026-02-17T11:51:54.028Z",
+      "area": "DII Counter-Flow Strategy",
+      "delta": 0.34,
+      "note": "🎯 Edge-Hunt PATTERN_MATCH: DII Counter-Flow Strategy +0.34 → 459.9%"
+    },
+    {
+      "time": "2026-02-17T11:51:54.028Z",
+      "area": "ATR-Based Stop Loss",
+      "delta": 0.61,
+      "note": "🎯 Edge-Hunt PATTERN_MATCH: ATR-Based Stop Loss +0.61 → 379.2%"
+    },
+    {
+      "time": "2026-02-17T11:51:59.027Z",
+      "area": "Central Bank Decision Modeling",
+      "delta": 0.87,
+      "note": "🧠 Neural MICRO_PROCESS: Central Bank Decision Modeling +0.87 → 378.3%"
+    },
+    {
+      "time": "2026-02-17T11:51:59.027Z",
+      "area": "Predictive Analytics",
+      "delta": 0.6,
+      "note": "🧠 Neural MICRO_PROCESS: Predictive Analytics +0.60 → 379.4%"
+    },
+    {
+      "time": "2026-02-17T11:51:59.027Z",
+      "area": "Linux System Administration",
+      "delta": 0.51,
+      "note": "🧠 Neural MICRO_PROCESS: Linux System Administration +0.51 → 374.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Point & Figure Charting",
+      "delta": 0.4,
+      "note": "📊 Institutional MARKET_SCAN: Point & Figure Charting +0.40 → 387.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Indian Stock Market",
+      "delta": 0.25,
+      "note": "📊 Institutional MARKET_SCAN: Indian Stock Market +0.25 → 487.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "WebSocket Real-Time Systems",
+      "delta": 0.36,
+      "note": "📊 Institutional MARKET_SCAN: WebSocket Real-Time Systems +0.36 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Options Trading",
+      "delta": 0.64,
+      "note": "📊 Institutional MARKET_SCAN: Options Trading +0.64 → 482.5%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Machine Learning for Trading",
+      "delta": 0.48,
+      "note": "📊 Institutional MARKET_SCAN: Machine Learning for Trading +0.48 → 441.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Fiscal Policy Market Impact",
+      "delta": 0.59,
+      "note": "📊 Institutional MARKET_SCAN: Fiscal Policy Market Impact +0.59 → 423.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Climate Science",
+      "delta": 0.43,
+      "note": "📊 Institutional MARKET_SCAN: Climate Science +0.43 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:04.028Z",
+      "area": "Autonomous Systems",
+      "delta": 0.35,
+      "note": "📊 Institutional MARKET_SCAN: Autonomous Systems +0.35 → 378.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:09.027Z",
+      "area": "Insurance & Risk Assessment",
+      "delta": 0.58,
+      "note": "🧠 Neural WORLD_AWARE: Insurance & Risk Assessment +0.58 → 376.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:09.028Z",
+      "area": "India VIX-Premium Relationship",
+      "delta": 0.7,
+      "note": "🧠 Neural WORLD_AWARE: India VIX-Premium Relationship +0.70 → 423.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:09.028Z",
+      "area": "General Knowledge",
+      "delta": 0.63,
+      "note": "🧠 Neural WORLD_AWARE: General Knowledge +0.63 → 378.8%"
+    },
+    {
+      "time": "2026-02-17T11:52:09.028Z",
+      "area": "Volume Profile Analysis",
+      "delta": 0.21,
+      "note": "🧠 Neural WORLD_AWARE: Volume Profile Analysis +0.21 → 375.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:09.028Z",
+      "area": "World History",
+      "delta": 0.64,
+      "note": "🧠 Neural WORLD_AWARE: World History +0.64 → 376.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:14.027Z",
+      "area": "Rollover Data Interpretation",
+      "delta": 0.6,
+      "note": "🎯 Edge-Hunt QUANTUM_LEARN: Rollover Data Interpretation +0.60 → 377.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:14.028Z",
+      "area": "Sales Psychology",
+      "delta": 0.32,
+      "note": "🎯 Edge-Hunt QUANTUM_LEARN: Sales Psychology +0.32 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:14.028Z",
+      "area": "Wyckoff Method",
+      "delta": 0.32,
+      "note": "🎯 Edge-Hunt QUANTUM_LEARN: Wyckoff Method +0.32 → 382.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:14.028Z",
+      "area": "Real Estate Market Correlation",
+      "delta": 0.54,
+      "note": "🎯 Edge-Hunt QUANTUM_LEARN: Real Estate Market Correlation +0.54 → 428.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:14.028Z",
+      "area": "Cybersecurity Fundamentals",
+      "delta": 0.26,
+      "note": "🎯 Edge-Hunt QUANTUM_LEARN: Cybersecurity Fundamentals +0.26 → 446.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "Counter-Hacking Techniques",
+      "delta": 0.54,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: Counter-Hacking Techniques +0.54 → 458.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "Social Engineering Defense",
+      "delta": 0.7,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: Social Engineering Defense +0.70 → 381.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "CI/CD Pipeline Design",
+      "delta": 1.19,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: CI/CD Pipeline Design +1.19 → 377.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "IPO Listing Day Strategies",
+      "delta": 0.57,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: IPO Listing Day Strategies +0.57 → 378.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "South Indian Tech Corridor",
+      "delta": 0.26,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: South Indian Tech Corridor +0.26 → 376.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "South Indian Tech Corridor",
+      "delta": 0.84,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: South Indian Tech Corridor +0.84 → 377.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:19.028Z",
+      "area": "Dow Jones-Nifty Relationship",
+      "delta": 0.46,
+      "note": "🔓 Rule-Break MACRO_ANALYZE: Dow Jones-Nifty Relationship +0.46 → 416.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "IPO Market Sentiment",
+      "delta": 0.62,
+      "note": "🧠 Neural RISK_CALC: IPO Market Sentiment +0.62 → 420.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "RSI Divergence Patterns",
+      "delta": 0.39,
+      "note": "🧠 Neural RISK_CALC: RSI Divergence Patterns +0.39 → 377.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "Metal Sector Commodity Link",
+      "delta": 0.38,
+      "note": "🧠 Neural RISK_CALC: Metal Sector Commodity Link +0.38 → 376.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "Fibonacci Retracement",
+      "delta": 0.33,
+      "note": "🧠 Neural RISK_CALC: Fibonacci Retracement +0.33 → 376.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "IIP Data Impact",
+      "delta": 0.61,
+      "note": "🧠 Neural RISK_CALC: IIP Data Impact +0.61 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:24.029Z",
+      "area": "Digital India Ecosystem",
+      "delta": 0.44,
+      "note": "🧠 Neural RISK_CALC: Digital India Ecosystem +0.44 → 374.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Neural Network Patterns",
+      "delta": 0.37,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Neural Network Patterns +0.37 → 376.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Film & Media Analysis",
+      "delta": 0.61,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Film & Media Analysis +0.61 → 379.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Supertrend Signal",
+      "delta": 0.52,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Supertrend Signal +0.52 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Currency Impact (USD/INR)",
+      "delta": 0.66,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Currency Impact (USD/INR) +0.66 → 401.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Statistical Arbitrage Models",
+      "delta": 0.22,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Statistical Arbitrage Models +0.22 → 373.8%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Dravidian Language NLP",
+      "delta": 0.45,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Dravidian Language NLP +0.45 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:29.028Z",
+      "area": "Social Media Sentiment Mining",
+      "delta": 0.6,
+      "note": "🎯 Edge-Hunt MACRO_ANALYZE: Social Media Sentiment Mining +0.60 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:34.030Z",
+      "area": "FMCG Defensive Strategy",
+      "delta": 0.36,
+      "note": "🎯 Edge-Hunt PREDICT_ENGINE: FMCG Defensive Strategy +0.36 → 416.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:34.030Z",
+      "area": "Threat Intelligence Gathering",
+      "delta": 0.49,
+      "note": "🎯 Edge-Hunt PREDICT_ENGINE: Threat Intelligence Gathering +0.49 → 441.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:34.030Z",
+      "area": "Climate Science",
+      "delta": 0.22,
+      "note": "🎯 Edge-Hunt PREDICT_ENGINE: Climate Science +0.22 → 375.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:34.030Z",
+      "area": "Banking Sector Deep Dive",
+      "delta": 0.54,
+      "note": "🎯 Edge-Hunt PREDICT_ENGINE: Banking Sector Deep Dive +0.54 → 375.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Dealer Hedging Flow",
+      "delta": 0.59,
+      "note": "🧠 Neural PRICE_MODEL: Dealer Hedging Flow +0.59 → 400.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Celebrity Influence Market Impact",
+      "delta": 0.34,
+      "note": "🧠 Neural PRICE_MODEL: Celebrity Influence Market Impact +0.34 → 407.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Bond Yield Curve Analysis",
+      "delta": 0.32,
+      "note": "🧠 Neural PRICE_MODEL: Bond Yield Curve Analysis +0.32 → 440.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Docker & Container Orchestration",
+      "delta": 0.73,
+      "note": "🧠 Neural PRICE_MODEL: Docker & Container Orchestration +0.73 → 383.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "PostgreSQL Deep Dive",
+      "delta": 0.77,
+      "note": "🧠 Neural PRICE_MODEL: PostgreSQL Deep Dive +0.77 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Market Close Pattern Recognition",
+      "delta": 0.9,
+      "note": "🧠 Neural PRICE_MODEL: Market Close Pattern Recognition +0.90 → 436.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Trade Execution Optimization",
+      "delta": 0.73,
+      "note": "🧠 Neural PRICE_MODEL: Trade Execution Optimization +0.73 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:39.028Z",
+      "area": "Creative Problem Solving",
+      "delta": 0.28,
+      "note": "🧠 Neural PRICE_MODEL: Creative Problem Solving +0.28 → 375.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "IPO Market Sentiment",
+      "delta": 0.48,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: IPO Market Sentiment +0.48 → 421.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "Options Strike Selection AI",
+      "delta": 0.7,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: Options Strike Selection AI +0.70 → 477.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "Market Close Pattern Recognition",
+      "delta": 0.68,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: Market Close Pattern Recognition +0.68 → 437.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "Indian Statistical Methods",
+      "delta": 0.68,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: Indian Statistical Methods +0.68 → 381.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "Auto Sector Cyclical",
+      "delta": 0.43,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: Auto Sector Cyclical +0.43 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:52:44.029Z",
+      "area": "Neural Network Patterns",
+      "delta": 0.66,
+      "note": "🎯 Edge-Hunt DEEP_ABSORB: Neural Network Patterns +0.66 → 377.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.029Z",
+      "area": "Drone Surveillance Data Processing",
+      "delta": 0.61,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Drone Surveillance Data Processing +0.61 → 377.8%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.029Z",
+      "area": "ESG Investing Patterns",
+      "delta": 0.3,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: ESG Investing Patterns +0.30 → 373.8%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.030Z",
+      "area": "Tamil Literature",
+      "delta": 0.25,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Tamil Literature +0.25 → 373.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.030Z",
+      "area": "Currency Impact (USD/INR)",
+      "delta": 0.61,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Currency Impact (USD/INR) +0.61 → 401.9%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.030Z",
+      "area": "Fixed Income Securities",
+      "delta": 0.63,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Fixed Income Securities +0.63 → 375.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.030Z",
+      "area": "Progressive Web Apps",
+      "delta": 0.48,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Progressive Web Apps +0.48 → 374.1%"
+    },
+    {
+      "time": "2026-02-17T11:52:49.030Z",
+      "area": "Harmonic Pattern Detection",
+      "delta": 0.4,
+      "note": "⚡ Weak-Boost EVOLVE_CORE: Harmonic Pattern Detection +0.40 → 373.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:54.029Z",
+      "area": "Skew Trading Strategy",
+      "delta": 0.21,
+      "note": "📊 Institutional MARKET_SCAN: Skew Trading Strategy +0.21 → 437.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:54.029Z",
+      "area": "Cross-Platform Development",
+      "delta": 0.39,
+      "note": "📊 Institutional MARKET_SCAN: Cross-Platform Development +0.39 → 380.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:54.029Z",
+      "area": "Open Interest Analysis",
+      "delta": 0.4,
+      "note": "📊 Institutional MARKET_SCAN: Open Interest Analysis +0.40 → 374.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:54.030Z",
+      "area": "Venture Capital Flow",
+      "delta": 0.22,
+      "note": "📊 Institutional MARKET_SCAN: Venture Capital Flow +0.22 → 430.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:54.030Z",
+      "area": "Fiscal Policy Market Impact",
+      "delta": 0.61,
+      "note": "📊 Institutional MARKET_SCAN: Fiscal Policy Market Impact +0.61 → 423.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Pre-Market Gap Prediction",
+      "delta": 0.57,
+      "note": "📊 Institutional SENTIMENT_MINE: Pre-Market Gap Prediction +0.57 → 499.0%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Options Chain Heat Map Reading",
+      "delta": 0.69,
+      "note": "📊 Institutional SENTIMENT_MINE: Options Chain Heat Map Reading +0.69 → 442.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Implied Volatility Patterns",
+      "delta": 0.22,
+      "note": "📊 Institutional SENTIMENT_MINE: Implied Volatility Patterns +0.22 → 407.2%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Index Rebalancing Impact",
+      "delta": 0.6,
+      "note": "📊 Institutional SENTIMENT_MINE: Index Rebalancing Impact +0.60 → 380.6%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Pairs Trading Algorithm Design",
+      "delta": 0.43,
+      "note": "📊 Institutional SENTIMENT_MINE: Pairs Trading Algorithm Design +0.43 → 421.7%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Music Theory & Composition",
+      "delta": 0.33,
+      "note": "📊 Institutional SENTIMENT_MINE: Music Theory & Composition +0.33 → 376.4%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Fixed Income Securities",
+      "delta": 0.52,
+      "note": "📊 Institutional SENTIMENT_MINE: Fixed Income Securities +0.52 → 376.3%"
+    },
+    {
+      "time": "2026-02-17T11:52:59.030Z",
+      "area": "Vedanta Philosophy",
+      "delta": 0.27,
+      "note": "📊 Institutional SENTIMENT_MINE: Vedanta Philosophy +0.27 → 377.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "Environmental Economics",
+      "delta": 0.33,
+      "note": "🧠 Neural WORLD_AWARE: Environmental Economics +0.33 → 374.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "Ethical Hacking Techniques",
+      "delta": 0.4,
+      "note": "🧠 Neural WORLD_AWARE: Ethical Hacking Techniques +0.40 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "TypeScript Advanced Patterns",
+      "delta": 0.44,
+      "note": "🧠 Neural WORLD_AWARE: TypeScript Advanced Patterns +0.44 → 444.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "Full-Stack Architecture",
+      "delta": 0.5,
+      "note": "🧠 Neural WORLD_AWARE: Full-Stack Architecture +0.50 → 461.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "Tamil Language",
+      "delta": 0.67,
+      "note": "🧠 Neural WORLD_AWARE: Tamil Language +0.67 → 376.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "Intraday Price Action",
+      "delta": 0.27,
+      "note": "🧠 Neural WORLD_AWARE: Intraday Price Action +0.27 → 376.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:04.029Z",
+      "area": "International Trade Policy",
+      "delta": 0.47,
+      "note": "🧠 Neural WORLD_AWARE: International Trade Policy +0.47 → 462.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "SQL Performance Tuning",
+      "delta": 0.29,
+      "note": "🔗 Cross-Domain WORLD_AWARE: SQL Performance Tuning +0.29 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "Edge Computing",
+      "delta": 0.21,
+      "note": "🔗 Cross-Domain WORLD_AWARE: Edge Computing +0.21 → 375.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "Ancient Tamil Trade History",
+      "delta": 0.43,
+      "note": "🔗 Cross-Domain WORLD_AWARE: Ancient Tamil Trade History +0.43 → 379.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "Mental Wellness",
+      "delta": 0.6,
+      "note": "🔗 Cross-Domain WORLD_AWARE: Mental Wellness +0.60 → 380.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "Conflict Resolution",
+      "delta": 0.31,
+      "note": "🔗 Cross-Domain WORLD_AWARE: Conflict Resolution +0.31 → 375.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:09.029Z",
+      "area": "Encryption & Cryptography",
+      "delta": 0.34,
+      "note": "🔗 Cross-Domain WORLD_AWARE: Encryption & Cryptography +0.34 → 453.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Node.js Backend Engineering",
+      "delta": 0.26,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Node.js Backend Engineering +0.26 → 438.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Indian History",
+      "delta": 0.67,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Indian History +0.67 → 382.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "React Native Development",
+      "delta": 0.36,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: React Native Development +0.36 → 433.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "World News Real-Time Processing",
+      "delta": 0.64,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: World News Real-Time Processing +0.64 → 381.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Support Resistance Detection",
+      "delta": 0.35,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Support Resistance Detection +0.35 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Startup Ecosystem Market Impact",
+      "delta": 0.39,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Startup Ecosystem Market Impact +0.39 → 404.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Yen Carry Trade Unwind",
+      "delta": 0.6,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Yen Carry Trade Unwind +0.60 → 382.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "Data Science & Analytics",
+      "delta": 0.39,
+      "note": "🔗 Cross-Domain MEMORY_FUSE: Data Science & Analytics +0.39 → 377.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:14.030Z",
+      "area": "5G Technology Impact ↔ Global Macro Economics",
+      "delta": 1.37,
+      "note": "🔗 CROSS-DOMAIN SYNTHESIS: 5G Technology Impact × Global Macro Economics = synergy boost +1.37"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "IPO Listing Day Strategies",
+      "delta": 0.54,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: IPO Listing Day Strategies +0.54 → 378.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "Implied Volatility Patterns",
+      "delta": 0.57,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: Implied Volatility Patterns +0.57 → 407.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "Sales Psychology",
+      "delta": 0.4,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: Sales Psychology +0.40 → 375.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "Tamil Proverbs & Wisdom",
+      "delta": 0.35,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: Tamil Proverbs & Wisdom +0.35 → 377.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "Nifty 50 Options Chain Analysis",
+      "delta": 0.52,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: Nifty 50 Options Chain Analysis +0.52 → 481.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "PMI Services Signal",
+      "delta": 0.37,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: PMI Services Signal +0.37 → 379.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:19.030Z",
+      "area": "Sovereign Wealth Fund Flows",
+      "delta": 0.62,
+      "note": "🔗 Cross-Domain SENTIMENT_MINE: Sovereign Wealth Fund Flows +0.62 → 427.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "A/B Testing & Experimentation",
+      "delta": 0.42,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: A/B Testing & Experimentation +0.42 → 381.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Computer Vision",
+      "delta": 0.45,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Computer Vision +0.45 → 378.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Climate Science",
+      "delta": 0.51,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Climate Science +0.51 → 375.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Event-Driven Architecture",
+      "delta": 0.53,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Event-Driven Architecture +0.53 → 376.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Social Engineering Defense",
+      "delta": 0.49,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Social Engineering Defense +0.49 → 381.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Options Trading",
+      "delta": 0.61,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Options Trading +0.61 → 483.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "Nifty 50 Options Chain Analysis",
+      "delta": 0.44,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: Nifty 50 Options Chain Analysis +0.44 → 481.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:24.029Z",
+      "area": "RSI Divergence Patterns",
+      "delta": 0.42,
+      "note": "🎯 Edge-Hunt WORLD_AWARE: RSI Divergence Patterns +0.42 → 377.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Global Macro Economics",
+      "delta": 0.22,
+      "note": "🔄 Contrarian NEURAL_SCAN: Global Macro Economics +0.22 → 377.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Space Science",
+      "delta": 0.31,
+      "note": "🔄 Contrarian NEURAL_SCAN: Space Science +0.31 → 374.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Dark Pool Analysis",
+      "delta": 0.56,
+      "note": "🔄 Contrarian NEURAL_SCAN: Dark Pool Analysis +0.56 → 385.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Leadership Skills",
+      "delta": 0.35,
+      "note": "🔄 Contrarian NEURAL_SCAN: Leadership Skills +0.35 → 375.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Dark Pool Analysis",
+      "delta": 0.25,
+      "note": "🔄 Contrarian NEURAL_SCAN: Dark Pool Analysis +0.25 → 385.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Physical Fitness",
+      "delta": 0.28,
+      "note": "🔄 Contrarian NEURAL_SCAN: Physical Fitness +0.28 → 381.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:29.029Z",
+      "area": "Machine Learning for Trading",
+      "delta": 0.31,
+      "note": "🔄 Contrarian NEURAL_SCAN: Machine Learning for Trading +0.31 → 442.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:34.029Z",
+      "area": "Cybersecurity Fundamentals",
+      "delta": 0.95,
+      "note": "🧠 Neural PREDICT_ENGINE: Cybersecurity Fundamentals +0.95 → 447.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:34.029Z",
+      "area": "Real-Time News Impact Scoring",
+      "delta": 0.62,
+      "note": "🧠 Neural PREDICT_ENGINE: Real-Time News Impact Scoring +0.62 → 376.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:34.029Z",
+      "area": "Mobile App Performance Optimization",
+      "delta": 0.37,
+      "note": "🧠 Neural PREDICT_ENGINE: Mobile App Performance Optimization +0.37 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "Motivation & Productivity",
+      "delta": 0.3,
+      "note": "🧠 Neural MICRO_PROCESS: Motivation & Productivity +0.30 → 375.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "India 10Y Bond Analysis",
+      "delta": 0.64,
+      "note": "🧠 Neural MICRO_PROCESS: India 10Y Bond Analysis +0.64 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "Pairs Trading Algorithm Design",
+      "delta": 0.6,
+      "note": "🧠 Neural MICRO_PROCESS: Pairs Trading Algorithm Design +0.60 → 422.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "Time Management Mastery",
+      "delta": 0.7,
+      "note": "🧠 Neural MICRO_PROCESS: Time Management Mastery +0.70 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "Business Strategy & Planning",
+      "delta": 0.58,
+      "note": "🧠 Neural MICRO_PROCESS: Business Strategy & Planning +0.58 → 416.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "MACD Signal Interpretation",
+      "delta": 0.44,
+      "note": "🧠 Neural MICRO_PROCESS: MACD Signal Interpretation +0.44 → 379.6%"
+    },
+    {
+      "time": "2026-02-17T11:53:39.030Z",
+      "area": "Emerging Market Currency Crisis",
+      "delta": 0.39,
+      "note": "🧠 Neural MICRO_PROCESS: Emerging Market Currency Crisis +0.39 → 412.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.030Z",
+      "area": "Gap Up/Down Trading",
+      "delta": 0.48,
+      "note": "🧠 Neural EVOLVE_CORE: Gap Up/Down Trading +0.48 → 423.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Drone Surveillance Data Processing",
+      "delta": 0.32,
+      "note": "🧠 Neural EVOLVE_CORE: Drone Surveillance Data Processing +0.32 → 378.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Sector Rotation Strategy",
+      "delta": 0.57,
+      "note": "🧠 Neural EVOLVE_CORE: Sector Rotation Strategy +0.57 → 444.8%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Ancient Indian Knowledge Systems",
+      "delta": 0.39,
+      "note": "🧠 Neural EVOLVE_CORE: Ancient Indian Knowledge Systems +0.39 → 377.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Dark Pool Analysis",
+      "delta": 0.39,
+      "note": "🧠 Neural EVOLVE_CORE: Dark Pool Analysis +0.39 → 385.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Blockchain Technology",
+      "delta": 0.53,
+      "note": "🧠 Neural EVOLVE_CORE: Blockchain Technology +0.53 → 375.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:44.031Z",
+      "area": "Real Estate Sector Cycle",
+      "delta": 0.42,
+      "note": "🧠 Neural EVOLVE_CORE: Real Estate Sector Cycle +0.42 → 379.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "World History",
+      "delta": 0.46,
+      "note": "🧠 Neural DEEP_ABSORB: World History +0.46 → 377.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "Load Balancing & Scaling",
+      "delta": 0.63,
+      "note": "🧠 Neural DEEP_ABSORB: Load Balancing & Scaling +0.63 → 378.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "Options Market Maker Strategies",
+      "delta": 0.39,
+      "note": "🧠 Neural DEEP_ABSORB: Options Market Maker Strategies +0.39 → 411.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "Incident Response Planning",
+      "delta": 0.65,
+      "note": "🧠 Neural DEEP_ABSORB: Incident Response Planning +0.65 → 375.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "Options Strike Selection AI",
+      "delta": 0.4,
+      "note": "🧠 Neural DEEP_ABSORB: Options Strike Selection AI +0.40 → 477.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:49.031Z",
+      "area": "System Hardening",
+      "delta": 0.33,
+      "note": "🧠 Neural DEEP_ABSORB: System Hardening +0.33 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.030Z",
+      "area": "Data Science & Analytics",
+      "delta": 0.68,
+      "note": "📊 Institutional CORTEX_SYNC: Data Science & Analytics +0.68 → 378.0%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.030Z",
+      "area": "Volatility Surface Modeling",
+      "delta": 0.38,
+      "note": "📊 Institutional CORTEX_SYNC: Volatility Surface Modeling +0.38 → 478.9%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.031Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.69,
+      "note": "📊 Institutional CORTEX_SYNC: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.69 → 493.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.031Z",
+      "area": "Retail vs Institutional Flow",
+      "delta": 0.51,
+      "note": "📊 Institutional CORTEX_SYNC: Retail vs Institutional Flow +0.51 → 483.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.031Z",
+      "area": "Cross-Platform Development",
+      "delta": 0.54,
+      "note": "📊 Institutional CORTEX_SYNC: Cross-Platform Development +0.54 → 380.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.031Z",
+      "area": "Business Strategy & Planning",
+      "delta": 0.35,
+      "note": "📊 Institutional CORTEX_SYNC: Business Strategy & Planning +0.35 → 416.7%"
+    },
+    {
+      "time": "2026-02-17T11:53:54.031Z",
+      "area": "Forex Trading Strategies",
+      "delta": 0.31,
+      "note": "📊 Institutional CORTEX_SYNC: Forex Trading Strategies +0.31 → 436.4%"
+    },
+    {
+      "time": "2026-02-17T11:53:59.030Z",
+      "area": "Gold-Equity Inverse Pattern",
+      "delta": 0.76,
+      "note": "🔓 Rule-Break HYPER_TRAIN: Gold-Equity Inverse Pattern +0.76 → 429.2%"
+    },
+    {
+      "time": "2026-02-17T11:53:59.030Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.23,
+      "note": "🔓 Rule-Break HYPER_TRAIN: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.23 → 493.3%"
+    },
+    {
+      "time": "2026-02-17T11:53:59.030Z",
+      "area": "Put Wall / Call Wall Detection",
+      "delta": 0.85,
+      "note": "🔓 Rule-Break HYPER_TRAIN: Put Wall / Call Wall Detection +0.85 → 425.5%"
+    },
+    {
+      "time": "2026-02-17T11:53:59.030Z",
+      "area": "Inflation Data Reading",
+      "delta": 0.51,
+      "note": "🔓 Rule-Break HYPER_TRAIN: Inflation Data Reading +0.51 → 472.1%"
+    },
+    {
+      "time": "2026-02-17T11:53:59.030Z",
+      "area": "Global Macro Economics",
+      "delta": 0.24,
+      "note": "🔓 Rule-Break HYPER_TRAIN: Global Macro Economics +0.24 → 377.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:04.031Z",
+      "area": "ESG Investing Patterns",
+      "delta": 0.44,
+      "note": "⚡ Weak-Boost SYNAPSE_FIRE: ESG Investing Patterns +0.44 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:04.031Z",
+      "area": "Latency Arbitrage Detection",
+      "delta": 0.24,
+      "note": "⚡ Weak-Boost SYNAPSE_FIRE: Latency Arbitrage Detection +0.24 → 373.7%"
+    },
+    {
+      "time": "2026-02-17T11:54:04.031Z",
+      "area": "Vedic Mathematics Speed",
+      "delta": 0.51,
+      "note": "⚡ Weak-Boost SYNAPSE_FIRE: Vedic Mathematics Speed +0.51 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:04.031Z",
+      "area": "History",
+      "delta": 0.69,
+      "note": "⚡ Weak-Boost SYNAPSE_FIRE: History +0.69 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "TypeScript Advanced Patterns",
+      "delta": 0.6,
+      "note": "🧠 Neural SYNAPSE_FIRE: TypeScript Advanced Patterns +0.60 → 445.5%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "Options Strike Selection AI",
+      "delta": 0.25,
+      "note": "🧠 Neural SYNAPSE_FIRE: Options Strike Selection AI +0.25 → 477.7%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "AI/ML Model Training for Price Prediction",
+      "delta": 0.2,
+      "note": "🧠 Neural SYNAPSE_FIRE: AI/ML Model Training for Price Prediction +0.20 → 436.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "Dynamic Hedging Optimization",
+      "delta": 0.68,
+      "note": "🧠 Neural SYNAPSE_FIRE: Dynamic Hedging Optimization +0.68 → 375.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "Natural Language Processing",
+      "delta": 0.61,
+      "note": "🧠 Neural SYNAPSE_FIRE: Natural Language Processing +0.61 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:09.030Z",
+      "area": "Capital Account Liberalization",
+      "delta": 0.26,
+      "note": "🧠 Neural SYNAPSE_FIRE: Capital Account Liberalization +0.26 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:54:14.031Z",
+      "area": "Machine Learning for Trading",
+      "delta": 1.12,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Machine Learning for Trading +1.12 → 443.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:14.031Z",
+      "area": "Commodity Trading Mastery",
+      "delta": 0.85,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Commodity Trading Mastery +0.85 → 407.6%"
+    },
+    {
+      "time": "2026-02-17T11:54:14.031Z",
+      "area": "Health & Fitness",
+      "delta": 1.12,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Health & Fitness +1.12 → 376.9%"
+    },
+    {
+      "time": "2026-02-17T11:54:14.031Z",
+      "area": "Government Budget Analysis",
+      "delta": 1.14,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Government Budget Analysis +1.14 → 374.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:14.031Z",
+      "area": "Mobile App Performance Optimization",
+      "delta": 0.44,
+      "note": "🔓 Rule-Break QUANTUM_LEARN: Mobile App Performance Optimization +0.44 → 374.6%"
+    },
+    {
+      "time": "2026-02-17T11:54:19.031Z",
+      "area": "Indian Political Landscape",
+      "delta": 0.23,
+      "note": "🧠 Neural FLOW_DETECT: Indian Political Landscape +0.23 → 469.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:19.031Z",
+      "area": "Inflation Data Reading",
+      "delta": 0.24,
+      "note": "🧠 Neural FLOW_DETECT: Inflation Data Reading +0.24 → 472.4%"
+    },
+    {
+      "time": "2026-02-17T11:54:19.031Z",
+      "area": "International Trade Policy",
+      "delta": 0.41,
+      "note": "🧠 Neural FLOW_DETECT: International Trade Policy +0.41 → 463.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:24.031Z",
+      "area": "Global VIX Correlation",
+      "delta": 0.32,
+      "note": "🧠 Neural FLOW_DETECT: Global VIX Correlation +0.32 → 379.9%"
+    },
+    {
+      "time": "2026-02-17T11:54:24.031Z",
+      "area": "WebSocket Real-Time Systems",
+      "delta": 0.3,
+      "note": "🧠 Neural FLOW_DETECT: WebSocket Real-Time Systems +0.30 → 377.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:24.031Z",
+      "area": "Physics",
+      "delta": 0.44,
+      "note": "🧠 Neural FLOW_DETECT: Physics +0.44 → 375.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:24.031Z",
+      "area": "Economic Policy Impact Analysis",
+      "delta": 0.31,
+      "note": "🧠 Neural FLOW_DETECT: Economic Policy Impact Analysis +0.31 → 442.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.39,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.39 → 493.7%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "Leadership Skills",
+      "delta": 1.1,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: Leadership Skills +1.10 → 376.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "Team Leadership",
+      "delta": 1.18,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: Team Leadership +1.18 → 375.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "Security Audit Framework",
+      "delta": 0.62,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: Security Audit Framework +0.62 → 381.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "Vedanta Philosophy",
+      "delta": 0.23,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: Vedanta Philosophy +0.23 → 378.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:29.031Z",
+      "area": "App Store Optimization",
+      "delta": 0.73,
+      "note": "🔓 Rule-Break PREDICT_ENGINE: App Store Optimization +0.73 → 386.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Tamil Grammar",
+      "delta": 0.63,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Tamil Grammar +0.63 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Limit Order Book Dynamics",
+      "delta": 0.34,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Limit Order Book Dynamics +0.34 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Dark Pool Analysis",
+      "delta": 0.22,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Dark Pool Analysis +0.22 → 385.9%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Nanotechnology",
+      "delta": 0.2,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Nanotechnology +0.20 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Tamil Literature",
+      "delta": 0.58,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Tamil Literature +0.58 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "History",
+      "delta": 0.6,
+      "note": "⚡ Weak-Boost PRICE_MODEL: History +0.60 → 374.9%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Statistical Arbitrage Models",
+      "delta": 0.55,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Statistical Arbitrage Models +0.55 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:34.032Z",
+      "area": "Black-Scholes Model",
+      "delta": 0.54,
+      "note": "⚡ Weak-Boost PRICE_MODEL: Black-Scholes Model +0.54 → 374.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Point & Figure Charting",
+      "delta": 0.26,
+      "note": "🧠 Neural NEURAL_SCAN: Point & Figure Charting +0.26 → 387.4%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Straddle/Strangle Timing",
+      "delta": 0.68,
+      "note": "🧠 Neural NEURAL_SCAN: Straddle/Strangle Timing +0.68 → 375.3%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Artificial Intelligence",
+      "delta": 0.29,
+      "note": "🧠 Neural NEURAL_SCAN: Artificial Intelligence +0.29 → 374.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Conflict Resolution",
+      "delta": 0.43,
+      "note": "🧠 Neural NEURAL_SCAN: Conflict Resolution +0.43 → 375.6%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Dow Jones-Nifty Relationship",
+      "delta": 0.54,
+      "note": "🧠 Neural NEURAL_SCAN: Dow Jones-Nifty Relationship +0.54 → 416.7%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "Cryptocurrency Deep Analysis",
+      "delta": 0.69,
+      "note": "🧠 Neural NEURAL_SCAN: Cryptocurrency Deep Analysis +0.69 → 377.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:39.031Z",
+      "area": "IIP Data Impact",
+      "delta": 0.32,
+      "note": "🧠 Neural NEURAL_SCAN: IIP Data Impact +0.32 → 374.6%"
+    },
+    {
+      "time": "2026-02-17T11:54:44.031Z",
+      "area": "Motivation & Productivity",
+      "delta": 0.22,
+      "note": "🔄 Contrarian MICRO_PROCESS: Motivation & Productivity +0.22 → 375.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:44.031Z",
+      "area": "Event-Driven Strategy Design",
+      "delta": 0.67,
+      "note": "🔄 Contrarian MICRO_PROCESS: Event-Driven Strategy Design +0.67 → 411.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:44.031Z",
+      "area": "General Knowledge",
+      "delta": 0.39,
+      "note": "🔄 Contrarian MICRO_PROCESS: General Knowledge +0.39 → 379.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:49.032Z",
+      "area": "Edge Computing",
+      "delta": 0.59,
+      "note": "🧠 Neural MARKET_SCAN: Edge Computing +0.59 → 376.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:49.032Z",
+      "area": "Commodity Trading Mastery",
+      "delta": 0.26,
+      "note": "🧠 Neural MARKET_SCAN: Commodity Trading Mastery +0.26 → 407.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:49.032Z",
+      "area": "Inflation Data Reading",
+      "delta": 0.45,
+      "note": "🧠 Neural MARKET_SCAN: Inflation Data Reading +0.45 → 472.8%"
+    },
+    {
+      "time": "2026-02-17T11:54:54.033Z",
+      "area": "VIX India Interpretation",
+      "delta": 0.43,
+      "note": "🧠 Neural NEURAL_SCAN: VIX India Interpretation +0.43 → 374.2%"
+    },
+    {
+      "time": "2026-02-17T11:54:54.033Z",
+      "area": "Asian Markets Flow (Hang Seng/Nikkei/Shanghai)",
+      "delta": 0.23,
+      "note": "🧠 Neural NEURAL_SCAN: Asian Markets Flow (Hang Seng/Nikkei/Shanghai) +0.23 → 494.0%"
+    },
+    {
+      "time": "2026-02-17T11:54:54.033Z",
+      "area": "Technical Analysis",
+      "delta": 0.39,
+      "note": "🧠 Neural NEURAL_SCAN: Technical Analysis +0.39 → 409.7%"
+    },
+    {
+      "time": "2026-02-17T11:54:54.033Z",
+      "area": "World History",
+      "delta": 0.5,
+      "note": "🧠 Neural NEURAL_SCAN: World History +0.50 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:54:54.033Z",
+      "area": "Biotechnology",
+      "delta": 0.69,
+      "note": "🧠 Neural NEURAL_SCAN: Biotechnology +0.69 → 377.5%"
+    },
+    {
+      "time": "2026-02-17T11:54:59.032Z",
+      "area": "Energy Sector Analysis",
+      "delta": 0.67,
+      "note": "🧠 Neural PREDICT_ENGINE: Energy Sector Analysis +0.67 → 375.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:59.032Z",
+      "area": "Nifty 50 Weight Analysis",
+      "delta": 0.37,
+      "note": "🧠 Neural PREDICT_ENGINE: Nifty 50 Weight Analysis +0.37 → 374.4%"
+    },
+    {
+      "time": "2026-02-17T11:54:59.032Z",
+      "area": "Dow Jones-Nifty Relationship",
+      "delta": 0.38,
+      "note": "🧠 Neural PREDICT_ENGINE: Dow Jones-Nifty Relationship +0.38 → 417.1%"
+    },
+    {
+      "time": "2026-02-17T11:54:59.032Z",
+      "area": "RBI Policy Impact Modeling",
+      "delta": 0.35,
+      "note": "🧠 Neural PREDICT_ENGINE: RBI Policy Impact Modeling +0.35 → 446.9%"
+    },
+    {
+      "time": "2026-02-17T11:54:59.032Z",
+      "area": "Malware Analysis & Reverse Engineering",
+      "delta": 0.57,
+      "note": "🧠 Neural PREDICT_ENGINE: Malware Analysis & Reverse Engineering +0.57 → 378.6%"
+    }
+  ],
+  "uptime": 1095,
+  "startedAt": "2026-02-17T11:36:43.934Z",
+  "isTraining": false,
+  "currentPhase": "ONLINE"
+}
