@@ -1269,7 +1269,6 @@ Provide your trading signal and analysis.`;
       res.end();
     } catch (error) {
       console.error("Error analyzing stock:", error);
-      completeActivity(analyzeActId, "failed");
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: "Analysis failed" })}\n\n`);
         res.end();
@@ -1729,6 +1728,19 @@ Based on this data, give me:
       };
     });
     res.json({ keys });
+  });
+
+  app.post("/api/vault/reveal", (req, res) => {
+    const { pin, keyId } = req.body;
+    if (!pin || pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+    const keyDef = VAULT_KEYS.find(k => k.id === keyId);
+    if (!keyDef) {
+      return res.status(400).json({ error: "Unknown key" });
+    }
+    const value = getVaultValue(keyId);
+    res.json({ keyId, value: value || "" });
   });
 
   app.post("/api/vault/update", (req, res) => {
@@ -4116,7 +4128,6 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       res.end();
     } catch (error: any) {
       console.error("[M3R CHAT] Error:", error.message);
-      completeActivity(chatActId, "failed", error.message);
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         res.end();

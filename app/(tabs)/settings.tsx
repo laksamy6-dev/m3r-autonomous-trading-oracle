@@ -120,6 +120,7 @@ export default function SettingsScreen() {
   const [vaultEditKey, setVaultEditKey] = useState<string | null>(null);
   const [vaultEditValue, setVaultEditValue] = useState("");
   const [vaultSaving, setVaultSaving] = useState(false);
+  const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadSettings();
@@ -207,6 +208,25 @@ export default function SettingsScreen() {
     } finally {
       setVaultSaving(false);
     }
+  }
+
+  async function revealVaultKey(keyId: string) {
+    if (revealedKeys[keyId]) {
+      setRevealedKeys(prev => { const next = { ...prev }; delete next[keyId]; return next; });
+      return;
+    }
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/vault/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: savedPin, keyId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRevealedKeys(prev => ({ ...prev, [keyId]: data.value }));
+      }
+    } catch {}
   }
 
   async function deleteVaultKey(keyId: string) {
@@ -663,8 +683,18 @@ export default function SettingsScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={vaultStyles.keyLabel}>{k.label}</Text>
                         <Text style={vaultStyles.keyId}>{k.id}</Text>
+                        {k.id === "UPSTOX_ACCESS_TOKEN" && (
+                          <Text style={{ fontSize: 9, color: AMBER, fontFamily: "DMSans_400Regular", marginTop: 2 }}>
+                            Daily refresh required - expires every day
+                          </Text>
+                        )}
                       </View>
-                      <View style={[vaultStyles.statusDot, { backgroundColor: k.hasValue ? NEON_GREEN : Colors.dark.red }]} />
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={{ fontSize: 9, fontFamily: "DMSans_500Medium", color: k.hasValue ? NEON_GREEN : Colors.dark.red }}>
+                          {k.hasValue ? "SET" : "EMPTY"}
+                        </Text>
+                        <View style={[vaultStyles.statusDot, { backgroundColor: k.hasValue ? NEON_GREEN : Colors.dark.red }]} />
+                      </View>
                     </View>
 
                     {vaultEditKey === k.id ? (
@@ -673,11 +703,11 @@ export default function SettingsScreen() {
                           style={vaultStyles.editInput}
                           value={vaultEditValue}
                           onChangeText={setVaultEditValue}
-                          placeholder={`Enter ${k.label}`}
+                          placeholder={`Paste new ${k.label} here`}
                           placeholderTextColor={Colors.dark.textMuted}
                           autoCapitalize="none"
                           autoCorrect={false}
-                          secureTextEntry={k.id !== "TELEGRAM_CHAT_ID"}
+                          multiline={k.id === "UPSTOX_ACCESS_TOKEN"}
                         />
                         <View style={vaultStyles.editActions}>
                           <Pressable
@@ -697,12 +727,20 @@ export default function SettingsScreen() {
                       </View>
                     ) : (
                       <View style={vaultStyles.valueRow}>
-                        <Text style={vaultStyles.maskedValue} numberOfLines={1}>
-                          {k.hasValue ? k.maskedValue : "Not set"}
+                        <Text style={[vaultStyles.maskedValue, revealedKeys[k.id] && { fontSize: 10 }]} numberOfLines={revealedKeys[k.id] ? 3 : 1}>
+                          {revealedKeys[k.id] ? revealedKeys[k.id] : k.hasValue ? k.maskedValue : "Not set"}
                         </Text>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
+                        <View style={{ flexDirection: "row", gap: 6 }}>
+                          {k.hasValue && (
+                            <Pressable
+                              onPress={() => revealVaultKey(k.id)}
+                              style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
+                            >
+                              <Ionicons name={revealedKeys[k.id] ? "eye-off-outline" : "eye-outline"} size={16} color={Colors.dark.textMuted} />
+                            </Pressable>
+                          )}
                           <Pressable
-                            onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); }}
+                            onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); setRevealedKeys(prev => { const n = {...prev}; delete n[k.id]; return n; }); }}
                             style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
                           >
                             <Ionicons name={k.hasValue ? "create-outline" : "add-circle-outline"} size={16} color={CYAN} />
