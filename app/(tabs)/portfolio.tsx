@@ -42,6 +42,7 @@ import {
 } from "@/lib/paper-trading";
 import { generateOptionChain } from "@/lib/options";
 import { fetchLiveOptionChain } from "@/lib/live-market";
+import { getApiUrl } from "@/lib/query-client";
 import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
@@ -107,8 +108,20 @@ export default function PortfolioScreen() {
   const [orderStrike, setOrderStrike] = useState<number>(0);
   const [orderPremium, setOrderPremium] = useState("");
   const [orderLots, setOrderLots] = useState("1");
+  const [liveExpiryData, setLiveExpiryData] = useState<{ expiry: string; lotSize: number } | null>(null);
 
   const chainRef = useRef(generateOptionChain());
+
+  const fetchLiveExpiry = useCallback(async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const resp = await globalThis.fetch(`${baseUrl}api/option/expiries`);
+      const data = await resp.json();
+      if (data.source === "upstox" && data.expiries?.length > 0) {
+        setLiveExpiryData({ expiry: data.expiries[0], lotSize: data.lotSize || 65 });
+      }
+    } catch {}
+  }, []);
 
   const loadAll = useCallback(async () => {
     const [fa, pos, ord, hist, st] = await Promise.all([
@@ -128,6 +141,7 @@ export default function PortfolioScreen() {
   useFocusEffect(
     useCallback(() => {
       loadAll();
+      fetchLiveExpiry();
       const interval = setInterval(async () => {
         const { chain, isLive } = await fetchLiveOptionChain();
         chainRef.current = chain;
@@ -138,7 +152,7 @@ export default function PortfolioScreen() {
         });
       }, 10000);
       return () => clearInterval(interval);
-    }, [loadAll])
+    }, [loadAll, fetchLiveExpiry])
   );
 
   const onRefresh = useCallback(async () => {
@@ -600,7 +614,12 @@ export default function PortfolioScreen() {
     );
   };
 
-  const expiryInfo = getExpiryInfo();
+  const fallbackExpiry = getExpiryInfo();
+  const expiryInfo = {
+    ...fallbackExpiry,
+    currentExpiry: liveExpiryData?.expiry || fallbackExpiry.currentExpiry,
+    lotSize: liveExpiryData?.lotSize || fallbackExpiry.lotSize,
+  };
 
   return (
     <View style={styles.container}>

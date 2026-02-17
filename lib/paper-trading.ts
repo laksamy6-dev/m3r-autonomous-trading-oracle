@@ -430,9 +430,11 @@ export async function getTradingStats(): Promise<{
 
 export function getExpiryInfo(): {
   expiryDate: string;
+  currentExpiry: string;
   daysToExpiry: number;
   isExpiryDay: boolean;
   expiryDay: string;
+  lotSize: number;
 } {
   const now = new Date();
   const d = new Date(now);
@@ -451,9 +453,11 @@ export function getExpiryInfo(): {
 
   return {
     expiryDate,
+    currentExpiry: expiryDate,
     daysToExpiry: daysUntilThursday,
     isExpiryDay,
     expiryDay: days[d.getDay()],
+    lotSize: NIFTY_LOT_SIZE,
   };
 }
 
