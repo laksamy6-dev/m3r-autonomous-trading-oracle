@@ -72,13 +72,19 @@ function saveVaultToFile(data: Record<string, string>) {
 
 const savedVault = loadVaultFromFile();
 
+function syncVaultToEnv(vault: Record<string, string>) {
+  const envKeys = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GEMINI_API_KEY", "UPSTOX_API_KEY", "UPSTOX_SECRET_KEY", "UPSTOX_ACCESS_TOKEN"];
+  for (const key of envKeys) {
+    if (vault[key]) {
+      process.env[key] = vault[key];
+    }
+  }
+}
+syncVaultToEnv(savedVault);
+
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
-
-if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
-if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
-if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
 
 {
   let needsSave = false;
