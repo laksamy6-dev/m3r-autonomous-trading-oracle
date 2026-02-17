@@ -1568,6 +1568,13 @@ Based on this data, give me:
         if (failedAttempts.length > 50) failedAttempts.length = 50;
       }
 
+      if (method === "pin") {
+        try {
+          const { markOwnerIP } = require("./security-engine");
+          markOwnerIP(ip);
+        } catch {}
+      }
+
       const event: LoginEvent = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
         method: method || "visitor",

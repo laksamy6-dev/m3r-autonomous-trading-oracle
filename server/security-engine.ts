@@ -2,10 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import { sendTelegramMessage } from "./telegram";
 
 const OWNER_ALERT_COOLDOWN = 60000;
-const BLOCK_THRESHOLD = 20;
-const SCAN_THRESHOLD = 10;
+const BLOCK_THRESHOLD = 50;
+const SCAN_THRESHOLD = 15;
 const RATE_LIMIT_WINDOW = 60000;
-const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_MAX = 500;
 
 interface VisitorLog {
   ip: string;
@@ -69,6 +69,23 @@ const SAFE_PATHS = [
   "/", "/api/", "/assets/", "/static/", "/_expo/",
   "/manifest", "/status", "/favicon.ico",
 ];
+
+const ownerIPs = new Set<string>();
+
+export function markOwnerIP(ip: string): void {
+  ownerIPs.add(ip);
+  blockedIPs.delete(ip);
+  const visitor = visitors.get(ip);
+  if (visitor) {
+    visitor.suspiciousCount = 0;
+    visitor.blocked = false;
+  }
+}
+
+export function unblockAllIPs(): void {
+  blockedIPs.clear();
+  visitors.forEach(v => { v.suspiciousCount = 0; v.blocked = false; });
+}
 
 function getClientIP(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -185,6 +202,11 @@ export function securityMiddleware(req: Request, res: Response, next: NextFuncti
   const query = JSON.stringify(req.query || {});
   const body = typeof req.body === "string" ? req.body : JSON.stringify(req.body || {});
   const now = Date.now();
+
+  if (ownerIPs.has(ip)) {
+    next();
+    return;
+  }
 
   if (blockedIPs.has(ip)) {
     res.status(403).json({
@@ -399,6 +421,12 @@ export function registerSecurityRoutes(app: any): void {
     const visitor = visitors.get(ip);
     if (visitor) visitor.blocked = false;
     res.json({ success: true, message: `IP ${ip} unblocked` });
+  });
+
+  app.post("/api/security/unblock-all", (_req: Request, res: Response) => {
+    const count = blockedIPs.size;
+    unblockAllIPs();
+    res.json({ success: true, message: `All ${count} IPs unblocked` });
   });
 }
 
