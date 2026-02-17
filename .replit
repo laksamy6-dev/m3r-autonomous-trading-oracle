@@ -86,6 +86,7 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
+EXPO_PUBLIC_DOMAIN = "1193c26f-f478-4f1e-80aa-96fe3db56dfd-00-2apjyzb2nqy92.janeway.replit.dev"
 
 [userenv.development]
 

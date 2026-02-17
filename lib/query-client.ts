@@ -16,10 +16,14 @@ export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
+    host = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  }
+
+  if (!host) {
     if (typeof window !== "undefined" && window.location) {
       return window.location.origin + "/";
     }
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+    return "https://localhost:5000/";
   }
 
   let url = new URL(`https://${host}`);
