@@ -360,6 +360,11 @@ export default function BotScreen() {
   const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
   const [tradingPnl, setTradingPnl] = useState<number | null>(null);
   const [activeTradeCount, setActiveTradeCount] = useState(0);
+  const [lamyActivities, setLamyActivities] = useState<Array<{
+    id: string; type: string; status: string; title: string;
+    detail?: string; startedAt: number; completedAt?: number; duration: number;
+  }>>([]);
+  const [showActivities, setShowActivities] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -384,6 +389,13 @@ export default function BotScreen() {
             const data = await tradRes.json();
             setTradingPnl(data.totalPnl || 0);
             setActiveTradeCount(data.activeCount || 0);
+          }
+        } catch {}
+        try {
+          const actRes = await globalThis.fetch(`${baseUrl}api/m3r/activities`);
+          if (actRes.ok && alive) {
+            const data = await actRes.json();
+            setLamyActivities(data.activities || []);
           }
         } catch {}
       } catch {}
@@ -1185,6 +1197,67 @@ export default function BotScreen() {
         </View>
       </View>
 
+      {lamyActivities.length > 0 && (
+        <Pressable
+          style={styles.activityBar}
+          onPress={() => setShowActivities(!showActivities)}
+        >
+          <View style={styles.activityHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {lamyActivities.some(a => a.status === "running") && <PulsingDot color={CYAN} />}
+              <Text style={styles.activityTitle}>
+                {lamyActivities.filter(a => a.status === "running").length > 0
+                  ? `${lamyActivities.filter(a => a.status === "running").length} task${lamyActivities.filter(a => a.status === "running").length > 1 ? "s" : ""} running`
+                  : `${lamyActivities.length} recent tasks`}
+              </Text>
+            </View>
+            <Ionicons
+              name={showActivities ? "chevron-up" : "chevron-down"}
+              size={14}
+              color="rgba(255,255,255,0.5)"
+            />
+          </View>
+          {!showActivities && lamyActivities.filter(a => a.status === "running")[0] && (
+            <View style={styles.activityPreview}>
+              <View style={[styles.activityDot, { backgroundColor: CYAN }]} />
+              <Text style={styles.activityPreviewText} numberOfLines={1}>
+                {lamyActivities.filter(a => a.status === "running")[0].title}
+              </Text>
+            </View>
+          )}
+          {showActivities && (
+            <View style={styles.activityList}>
+              {lamyActivities.slice(0, 10).map((act) => {
+                const typeIcon = act.type === "learning" ? "school" : act.type === "chat" ? "chatbubble" : act.type === "analysis" ? "analytics" : act.type === "trading" ? "trending-up" : act.type === "security" ? "shield-checkmark" : act.type === "evolution" ? "code-slash" : "pulse";
+                const statusColor = act.status === "running" ? CYAN : act.status === "completed" ? NEON_GREEN : RED;
+                const durationSec = Math.round(act.duration / 1000);
+                return (
+                  <View key={act.id} style={styles.activityItem}>
+                    <View style={styles.activityItemLeft}>
+                      <View style={[styles.activityStatusDot, { backgroundColor: statusColor }]} />
+                      <Ionicons name={typeIcon as any} size={12} color={statusColor} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.activityItemTitle, { color: statusColor }]} numberOfLines={1}>
+                          {act.title}
+                        </Text>
+                        {act.detail && (
+                          <Text style={styles.activityItemDetail} numberOfLines={1}>
+                            {act.detail}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text style={styles.activityDuration}>
+                      {act.status === "running" ? "..." : `${durationSec}s`}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </Pressable>
+      )}
+
       <View style={styles.tabBar}>
         {(["chat", "brain", "memory"] as const).map((tab) => (
           <Pressable
@@ -1851,6 +1924,77 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: CYAN,
+  },
+  activityBar: {
+    backgroundColor: "rgba(0, 243, 255, 0.04)",
+    borderBottomWidth: 1,
+    borderBottomColor: PANEL_BORDER,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  activityHeader: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+  },
+  activityTitle: {
+    fontSize: 10,
+    fontWeight: "600" as const,
+    color: "rgba(255,255,255,0.6)",
+    letterSpacing: 0.5,
+  },
+  activityPreview: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    marginTop: 4,
+  },
+  activityDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  activityPreviewText: {
+    fontSize: 10,
+    color: CYAN,
+    fontWeight: "500" as const,
+    flex: 1,
+  },
+  activityList: {
+    marginTop: 6,
+    gap: 4,
+  },
+  activityItem: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    paddingVertical: 3,
+  },
+  activityItemLeft: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    flex: 1,
+  },
+  activityStatusDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  activityItemTitle: {
+    fontSize: 10,
+    fontWeight: "500" as const,
+  },
+  activityItemDetail: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 1,
+  },
+  activityDuration: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
+    fontWeight: "500" as const,
+    marginLeft: 8,
   },
   emptyState: {
     alignItems: "center",

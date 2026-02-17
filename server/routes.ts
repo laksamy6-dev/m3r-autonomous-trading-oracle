@@ -207,6 +207,36 @@ const brainStats: BrainStats = {
 
 const BRAIN_FILE = path.join(process.cwd(), ".brain-data.json");
 
+interface LamyActivity {
+  id: string;
+  type: "brain" | "chat" | "trading" | "learning" | "analysis" | "security" | "evolution" | "system";
+  status: "running" | "completed" | "failed";
+  title: string;
+  detail?: string;
+  startedAt: number;
+  completedAt?: number;
+  progress?: number;
+}
+
+const lamyActivities: LamyActivity[] = [];
+let activityCounter = 0;
+
+function addActivity(type: LamyActivity["type"], title: string, detail?: string): string {
+  const id = `act-${++activityCounter}-${Date.now()}`;
+  lamyActivities.unshift({ id, type, status: "running", title, detail, startedAt: Date.now() });
+  if (lamyActivities.length > 50) lamyActivities.length = 50;
+  return id;
+}
+
+function completeActivity(id: string, status: "completed" | "failed" = "completed", detail?: string) {
+  const act = lamyActivities.find(a => a.id === id);
+  if (act) {
+    act.status = status;
+    act.completedAt = Date.now();
+    if (detail) act.detail = detail;
+  }
+}
+
 function saveBrainToDisk() {
   try {
     fs.writeFileSync(BRAIN_FILE, JSON.stringify(brainStats, null, 2));
@@ -230,6 +260,8 @@ function loadBrainFromDisk() {
 }
 
 loadBrainFromDisk();
+addActivity("system", "LAMY Brain initialized", `IQ: ${brainStats.iq.toFixed(1)} | Gen: ${brainStats.generation}`);
+setTimeout(() => completeActivity(lamyActivities[0]?.id || "", "completed"), 500);
 
 const LEARNING_DOMAINS = [
   "Nifty 50 Options Chain Analysis", "Bank Nifty Strategies", "Iron Condor Execution",
@@ -408,6 +440,7 @@ function runSelfImprovement() {
 
   brainStats.currentPhase = BRAIN_PHASES[Math.floor(Math.random() * BRAIN_PHASES.length)];
   const strategy = LEARNING_STRATEGIES[Math.floor(Math.random() * LEARNING_STRATEGIES.length)];
+  const actId = addActivity("learning", `${brainStats.currentPhase}`, `Strategy: ${strategy}`);
 
   const numAreas = Math.floor(Math.random() * 6) + 3;
   const allAreas = Object.keys(brainStats.knowledgeAreas);
@@ -535,6 +568,7 @@ function runSelfImprovement() {
     brainStats.isTraining = false;
     brainStats.currentPhase = "ONLINE";
     saveBrainToDisk();
+    completeActivity(actId, "completed", `IQ: ${brainStats.iq.toFixed(1)} | ${Object.keys(brainStats.knowledgeAreas).length} domains`);
   }, 800);
 }
 
@@ -1164,6 +1198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Stock symbol is required" });
       }
       if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
+      const analyzeActId = addActivity("analysis", `Analyzing ${name || symbol}`, `Stock: ${symbol}`);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1229,10 +1264,12 @@ Provide your trading signal and analysis.`;
         }
       }
 
+      completeActivity(analyzeActId, "completed", `${name || symbol} analysis done`);
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error) {
       console.error("Error analyzing stock:", error);
+      completeActivity(analyzeActId, "failed");
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: "Analysis failed" })}\n\n`);
         res.end();
@@ -3996,6 +4033,26 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     });
   });
 
+  app.get("/api/m3r/activities", (_req, res) => {
+    const now = Date.now();
+    const recentActivities = lamyActivities
+      .filter(a => now - a.startedAt < 300000)
+      .slice(0, 20)
+      .map(a => ({
+        ...a,
+        duration: (a.completedAt || now) - a.startedAt,
+      }));
+    res.json({
+      activities: recentActivities,
+      stats: {
+        totalToday: lamyActivities.length,
+        running: lamyActivities.filter(a => a.status === "running").length,
+        completed: lamyActivities.filter(a => a.status === "completed").length,
+        failed: lamyActivities.filter(a => a.status === "failed").length,
+      },
+    });
+  });
+
   app.post("/api/m3r/chat", async (req, res) => {
     try {
       const { message } = req.body;
@@ -4010,6 +4067,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       brainStats.totalInteractions++;
       detectSlangProfile(message);
       saveChatMessage("user", message);
+      const chatActId = addActivity("chat", "Processing message", message.substring(0, 80));
 
       const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
@@ -4053,10 +4111,12 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       m3rChatHistory.push({ role: "model", parts: [{ text: fullText }] });
       saveChatMessage("model", fullText);
+      completeActivity(chatActId, "completed", `Response: ${fullText.substring(0, 60)}...`);
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error: any) {
       console.error("[M3R CHAT] Error:", error.message);
+      completeActivity(chatActId, "failed", error.message);
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         res.end();
