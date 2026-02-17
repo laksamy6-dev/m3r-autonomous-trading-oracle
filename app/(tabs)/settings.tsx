@@ -134,7 +134,15 @@ export default function SettingsScreen() {
         setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       }
       const storedPin = await AsyncStorage.getItem("lamy_pin");
-      if (storedPin) setSavedPin(storedPin);
+      if (storedPin) {
+        setSavedPin(storedPin);
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/vault/keys?pin=${storedPin}`);
+        if (res.ok) {
+          const data = await res.json();
+          setVaultKeys(data.keys || []);
+        }
+      }
     } catch {}
   }
 
@@ -679,26 +687,17 @@ export default function SettingsScreen() {
                 </View>
                 {catKeys.map(k => (
                   <View key={k.id} style={vaultStyles.keyCard}>
-                    <View style={vaultStyles.keyHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={vaultStyles.keyLabel}>{k.label}</Text>
-                        <Text style={vaultStyles.keyId}>{k.id}</Text>
-                        {k.id === "UPSTOX_ACCESS_TOKEN" && (
-                          <Text style={{ fontSize: 9, color: AMBER, fontFamily: "DMSans_400Regular", marginTop: 2 }}>
-                            Daily refresh required - expires every day
-                          </Text>
-                        )}
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={{ fontSize: 9, fontFamily: "DMSans_500Medium", color: k.hasValue ? NEON_GREEN : Colors.dark.red }}>
-                          {k.hasValue ? "SET" : "EMPTY"}
-                        </Text>
-                        <View style={[vaultStyles.statusDot, { backgroundColor: k.hasValue ? NEON_GREEN : Colors.dark.red }]} />
-                      </View>
-                    </View>
-
                     {vaultEditKey === k.id ? (
-                      <View style={vaultStyles.editContainer}>
+                      <View>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <Text style={vaultStyles.keyLabel}>{k.label}</Text>
+                          <Pressable
+                            onPress={() => { setVaultEditKey(null); setVaultEditValue(""); }}
+                            style={({ pressed }) => [{ padding: 8 }, pressed && { opacity: 0.7 }]}
+                          >
+                            <Ionicons name="close-circle" size={22} color={Colors.dark.textMuted} />
+                          </Pressable>
+                        </View>
                         <TextInput
                           style={vaultStyles.editInput}
                           value={vaultEditValue}
@@ -707,54 +706,76 @@ export default function SettingsScreen() {
                           placeholderTextColor={Colors.dark.textMuted}
                           autoCapitalize="none"
                           autoCorrect={false}
-                          multiline={k.id === "UPSTOX_ACCESS_TOKEN"}
+                          multiline
+                          numberOfLines={k.id === "UPSTOX_ACCESS_TOKEN" ? 4 : 2}
                         />
-                        <View style={vaultStyles.editActions}>
-                          <Pressable
-                            onPress={() => { setVaultEditKey(null); setVaultEditValue(""); }}
-                            style={({ pressed }) => [vaultStyles.editCancel, pressed && { opacity: 0.7 }]}
-                          >
-                            <Text style={vaultStyles.editCancelText}>Cancel</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => saveVaultKey(k.id, vaultEditValue)}
-                            disabled={vaultSaving || !vaultEditValue.trim()}
-                            style={({ pressed }) => [vaultStyles.editSave, pressed && { opacity: 0.7 }, (!vaultEditValue.trim()) && { opacity: 0.4 }]}
-                          >
-                            {vaultSaving ? <ActivityIndicator size="small" color="#000" /> : <Text style={vaultStyles.editSaveText}>Save</Text>}
-                          </Pressable>
-                        </View>
+                        <Pressable
+                          onPress={() => saveVaultKey(k.id, vaultEditValue)}
+                          disabled={vaultSaving || !vaultEditValue.trim()}
+                          style={({ pressed }) => [{
+                            backgroundColor: CYAN,
+                            borderRadius: 8,
+                            paddingVertical: 12,
+                            alignItems: "center" as const,
+                            marginTop: 8,
+                          }, pressed && { opacity: 0.7 }, (!vaultEditValue.trim()) && { opacity: 0.4 }]}
+                        >
+                          {vaultSaving ? <ActivityIndicator size="small" color="#000" /> : <Text style={{ fontSize: 14, fontFamily: "DMSans_700Bold", color: "#000" }}>Save</Text>}
+                        </Pressable>
                       </View>
                     ) : (
-                      <View style={vaultStyles.valueRow}>
-                        <Text style={[vaultStyles.maskedValue, revealedKeys[k.id] && { fontSize: 10 }]} numberOfLines={revealedKeys[k.id] ? 3 : 1}>
-                          {revealedKeys[k.id] ? revealedKeys[k.id] : k.hasValue ? k.maskedValue : "Not set"}
-                        </Text>
-                        <View style={{ flexDirection: "row", gap: 6 }}>
-                          {k.hasValue && (
-                            <Pressable
-                              onPress={() => revealVaultKey(k.id)}
-                              style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
-                            >
-                              <Ionicons name={revealedKeys[k.id] ? "eye-off-outline" : "eye-outline"} size={16} color={Colors.dark.textMuted} />
-                            </Pressable>
-                          )}
-                          <Pressable
-                            onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); setRevealedKeys(prev => { const n = {...prev}; delete n[k.id]; return n; }); }}
-                            style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
-                          >
-                            <Ionicons name={k.hasValue ? "create-outline" : "add-circle-outline"} size={16} color={CYAN} />
-                          </Pressable>
-                          {k.hasValue && (
-                            <Pressable
-                              onPress={() => deleteVaultKey(k.id)}
-                              style={({ pressed }) => [vaultStyles.deleteBtn, pressed && { opacity: 0.7 }]}
-                            >
-                              <Ionicons name="trash-outline" size={16} color={Colors.dark.red} />
-                            </Pressable>
-                          )}
+                      <Pressable
+                        onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); setRevealedKeys(prev => { const n = {...prev}; delete n[k.id]; return n; }); }}
+                        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <View style={vaultStyles.keyHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={vaultStyles.keyLabel}>{k.label}</Text>
+                            <Text style={vaultStyles.keyId}>{k.id}</Text>
+                            {k.id === "UPSTOX_ACCESS_TOKEN" && (
+                              <Text style={{ fontSize: 9, color: AMBER, fontFamily: "DMSans_400Regular", marginTop: 2 }}>
+                                Daily refresh required - expires every day
+                              </Text>
+                            )}
+                          </View>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Text style={{ fontSize: 10, fontFamily: "DMSans_500Medium", color: k.hasValue ? NEON_GREEN : Colors.dark.red }}>
+                              {k.hasValue ? "SET" : "EMPTY"}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                          </View>
                         </View>
-                      </View>
+                        <View style={vaultStyles.valueRow}>
+                          <Text style={vaultStyles.maskedValue} numberOfLines={1}>
+                            {k.hasValue ? k.maskedValue : "Tap to set value"}
+                          </Text>
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            {k.hasValue && (
+                              <Pressable
+                                onPress={(e) => { e.stopPropagation(); revealVaultKey(k.id); }}
+                                hitSlop={12}
+                                style={({ pressed }) => [{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8 }, pressed && { opacity: 0.7 }]}
+                              >
+                                <Ionicons name={revealedKeys[k.id] ? "eye-off" : "eye"} size={18} color={Colors.dark.textMuted} />
+                              </Pressable>
+                            )}
+                            {k.hasValue && (
+                              <Pressable
+                                onPress={(e) => { e.stopPropagation(); deleteVaultKey(k.id); }}
+                                hitSlop={12}
+                                style={({ pressed }) => [{ padding: 8, backgroundColor: "rgba(255,0,0,0.08)", borderRadius: 8 }, pressed && { opacity: 0.7 }]}
+                              >
+                                <Ionicons name="trash" size={18} color={Colors.dark.red} />
+                              </Pressable>
+                            )}
+                          </View>
+                        </View>
+                        {revealedKeys[k.id] && (
+                          <View style={{ marginTop: 6, backgroundColor: "rgba(0,212,255,0.06)", borderRadius: 6, padding: 8 }}>
+                            <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: CYAN }} selectable>{revealedKeys[k.id]}</Text>
+                          </View>
+                        )}
+                      </Pressable>
                     )}
                   </View>
                 ))}
