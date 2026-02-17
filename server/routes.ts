@@ -4314,15 +4314,23 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       const tradeKeywords = /\b(buy|sell|trade|order|place|execute|nifty|option|strike|premium|call|put|ce\b|pe\b|position|fund|margin|lot|expiry|spot|price|chain|portfolio|holding)/i;
       const isTradeRelated = tradeKeywords.test(userMessage);
+      const searchKeywords = /\b(search|google|news|latest|today|current|find|look up|what happened|who is|weather|score|result)/i;
+      const needsSearch = searchKeywords.test(message);
+
+      const toolsConfig: any[] = [];
+      if (isTradeRelated) {
+        toolsConfig.push({ functionDeclarations: tradeFunctionDeclarations as any });
+      }
+      if (needsSearch && !isTradeRelated) {
+        toolsConfig.push({ googleSearch: {} });
+      }
 
       const response = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
         contents: m3rChatHistory,
         config: {
           systemInstruction: systemInstruction + slangContext + (isTradeRelated ? "\n\nIMPORTANT: When Sir asks to trade, BUY, SELL, or place an order, you MUST use the place_upstox_order function. NEVER just describe what you would do — actually DO it by calling the function. Check spot price and option chain first using the available functions, then place the order. Lot size is 65. You can also check positions and funds." : ""),
-          tools: isTradeRelated
-            ? [{ functionDeclarations: tradeFunctionDeclarations as any }]
-            : [{ googleSearch: {} }],
+          ...(toolsConfig.length > 0 ? { tools: toolsConfig } : {}),
         }
       });
 
