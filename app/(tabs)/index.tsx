@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-const nativeFetch = globalThis.fetch;
+import { fetch } from "expo/fetch";
 import Colors from "@/constants/colors";
 import { getStocks, getIndices, getTopGainers, getTopLosers } from "@/lib/stocks";
 import { Stock, IndexData } from "@/lib/types";
@@ -140,12 +140,12 @@ export default function MarketScreen() {
   const [togglingAutoScan, setTogglingAutoScan] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
-  const [dataSource, setDataSource] = useState<"upstox" | "offline">("offline");
+  const [dataSource, setDataSource] = useState<"mock" | "upstox">("mock");
 
   const loadData = useCallback(async () => {
     try {
       const url = `${getApiUrl()}api/market/live-stocks`;
-      const res = await nativeFetch(url);
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (data.source === "upstox" && data.stocks?.length > 0) {
@@ -163,7 +163,7 @@ export default function MarketScreen() {
         }
       }
     } catch (e) {}
-    setDataSource("offline");
+    setDataSource("mock");
     setIndices(getIndices());
     setGainers(getTopGainers());
     setLosers(getTopLosers());
@@ -172,7 +172,7 @@ export default function MarketScreen() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 3000);
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, [loadData]);
 
@@ -207,7 +207,7 @@ export default function MarketScreen() {
   const fetchProposals = useCallback(async () => {
     try {
       const url = `${getApiUrl()}api/auto-trade/proposals`;
-      const res = await nativeFetch(url);
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setProposals(data.proposals || []);
@@ -228,7 +228,7 @@ export default function MarketScreen() {
     try {
       const endpoint = autoScanActive ? "stop" : "start";
       const url = `${getApiUrl()}api/auto-trade/scan/${endpoint}`;
-      const res = await nativeFetch(url, { method: "POST" });
+      const res = await fetch(url, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         setAutoScanActive(data.active);
@@ -245,7 +245,7 @@ export default function MarketScreen() {
     setRespondingTo(proposalId);
     try {
       const url = `${getApiUrl()}api/auto-trade/approve`;
-      const res = await nativeFetch(url, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ proposalId, action }),
@@ -315,7 +315,7 @@ export default function MarketScreen() {
         };
       }
       const url = `${getApiUrl()}api/telegram/alert`;
-      const res = await nativeFetch(url, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -391,7 +391,7 @@ export default function MarketScreen() {
             <View>
               <View style={styles.chartLabelRow}>
                 <View style={styles.liveDot} />
-                <Text style={styles.chartLabel}>NIFTY 50 {dataSource === "upstox" ? "LIVE" : "OFFLINE"}</Text>
+                <Text style={styles.chartLabel}>NIFTY 50 {dataSource === "upstox" ? "LIVE" : "SIMULATED"}</Text>
               </View>
               <View style={styles.chartPriceRow}>
                 <Text style={styles.chartPrice}>

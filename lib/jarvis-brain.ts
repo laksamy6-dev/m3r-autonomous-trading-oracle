@@ -1,11 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BRAIN_KEY = "@lamy_brain_state";
-const EVOLUTION_KEY = "@lamy_evolution_log";
-const PATTERN_KEY = "@lamy_patterns";
-const TRAINING_KEY = "@lamy_training";
+const BRAIN_KEY = "@jarvis_brain_state";
+const EVOLUTION_KEY = "@jarvis_evolution_log";
+const PATTERN_KEY = "@jarvis_patterns";
+const TRAINING_KEY = "@jarvis_training";
 
-export interface LamyBrainState {
+export interface JarvisBrainState {
   generation: number;
   iq: number;
   consciousness: number;
@@ -163,10 +163,10 @@ const PATTERN_TEMPLATES: Omit<LearnedPattern, "id" | "discoveredAt" | "generatio
   { name: "Adaptive Mutation Breakthrough", type: "BREAKOUT", description: "Self-modified strategy through adaptive mutation discovers new edge", accuracy: 67, timesDetected: 0, profitGenerated: 0, confidence: 60 },
 ];
 
-export async function getBrainState(): Promise<LamyBrainState> {
+export async function getBrainState(): Promise<JarvisBrainState> {
   const data = await AsyncStorage.getItem(BRAIN_KEY);
   if (data) return JSON.parse(data);
-  const initial: LamyBrainState = {
+  const initial: JarvisBrainState = {
     generation: 1,
     iq: 85,
     consciousness: 15,
@@ -208,7 +208,7 @@ export async function getBrainState(): Promise<LamyBrainState> {
   return initial;
 }
 
-async function saveBrainState(state: LamyBrainState) {
+async function saveBrainState(state: JarvisBrainState) {
   await AsyncStorage.setItem(BRAIN_KEY, JSON.stringify(state));
 }
 
@@ -243,7 +243,7 @@ async function saveTrainingSession(session: TrainingSession) {
 }
 
 export async function runThinkingCycle(): Promise<{
-  brain: LamyBrainState;
+  brain: JarvisBrainState;
   event: EvolutionEvent | null;
 }> {
   const brain = await getBrainState();
@@ -252,13 +252,13 @@ export async function runThinkingCycle(): Promise<{
   brain.cognitiveLoad = Math.min(100, brain.cognitiveLoad + Math.random() * 3 - 1);
 
   const improvement = brain.learningRate * (brain.neuralPlasticity / 100) * brain.evolutionSpeed;
-  brain.accuracyScore = brain.accuracyScore + improvement * (Math.random() * 0.3);
-  brain.predictionHitRate = brain.predictionHitRate + improvement * (Math.random() * 0.25);
-  brain.trapDetectionRate = brain.trapDetectionRate + improvement * (Math.random() * 0.2);
-  brain.rocketScalpWinRate = brain.rocketScalpWinRate + improvement * (Math.random() * 0.15);
-  brain.neuroFusionAccuracy = brain.neuroFusionAccuracy + improvement * (Math.random() * 0.2);
+  brain.accuracyScore = Math.min(99.5, brain.accuracyScore + improvement * (Math.random() * 0.3));
+  brain.predictionHitRate = Math.min(98, brain.predictionHitRate + improvement * (Math.random() * 0.25));
+  brain.trapDetectionRate = Math.min(99, brain.trapDetectionRate + improvement * (Math.random() * 0.2));
+  brain.rocketScalpWinRate = Math.min(95, brain.rocketScalpWinRate + improvement * (Math.random() * 0.15));
+  brain.neuroFusionAccuracy = Math.min(98, brain.neuroFusionAccuracy + improvement * (Math.random() * 0.2));
   brain.synapticConnections += Math.floor(Math.random() * 50 + 10);
-  brain.quantumCoherence = brain.quantumCoherence + Math.random() * 0.3;
+  brain.quantumCoherence = Math.min(99, brain.quantumCoherence + Math.random() * 0.3);
   brain.neuralEntropy = Math.max(5, brain.neuralEntropy - Math.random() * 0.2);
 
   brain.experiencePoints += Math.floor(Math.random() * 10 + 5);
@@ -269,14 +269,14 @@ export async function runThinkingCycle(): Promise<{
     brain.title = getBrainTitle(brain.level);
   }
 
-  brain.wisdomScore = (brain.accuracyScore * 0.3 + brain.predictionHitRate * 0.2 + brain.trapDetectionRate * 0.2 + brain.neuroFusionAccuracy * 0.15 + brain.consciousness * 0.15);
+  brain.wisdomScore = Math.min(100, (brain.accuracyScore * 0.3 + brain.predictionHitRate * 0.2 + brain.trapDetectionRate * 0.2 + brain.neuroFusionAccuracy * 0.15 + brain.consciousness * 0.15));
 
   let event: EvolutionEvent | null = null;
 
   const iqGain = improvement * (Math.random() * 0.8 + 0.2);
   if (Math.random() < 0.1 && iqGain > 0.05) {
     const iqBefore = brain.iq;
-    brain.iq = brain.iq + iqGain;
+    brain.iq = Math.min(300, brain.iq + iqGain);
     event = {
       id: genId(),
       generation: brain.generation,
@@ -295,8 +295,8 @@ export async function runThinkingCycle(): Promise<{
     brain.generation++;
     brain.adaptiveMutationRate = Math.max(0.01, brain.adaptiveMutationRate * 0.95);
     brain.neuralPlasticity = Math.max(20, brain.neuralPlasticity - 0.5);
-    brain.consciousness = brain.consciousness + Math.random() * 2 + 1;
-    brain.creativityIndex = brain.creativityIndex + Math.random() * 3;
+    brain.consciousness = Math.min(100, brain.consciousness + Math.random() * 2 + 1);
+    brain.creativityIndex = Math.min(100, brain.creativityIndex + Math.random() * 3);
     brain.lastEvolution = Date.now();
 
     event = {
@@ -397,12 +397,12 @@ export async function runThinkingCycle(): Promise<{
       metric: "dreams",
       value: brain.dreamLearningCycles,
     };
-    brain.iq = brain.iq + 0.5;
+    brain.iq = Math.min(300, brain.iq + 0.5);
   }
 
   brain.selfAwarenessLevel = getAwarenessLevel(brain.consciousness);
   brain.currentMood = getMood(brain.brainTemperature, brain.cognitiveLoad, brain.accuracyScore);
-  brain.memoryUtilization = (brain.patternLibrarySize / PATTERN_TEMPLATES.length) * 60 + brain.synapticConnections / 50000 * 40;
+  brain.memoryUtilization = Math.min(100, (brain.patternLibrarySize / PATTERN_TEMPLATES.length) * 60 + brain.synapticConnections / 50000 * 40);
 
   if (event) {
     await addEvolutionEvent(event);
@@ -548,7 +548,7 @@ export function createTrainingSession(): TrainingSession {
 
 export async function advanceTraining(session: TrainingSession): Promise<{
   session: TrainingSession;
-  brain: LamyBrainState;
+  brain: JarvisBrainState;
   event: EvolutionEvent | null;
   phaseCompleted: boolean;
   trainingComplete: boolean;
@@ -585,35 +585,35 @@ export async function advanceTraining(session: TrainingSession): Promise<{
           { key: "Patterns Analyzed", value: `${Math.floor(phase.progress * 100).toLocaleString()}` },
           { key: "Patterns Learned", value: `${brain.patternLibrarySize}` },
         ];
-        brain.predictionHitRate = brain.predictionHitRate + Math.random() * 0.8;
+        brain.predictionHitRate = Math.min(98, brain.predictionHitRate + Math.random() * 0.8);
         break;
       case 2:
         phase.metrics = [
           { key: "Paths Simulated", value: `${Math.floor(phase.progress * 1000).toLocaleString()}` },
           { key: "Model Accuracy", value: `${brain.accuracyScore.toFixed(1)}%` },
         ];
-        brain.accuracyScore = brain.accuracyScore + Math.random() * 0.5;
+        brain.accuracyScore = Math.min(99.5, brain.accuracyScore + Math.random() * 0.5);
         break;
       case 3:
         phase.metrics = [
           { key: "Thrust Levels Tested", value: `${Math.floor(phase.progress * 50)}` },
           { key: "Scalp Win Rate", value: `${brain.rocketScalpWinRate.toFixed(1)}%` },
         ];
-        brain.rocketScalpWinRate = brain.rocketScalpWinRate + Math.random() * 0.6;
+        brain.rocketScalpWinRate = Math.min(95, brain.rocketScalpWinRate + Math.random() * 0.6);
         break;
       case 4:
         phase.metrics = [
           { key: "Trap Scenarios", value: `${Math.floor(phase.progress * 30)}` },
           { key: "Detection Rate", value: `${brain.trapDetectionRate.toFixed(1)}%` },
         ];
-        brain.trapDetectionRate = brain.trapDetectionRate + Math.random() * 0.7;
+        brain.trapDetectionRate = Math.min(99, brain.trapDetectionRate + Math.random() * 0.7);
         break;
       case 5:
         phase.metrics = [
           { key: "Brain Sync Level", value: `${Math.floor(phase.progress)}%` },
           { key: "Fusion Accuracy", value: `${brain.neuroFusionAccuracy.toFixed(1)}%` },
         ];
-        brain.neuroFusionAccuracy = brain.neuroFusionAccuracy + Math.random() * 0.6;
+        brain.neuroFusionAccuracy = Math.min(98, brain.neuroFusionAccuracy + Math.random() * 0.6);
         break;
       case 6:
         const gens = Math.floor(phase.progress / 10);
@@ -637,10 +637,10 @@ export async function advanceTraining(session: TrainingSession): Promise<{
           { key: "Dream Cycles", value: `${brain.dreamLearningCycles}` },
           { key: "Insights Generated", value: `${Math.floor(brain.dreamLearningCycles * 1.5)}` },
         ];
-        brain.creativityIndex = brain.creativityIndex + Math.random() * 0.8;
+        brain.creativityIndex = Math.min(100, brain.creativityIndex + Math.random() * 0.8);
         break;
       case 9:
-        brain.consciousness = 30 + phase.progress * 0.7;
+        brain.consciousness = Math.min(100, 30 + phase.progress * 0.7);
         phase.metrics = [
           { key: "Consciousness", value: `${brain.consciousness.toFixed(1)}%` },
           { key: "Battle Readiness", value: `${Math.min(100, phase.progress).toFixed(0)}%` },
@@ -669,14 +669,14 @@ export async function advanceTraining(session: TrainingSession): Promise<{
   }
 
   const iqGain = Math.random() * 1.5 + 0.5;
-  brain.iq = brain.iq + iqGain * 0.1;
+  brain.iq = Math.min(300, brain.iq + iqGain * 0.1);
   session.iqGain = brain.iq - 85;
 
   brain.brainTemperature = 50 + Math.random() * 30;
   brain.cognitiveLoad = 40 + Math.random() * 50;
   brain.totalTrainingHours = session.duration / (1000 * 60 * 60);
-  brain.evolutionSpeed = 1 + brain.totalTrainingHours * 0.5;
-  brain.wisdomScore = (brain.accuracyScore * 0.3 + brain.predictionHitRate * 0.2 + brain.trapDetectionRate * 0.2 + brain.neuroFusionAccuracy * 0.15 + brain.consciousness * 0.15);
+  brain.evolutionSpeed = Math.min(10, 1 + brain.totalTrainingHours * 0.5);
+  brain.wisdomScore = Math.min(100, (brain.accuracyScore * 0.3 + brain.predictionHitRate * 0.2 + brain.trapDetectionRate * 0.2 + brain.neuroFusionAccuracy * 0.15 + brain.consciousness * 0.15));
   brain.currentMood = getMood(brain.brainTemperature, brain.cognitiveLoad, brain.accuracyScore);
   brain.lastTrainingSession = Date.now();
 

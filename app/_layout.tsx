@@ -2,7 +2,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -19,14 +18,6 @@ import {
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-
-if (Platform.OS === "web" && typeof window !== "undefined") {
-  window.addEventListener("unhandledrejection", (e) => {
-    if (e.reason?.message?.includes("timeout exceeded")) {
-      e.preventDefault();
-    }
-  });
-}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -74,7 +65,7 @@ const gateStyles = StyleSheet.create({
 });
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_600SemiBold,
@@ -82,12 +73,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded) return null;
 
   return (
     <ErrorBoundary>

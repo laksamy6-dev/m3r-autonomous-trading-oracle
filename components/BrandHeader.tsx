@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Platform, Image } from "react-native";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
-const LAMY_VERSION = "v8.0.1";
+const JARVIS_VERSION = "v8.0.1";
 
 const FULL_NAME = "MANIKANDAN RAJENDRAN";
 const LETTERS = FULL_NAME.split("");
@@ -38,8 +38,8 @@ export default function BrandHeader() {
 
       <View style={s.row2}>
         <View style={s.badge}>
-          <Text style={s.badgeLabel}>LAMY</Text>
-          <Text style={s.badgeVal}>{LAMY_VERSION}</Text>
+          <Text style={s.badgeLabel}>JARVIS</Text>
+          <Text style={s.badgeVal}>{JARVIS_VERSION}</Text>
         </View>
         <Text style={s.creatorTag}>by</Text>
         <Text style={s.nameWrap}>

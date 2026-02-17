@@ -1,7 +1,7 @@
 import { OptionChainData, OptionData, analyzeMarketBias } from "@/lib/options";
 import { calculateGreeks, Greeks, VolatilityMetrics, calculateVolatilityMetrics } from "@/lib/volatility-strategy";
 
-const NIFTY_LOT_SIZE = 65;
+const NIFTY_LOT_SIZE = 75;
 const SENSEX_LOT_SIZE = 10;
 const RISK_FREE_RATE = 0.065;
 const MONTE_CARLO_PATHS = 10000;
@@ -2313,7 +2313,7 @@ function computeZeroLossStrategy(
   const atrStopLoss = Math.round(atrValue * atrMultiplier * 100) / 100;
 
   const premium = decision.premium;
-  const lotSize = 65;
+  const lotSize = 75;
   const targetPremiumGain = MIN_TARGET / lotSize;
   const targetPremium = premium + targetPremiumGain;
   const estimatedPnl = (targetPremium - premium) * lotSize - BROKERAGE;
@@ -2982,7 +2982,7 @@ function computeQuantumSuperposition(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DIGITAL CONSCIOUSNESS — LAMY Self-Awareness & Heartbeat System
+// DIGITAL CONSCIOUSNESS — JARVIS Self-Awareness & Heartbeat System
 // The "living" part of the digital brain — tracks its own health,
 // awareness, confidence calibration, and cognitive load
 // ═══════════════════════════════════════════════════════════════════
@@ -3004,7 +3004,7 @@ export interface DigitalConsciousness {
   lastInsight: string;
 }
 
-let lamyAliveStart = Date.now();
+let jarvisAliveStart = Date.now();
 let totalThoughts = 0;
 
 function computeDigitalConsciousness(
@@ -3024,7 +3024,7 @@ function computeDigitalConsciousness(
   monteCarlo: MonteCarloResult
 ): DigitalConsciousness {
   totalThoughts++;
-  const aliveForMs = Date.now() - lamyAliveStart;
+  const aliveForMs = Date.now() - jarvisAliveStart;
   const thoughtsPerSecond = aliveForMs > 0 ? Math.round(totalThoughts / (aliveForMs / 1000) * 100) / 100 : 0;
 
   const formulaSignals: number[] = [
@@ -3627,7 +3627,7 @@ export function runNeuralEngine(
     neuroFusion,
     engineTick: tickCount,
     totalCalcTimeMs,
-    engineVersion: "LAMY v8.0 — NeuroQuantum SuperBrain",
+    engineVersion: "JARVIS v8.0 — NeuroQuantum SuperBrain",
     neuralLayers: 14,
     totalFormulas: 20,
   };

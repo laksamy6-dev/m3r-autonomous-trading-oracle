@@ -1,10 +1,10 @@
 import { getApiUrl } from "./query-client";
-import { OptionChainData } from "./options";
+import { OptionChainData, generateOptionChain } from "./options";
 
-let cachedUpstoxStatus: { configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string } | null = null;
+let cachedUpstoxStatus: { configured: boolean; connected: boolean } | null = null;
 let statusLastFetched = 0;
 
-export async function getUpstoxStatus(): Promise<{ configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string }> {
+export async function getUpstoxStatus(): Promise<{ configured: boolean; connected: boolean }> {
   const now = Date.now();
   if (cachedUpstoxStatus && now - statusLastFetched < 30000) {
     return cachedUpstoxStatus;
@@ -17,7 +17,7 @@ export async function getUpstoxStatus(): Promise<{ configured: boolean; connecte
       return cachedUpstoxStatus!;
     }
   } catch {}
-  return { configured: false, connected: false, tokenValid: false, mode: "OFFLINE" };
+  return { configured: false, connected: false };
 }
 
 export function clearUpstoxStatusCache() {
@@ -58,7 +58,7 @@ export async function fetchLiveOptionChain(expiry?: string): Promise<{ chain: Op
       }
     }
   } catch {}
-  return { chain: { spotPrice: 0, expiryDate: "", expiryDates: [], options: [], overallPCR: 0, maxPainStrike: 0, atmStrike: 0, source: "error" as const }, isLive: false };
+  return { chain: generateOptionChain(), isLive: false };
 }
 
 export async function fetchLiveSpotPrice(): Promise<{ spotPrice: number; isLive: boolean }> {

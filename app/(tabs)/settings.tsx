@@ -14,7 +14,7 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
@@ -102,7 +102,7 @@ export default function SettingsScreen() {
   const [pinError, setPinError] = useState(false);
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [telegramStatus, setTelegramStatus] = useState<{ configured: boolean } | null>(null);
-  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string } | null>(null);
+  const [upstoxStatus, setUpstoxStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const [changePinModal, setChangePinModal] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -120,7 +120,6 @@ export default function SettingsScreen() {
   const [vaultEditKey, setVaultEditKey] = useState<string | null>(null);
   const [vaultEditValue, setVaultEditValue] = useState("");
   const [vaultSaving, setVaultSaving] = useState(false);
-  const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadSettings();
@@ -129,27 +128,19 @@ export default function SettingsScreen() {
 
   async function loadSettings() {
     try {
-      const stored = await AsyncStorage.getItem("lamy_settings");
+      const stored = await AsyncStorage.getItem("jarvis_settings");
       if (stored) {
         setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       }
-      const storedPin = await AsyncStorage.getItem("lamy_pin");
-      if (storedPin) {
-        setSavedPin(storedPin);
-        const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/vault/keys?pin=${storedPin}`);
-        if (res.ok) {
-          const data = await res.json();
-          setVaultKeys(data.keys || []);
-        }
-      }
+      const storedPin = await AsyncStorage.getItem("jarvis_pin");
+      if (storedPin) setSavedPin(storedPin);
     } catch {}
   }
 
   async function saveSettings(updated: SettingsState) {
     setSettings(updated);
     try {
-      await AsyncStorage.setItem("lamy_settings", JSON.stringify(updated));
+      await AsyncStorage.setItem("jarvis_settings", JSON.stringify(updated));
     } catch {}
   }
 
@@ -218,25 +209,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function revealVaultKey(keyId: string) {
-    if (revealedKeys[keyId]) {
-      setRevealedKeys(prev => { const next = { ...prev }; delete next[keyId]; return next; });
-      return;
-    }
-    try {
-      const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/vault/reveal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: savedPin, keyId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRevealedKeys(prev => ({ ...prev, [keyId]: data.value }));
-      }
-    } catch {}
-  }
-
   async function deleteVaultKey(keyId: string) {
     Alert.alert("Delete Key", `Remove ${keyId}?`, [
       { text: "Cancel", style: "cancel" },
@@ -286,7 +258,7 @@ export default function SettingsScreen() {
       return;
     }
     setSavedPin(newPin);
-    await AsyncStorage.setItem("lamy_pin", newPin);
+    await AsyncStorage.setItem("jarvis_pin", newPin);
     setChangePinModal(false);
     setNewPin("");
     setConfirmPin("");
@@ -346,7 +318,7 @@ export default function SettingsScreen() {
       const res = await globalThis.fetch(`${baseUrl}api/telegram/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "LAMY Test: Settings verified. All systems operational." }),
+        body: JSON.stringify({ message: "JARVIS Test: Settings verified. All systems operational." }),
       });
       const data = await res.json();
       if (data.success) {
@@ -366,7 +338,7 @@ export default function SettingsScreen() {
           <View style={styles.lockIconContainer}>
             <Ionicons name="lock-closed" size={48} color={CYAN} />
           </View>
-          <Text style={styles.pinTitle}>LAMY Settings</Text>
+          <Text style={styles.pinTitle}>JARVIS Settings</Text>
           <Text style={styles.pinSubtitle}>Enter PIN to access settings</Text>
 
           <View style={styles.pinInputRow}>
@@ -421,7 +393,7 @@ export default function SettingsScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Settings</Text>
-            <Text style={styles.headerSub}>LAMY Configuration</Text>
+            <Text style={styles.headerSub}>JARVIS Configuration</Text>
           </View>
           <Pressable
             onPress={() => {
@@ -459,7 +431,7 @@ export default function SettingsScreen() {
               <Text style={styles.statusLabel}>Upstox API</Text>
               <View style={[styles.statusBadge, upstoxStatus?.connected ? styles.statusOn : upstoxStatus?.configured ? styles.statusWarn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>
-                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? (upstoxStatus?.mode === "OFFLINE" ? "Token Expired" : "Keys Set") : "Not Set"}
+                  {upstoxStatus?.connected ? "LIVE" : upstoxStatus?.configured ? "Keys Set" : "Not Set"}
                 </Text>
               </View>
             </View>
@@ -515,16 +487,6 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-
-          <View style={styles.statusCard}>
-            <View style={styles.statusRow}>
-              <MaterialCommunityIcons name="brain" size={20} color="#A855F7" />
-              <Text style={styles.statusLabel}>LAMY Brain (Gemini)</Text>
-              <View style={[styles.statusBadge, vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? styles.statusOn : styles.statusOff]}>
-                <Text style={styles.statusBadgeText}>{vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? "Active" : "Not Set"}</Text>
-              </View>
-            </View>
-          </View>
         </View>
 
         <View style={styles.section}>
@@ -552,7 +514,7 @@ export default function SettingsScreen() {
                 <Text style={styles.statusLabel}>Auto Trade Mode</Text>
                 <Text style={styles.settingDesc}>
                   {settings.autoTradeMode
-                    ? "ACTIVE - LAMY trades automatically"
+                    ? "ACTIVE - JARVIS trades automatically"
                     : "OFF - Manual approval required"}
                 </Text>
               </View>
@@ -575,7 +537,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.autoTradeInfoRow}>
               <Ionicons name="volume-high" size={14} color={Colors.dark.gold} />
-              <Text style={styles.autoTradeInfoText}>LAMY voice narration for all actions</Text>
+              <Text style={styles.autoTradeInfoText}>JARVIS voice narration for all actions</Text>
             </View>
             <View style={styles.autoTradeInfoRow}>
               <Ionicons name="flash" size={14} color={Colors.dark.red} />
@@ -589,7 +551,7 @@ export default function SettingsScreen() {
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Language</Text>
-              <Text style={styles.settingDesc}>LAMY voice response language</Text>
+              <Text style={styles.settingDesc}>JARVIS voice response language</Text>
             </View>
             <View style={styles.langOptions}>
               {(["auto", "english", "tamil"] as const).map((lang) => (
@@ -687,95 +649,64 @@ export default function SettingsScreen() {
                 </View>
                 {catKeys.map(k => (
                   <View key={k.id} style={vaultStyles.keyCard}>
+                    <View style={vaultStyles.keyHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={vaultStyles.keyLabel}>{k.label}</Text>
+                        <Text style={vaultStyles.keyId}>{k.id}</Text>
+                      </View>
+                      <View style={[vaultStyles.statusDot, { backgroundColor: k.hasValue ? NEON_GREEN : Colors.dark.red }]} />
+                    </View>
+
                     {vaultEditKey === k.id ? (
-                      <View>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                          <Text style={vaultStyles.keyLabel}>{k.label}</Text>
-                          <Pressable
-                            onPress={() => { setVaultEditKey(null); setVaultEditValue(""); }}
-                            style={({ pressed }) => [{ padding: 8 }, pressed && { opacity: 0.7 }]}
-                          >
-                            <Ionicons name="close-circle" size={22} color={Colors.dark.textMuted} />
-                          </Pressable>
-                        </View>
+                      <View style={vaultStyles.editContainer}>
                         <TextInput
                           style={vaultStyles.editInput}
                           value={vaultEditValue}
                           onChangeText={setVaultEditValue}
-                          placeholder={`Paste new ${k.label} here`}
+                          placeholder={`Enter ${k.label}`}
                           placeholderTextColor={Colors.dark.textMuted}
                           autoCapitalize="none"
                           autoCorrect={false}
-                          multiline
-                          numberOfLines={k.id === "UPSTOX_ACCESS_TOKEN" ? 4 : 2}
+                          secureTextEntry={k.id !== "TELEGRAM_CHAT_ID"}
                         />
-                        <Pressable
-                          onPress={() => saveVaultKey(k.id, vaultEditValue)}
-                          disabled={vaultSaving || !vaultEditValue.trim()}
-                          style={({ pressed }) => [{
-                            backgroundColor: CYAN,
-                            borderRadius: 8,
-                            paddingVertical: 12,
-                            alignItems: "center" as const,
-                            marginTop: 8,
-                          }, pressed && { opacity: 0.7 }, (!vaultEditValue.trim()) && { opacity: 0.4 }]}
-                        >
-                          {vaultSaving ? <ActivityIndicator size="small" color="#000" /> : <Text style={{ fontSize: 14, fontFamily: "DMSans_700Bold", color: "#000" }}>Save</Text>}
-                        </Pressable>
+                        <View style={vaultStyles.editActions}>
+                          <Pressable
+                            onPress={() => { setVaultEditKey(null); setVaultEditValue(""); }}
+                            style={({ pressed }) => [vaultStyles.editCancel, pressed && { opacity: 0.7 }]}
+                          >
+                            <Text style={vaultStyles.editCancelText}>Cancel</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => saveVaultKey(k.id, vaultEditValue)}
+                            disabled={vaultSaving || !vaultEditValue.trim()}
+                            style={({ pressed }) => [vaultStyles.editSave, pressed && { opacity: 0.7 }, (!vaultEditValue.trim()) && { opacity: 0.4 }]}
+                          >
+                            {vaultSaving ? <ActivityIndicator size="small" color="#000" /> : <Text style={vaultStyles.editSaveText}>Save</Text>}
+                          </Pressable>
+                        </View>
                       </View>
                     ) : (
-                      <Pressable
-                        onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); setRevealedKeys(prev => { const n = {...prev}; delete n[k.id]; return n; }); }}
-                        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                      >
-                        <View style={vaultStyles.keyHeader}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={vaultStyles.keyLabel}>{k.label}</Text>
-                            <Text style={vaultStyles.keyId}>{k.id}</Text>
-                            {k.id === "UPSTOX_ACCESS_TOKEN" && (
-                              <Text style={{ fontSize: 9, color: AMBER, fontFamily: "DMSans_400Regular", marginTop: 2 }}>
-                                Daily refresh required - expires every day
-                              </Text>
-                            )}
-                          </View>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Text style={{ fontSize: 10, fontFamily: "DMSans_500Medium", color: k.hasValue ? NEON_GREEN : Colors.dark.red }}>
-                              {k.hasValue ? "SET" : "EMPTY"}
-                            </Text>
-                            <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-                          </View>
+                      <View style={vaultStyles.valueRow}>
+                        <Text style={vaultStyles.maskedValue} numberOfLines={1}>
+                          {k.hasValue ? k.maskedValue : "Not set"}
+                        </Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <Pressable
+                            onPress={() => { setVaultEditKey(k.id); setVaultEditValue(""); }}
+                            style={({ pressed }) => [vaultStyles.editBtn, pressed && { opacity: 0.7 }]}
+                          >
+                            <Ionicons name={k.hasValue ? "create-outline" : "add-circle-outline"} size={16} color={CYAN} />
+                          </Pressable>
+                          {k.hasValue && (
+                            <Pressable
+                              onPress={() => deleteVaultKey(k.id)}
+                              style={({ pressed }) => [vaultStyles.deleteBtn, pressed && { opacity: 0.7 }]}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={Colors.dark.red} />
+                            </Pressable>
+                          )}
                         </View>
-                        <View style={vaultStyles.valueRow}>
-                          <Text style={vaultStyles.maskedValue} numberOfLines={1}>
-                            {k.hasValue ? k.maskedValue : "Tap to set value"}
-                          </Text>
-                          <View style={{ flexDirection: "row", gap: 8 }}>
-                            {k.hasValue && (
-                              <Pressable
-                                onPress={(e) => { e.stopPropagation(); revealVaultKey(k.id); }}
-                                hitSlop={12}
-                                style={({ pressed }) => [{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8 }, pressed && { opacity: 0.7 }]}
-                              >
-                                <Ionicons name={revealedKeys[k.id] ? "eye-off" : "eye"} size={18} color={Colors.dark.textMuted} />
-                              </Pressable>
-                            )}
-                            {k.hasValue && (
-                              <Pressable
-                                onPress={(e) => { e.stopPropagation(); deleteVaultKey(k.id); }}
-                                hitSlop={12}
-                                style={({ pressed }) => [{ padding: 8, backgroundColor: "rgba(255,0,0,0.08)", borderRadius: 8 }, pressed && { opacity: 0.7 }]}
-                              >
-                                <Ionicons name="trash" size={18} color={Colors.dark.red} />
-                              </Pressable>
-                            )}
-                          </View>
-                        </View>
-                        {revealedKeys[k.id] && (
-                          <View style={{ marginTop: 6, backgroundColor: "rgba(0,212,255,0.06)", borderRadius: 6, padding: 8 }}>
-                            <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: CYAN }} selectable>{revealedKeys[k.id]}</Text>
-                          </View>
-                        )}
-                      </Pressable>
+                      </View>
                     )}
                   </View>
                 ))}
@@ -924,9 +855,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.aboutCard}>
-            <Text style={styles.aboutTitle}>LAMY Trading AI</Text>
+            <Text style={styles.aboutTitle}>JARVIS Trading AI</Text>
             <Text style={styles.aboutVersion}>v8.0 Neuro-Quantum Engine</Text>
-            <Text style={styles.aboutCreator}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
+            <Text style={styles.aboutCreator}>Created by MANIKANDAN RAJENDRAN</Text>
             <Text style={styles.aboutDesc}>
               AI-powered Nifty 50 options trading assistant with 9 neural layers, Monte Carlo simulation, and zero-loss strategy.
             </Text>
@@ -1024,7 +955,7 @@ export default function SettingsScreen() {
             <Ionicons name="rocket" size={36} color={NEON_GREEN} style={{ alignSelf: "center", marginBottom: 12 }} />
             <Text style={styles.modalTitle}>Enable Auto Pilot</Text>
             <Text style={[styles.settingDesc, { textAlign: "center", marginBottom: 16 }]}>
-              LAMY will trade automatically without your approval. Enter PIN to authorize.
+              JARVIS will trade automatically without your approval. Enter PIN to authorize.
             </Text>
             <TextInput
               style={styles.modalInput}

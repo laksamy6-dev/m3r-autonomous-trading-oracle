@@ -1,8 +1,6 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { securityMiddleware, registerSecurityRoutes } from "./security-engine";
-import { registerEvolutionRoutes, initSelfEvolutionDB } from "./self-evolution-engine";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -64,23 +62,6 @@ function setupBodyParsing(app: express.Application) {
   );
 
   app.use(express.urlencoded({ extended: false }));
-}
-
-function setupSecurityHeaders(app: express.Application) {
-  app.use((_req, res, next) => {
-    res.setHeader("X-Powered-By", "M3R Neural Engine v2.0 | M3R Innovative Fintech Solutions");
-    res.setHeader("X-Creator", "MANIKANDAN RAJENDRAN | Founder, M3R Innovative Fintech Solutions");
-    res.setHeader("X-Copyright", "© 2026 M3R Innovative Fintech Solutions. All Rights Reserved. Sole Owner: MANIKANDAN RAJENDRAN");
-    res.setHeader("X-Legal-Contact", "laksamy6@gmail.com");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https:; media-src 'self' data: blob:; font-src 'self' data: https:;");
-    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    next();
-  });
 }
 
 function setupRequestLogging(app: express.Application) {
@@ -180,67 +161,47 @@ function serveLandingPage({
 }
 
 function configureExpoAndLanding(app: express.Application) {
-  const distPath = path.resolve(process.cwd(), "dist");
-  const webIndexPath = path.join(distPath, "index.html");
-  const hasWebBuild = fs.existsSync(webIndexPath);
+  const templatePath = path.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "landing-page.html",
+  );
+  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  const appName = getAppName();
 
-  log(hasWebBuild ? "Serving M3R web app from dist/" : "No web build found, using landing page");
-
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const blockedFiles = ['.vault-data.json', '.env', '.gitignore', '.vault'];
-    const reqFile = path.basename(req.path);
-    if (blockedFiles.includes(reqFile) || req.path.includes('.vault')) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    next();
-  });
-
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
-
-  if (hasWebBuild) {
-    app.use(express.static(distPath, {
-      maxAge: '1h',
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
-        }
-      }
-    }));
-    log("M3R Innovative Fintech Solutions — Web app ready at /");
-  }
+  log("Serving static Expo files with dynamic manifest routing");
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
 
-    const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
-      if (req.path === "/" || req.path === "/manifest") {
-        return serveExpoManifest(platform, res);
-      }
+    if (req.path !== "/" && req.path !== "/manifest") {
       return next();
     }
 
-    if (hasWebBuild) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      return res.sendFile(webIndexPath);
+    const platform = req.header("expo-platform");
+    if (platform && (platform === "ios" || platform === "android")) {
+      return serveExpoManifest(platform, res);
     }
 
     if (req.path === "/") {
-      const templatePath = path.resolve(process.cwd(), "server", "templates", "landing-page.html");
-      const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
-      const appName = getAppName();
-      return serveLandingPage({ req, res, landingPageTemplate, appName });
+      return serveLandingPage({
+        req,
+        res,
+        landingPageTemplate,
+        appName,
+      });
     }
 
     next();
   });
+
+  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+
+  log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 
 function setupErrorHandler(app: express.Application) {
@@ -266,27 +227,12 @@ function setupErrorHandler(app: express.Application) {
 
 (async () => {
   setupCors(app);
-  setupSecurityHeaders(app);
   setupBodyParsing(app);
-  app.use(securityMiddleware);
   setupRequestLogging(app);
 
-  registerSecurityRoutes(app);
-  console.log("[SECURITY] M3R Security Engine v1.0 — Intrusion Detection ACTIVE");
-
-  registerEvolutionRoutes(app);
-
-  {
-    const pg = await import("pg");
-    if (process.env.DATABASE_URL) {
-      const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 2 });
-      initSelfEvolutionDB(pool);
-    }
-  }
+  configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
-
-  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 

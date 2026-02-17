@@ -165,7 +165,7 @@ export function buildMarketOpenAlert(): TelegramAlert {
     type: "MARKET_OPEN",
     priority: "HIGH",
     message: [
-      `*LAMY - Market Opening Alert*`,
+      `*JARVIS - Market Opening Alert*`,
       ``,
       `Indian Market (NSE) is now OPEN`,
       `IST: ${session.istTime} | UAE: ${session.uaeTime}`,
@@ -183,7 +183,7 @@ export function buildMarketCloseAlert(): TelegramAlert {
     type: "MARKET_CLOSE",
     priority: "HIGH",
     message: [
-      `*LAMY - Market Closing Alert*`,
+      `*JARVIS - Market Closing Alert*`,
       ``,
       `Indian Market (NSE) is now CLOSED`,
       `IST: ${session.istTime} | UAE: ${session.uaeTime}`,
@@ -200,7 +200,7 @@ export function buildPreMarketAlert(): TelegramAlert {
     type: "PRE_MARKET",
     priority: "MEDIUM",
     message: [
-      `*LAMY - Pre-Market Alert*`,
+      `*JARVIS - Pre-Market Alert*`,
       ``,
       `Pre-market session started`,
       `IST: ${session.istTime} | UAE: ${session.uaeTime}`,
@@ -228,7 +228,7 @@ export function buildSignalAlert(
     type: "SIGNAL",
     priority: confidence > 60 ? "HIGH" : "MEDIUM",
     message: [
-      `*LAMY Trading Signal*`,
+      `*JARVIS Trading Signal*`,
       ``,
       `*${action}* | Confidence: ${confidence}%`,
       `Strike: ${strike} | Premium: Rs.${premium}`,
@@ -250,7 +250,7 @@ export function buildSessionUpdateAlert(): TelegramAlert {
     type: "SESSION_UPDATE",
     priority: "LOW",
     message: [
-      `*LAMY Status Update*`,
+      `*JARVIS Status Update*`,
       ``,
       `IST: ${session.istTime} | UAE: ${session.uaeTime}`,
       `Status: ${session.sessionLabel}`,

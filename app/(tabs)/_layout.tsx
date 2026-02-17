@@ -19,12 +19,16 @@ function NativeTabLayout() {
         <Label>Options</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="bot">
-        <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
-        <Label>LAMY</Label>
+        <Icon sf={{ default: "cpu", selected: "cpu.fill" }} md="smart_toy" />
+        <Label>Bot</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="strategy">
         <Icon sf={{ default: "bolt.shield", selected: "bolt.shield.fill" }} md="auto_fix_high" />
         <Label>Strategy</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ai">
+        <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
+        <Label>JARVIS</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
@@ -93,9 +97,9 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="bot"
         options={{
-          title: "LAMY",
+          title: "Bot",
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="brain" size={size - 2} color={color} />
+            <Ionicons name="hardware-chip" size={size - 2} color={color} />
           ),
         }}
       />
@@ -111,7 +115,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="ai"
         options={{
-          href: null,
+          title: "JARVIS",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="brain" size={size - 2} color={color} />
+          ),
         }}
       />
       <Tabs.Screen

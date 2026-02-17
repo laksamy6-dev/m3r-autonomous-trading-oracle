@@ -212,7 +212,9 @@ export default function OptionsScreen() {
           }
         }
       } catch {
-        setAvailableExpiries([]);
+        const mock = generateOptionChain();
+        setAvailableExpiries(mock.expiryDates);
+        if (!selectedExpiry) setSelectedExpiry(mock.expiryDates[0]);
       }
     }
     fetchExpiries();
@@ -231,7 +233,9 @@ export default function OptionsScreen() {
         throw new Error("API failed");
       }
     } catch {
-      setChain(null);
+      const mock = generateOptionChain();
+      mock.expiryDates = availableExpiries.length > 0 ? availableExpiries : mock.expiryDates;
+      setChain(mock);
     } finally {
       setIsLoading(false);
     }
@@ -241,7 +245,7 @@ export default function OptionsScreen() {
     if (selectedExpiry) {
       initialScrollDone.current = false;
       loadChain();
-      const interval = setInterval(loadChain, 5000);
+      const interval = setInterval(loadChain, 30000);
       return () => clearInterval(interval);
     }
   }, [selectedExpiry, loadChain]);
@@ -432,11 +436,6 @@ export default function OptionsScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = `${baseUrl}api/order/place`;
-      const selectedOption = chain?.options.find((o: any) => o.strikePrice === Number(orderStrike));
-      const instrumentKey = orderType === "CE" 
-        ? (selectedOption as any)?.ceInstrumentKey 
-        : (selectedOption as any)?.peInstrumentKey;
-
       const payload = {
         type: orderType,
         strike: orderStrike,
@@ -446,9 +445,8 @@ export default function OptionsScreen() {
         target: orderTarget || "0",
         stopLoss: orderSL || "0",
         pin: orderPin,
-        mode: "live",
+        mode: isLive ? "live" : "paper",
         expiry: chain?.expiryDate || "",
-        instrumentKey: instrumentKey || "",
       };
 
       const controller = new AbortController();
@@ -473,9 +471,10 @@ export default function OptionsScreen() {
       }
 
       if (res.ok && data.success) {
+        const modeLabel = data.mode === "live" ? "LIVE" : "PAPER";
         Alert.alert(
-          "LIVE Order Executed",
-          `${orderType} ${orderStrike} x${orderLots} lot(s)\nPremium: Rs.${orderPremium}\nOrder ID: ${data.order?.id || "N/A"}\nUpstox Order Placed`
+          `${modeLabel} Order Executed`,
+          `${orderType} ${orderStrike} x${orderLots} lot(s)\nPremium: Rs.${orderPremium}\nOrder ID: ${data.order?.id || "N/A"}${data.mode === "live" ? "\nUpstox Order Placed" : ""}`
         );
         setShowOrderModal(false);
         setOrderPin("");
@@ -560,7 +559,7 @@ export default function OptionsScreen() {
               <View style={[styles.sourceBadge, isLive ? styles.liveBadge : styles.simBadge]}>
                 <View style={[styles.statusDot, isLive ? styles.liveDot : styles.simDot]} />
                 <Text style={[styles.sourceText, isLive ? styles.liveText : styles.simText]}>
-                  {isLive ? "LIVE" : "OFFLINE"}
+                  {isLive ? "LIVE" : "SIM"}
                 </Text>
               </View>
             </View>

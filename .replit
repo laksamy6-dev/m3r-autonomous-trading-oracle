@@ -1,5 +1,5 @@
 entrypoint = "README.md"
-modules = ["nodejs-22", "postgresql-16"]
+modules = ["nodejs-22"]
 
 [nix]
 channel = "stable-24_05"
@@ -8,19 +8,10 @@ channel = "stable-24_05"
 deploymentTarget = "cloudrun"
 build = ["sh", "-c", "npm run expo:static:build && npm run server:build"]
 run = ["npm", "run", "server:prod"]
-publicDir = "dist"
 
 [[ports]]
 localPort = 5000
 externalPort = 5000
-
-[[ports]]
-localPort = 5001
-externalPort = 3001
-
-[[ports]]
-localPort = 5002
-externalPort = 3002
 
 [[ports]]
 localPort = 8081
@@ -86,7 +77,6 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_DOMAIN = "1193c26f-f478-4f1e-80aa-96fe3db56dfd-00-2apjyzb2nqy92.janeway.replit.dev"
 
 [userenv.development]
 
