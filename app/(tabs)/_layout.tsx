@@ -28,7 +28,7 @@ function NativeTabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ai">
         <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
-        <Label>JARVIS</Label>
+        <Label>LAMY</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
@@ -115,7 +115,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="ai"
         options={{
-          title: "JARVIS",
+          title: "LAMY",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="brain" size={size - 2} color={color} />
           ),

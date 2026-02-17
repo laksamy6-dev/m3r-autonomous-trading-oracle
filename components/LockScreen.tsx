@@ -161,7 +161,7 @@ export default function LockScreen() {
           resizeMode="contain"
         />
 
-        <Text style={styles.jarvisTitle}>M3R</Text>
+        <Text style={styles.lamyTitle}>M3R</Text>
         <Text style={styles.subtitle}>INNOVATIVE FINTECH SOLUTIONS</Text>
       </View>
 
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     height: 80,
     marginBottom: 8,
   },
-  jarvisTitle: {
+  lamyTitle: {
     fontSize: 28,
     fontFamily: "DMSans_700Bold",
     color: "#FFFFFF",

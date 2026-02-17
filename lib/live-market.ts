@@ -1,10 +1,10 @@
 import { getApiUrl } from "./query-client";
 import { OptionChainData, generateOptionChain } from "./options";
 
-let cachedUpstoxStatus: { configured: boolean; connected: boolean } | null = null;
+let cachedUpstoxStatus: { configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string } | null = null;
 let statusLastFetched = 0;
 
-export async function getUpstoxStatus(): Promise<{ configured: boolean; connected: boolean }> {
+export async function getUpstoxStatus(): Promise<{ configured: boolean; connected: boolean; tokenValid?: boolean; mode?: string }> {
   const now = Date.now();
   if (cachedUpstoxStatus && now - statusLastFetched < 30000) {
     return cachedUpstoxStatus;
@@ -17,7 +17,7 @@ export async function getUpstoxStatus(): Promise<{ configured: boolean; connecte
       return cachedUpstoxStatus!;
     }
   } catch {}
-  return { configured: false, connected: false };
+  return { configured: false, connected: false, tokenValid: false, mode: "OFFLINE" };
 }
 
 export function clearUpstoxStatusCache() {

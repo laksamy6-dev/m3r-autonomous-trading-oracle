@@ -8,1989 +8,2751 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Modal,
+  Image,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import { fetch } from "expo/fetch";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSequence,
   Easing,
+  withSpring,
 } from "react-native-reanimated";
 import { getApiUrl } from "@/lib/query-client";
-import { generateOptionChain, analyzeMarketBias } from "@/lib/options";
-import { fetchLiveOptionChain } from "@/lib/live-market";
-import {
-  runNeuralEngine,
-  NeuralEngineOutput,
-} from "@/lib/neural-trading-engine";
 import { speak, stopSpeech } from "@/lib/speech";
 import Colors from "@/constants/colors";
-import VisitorGate from "@/components/VisitorGate";
 import BrandHeader from "@/components/BrandHeader";
 
-const CYAN = "#00D4FF";
+const CYAN = "#00F3FF";
+const DEEP_BLACK = "#050508";
+const PANEL_BG = "rgba(10, 20, 30, 0.85)";
+const PANEL_BORDER = "rgba(0, 243, 255, 0.15)";
+const AMBER = "#F59E0B";
 const NEON_GREEN = "#39FF14";
-
-let msgCounter = 0;
-function genId() {
-  msgCounter++;
-  return "bot-" + Date.now() + "-" + msgCounter;
-}
+const RED = "#EF4444";
+const ELECTRIC_BLUE = "#3B82F6";
+const PURPLE = "#A855F7";
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  timestamp: string;
+  imageBase64?: string;
+  imageUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
 }
 
-interface MarketContext {
-  spotPrice: number;
-  pcr: number;
-  bias: "BULLISH" | "BEARISH" | "SIDEWAYS";
+type AssistantState = "idle" | "listening" | "thinking" | "speaking" | "live";
+
+interface BrainStatus {
+  iq: number;
+  generation: number;
+  accuracyScore: number;
+  emotionalIQ: number;
+  totalInteractions: number;
+  totalLearningCycles: number;
+  isTraining: boolean;
+  currentPhase: string;
+  uptime: number;
+  lastSelfImproveTime: string;
+  knowledgeAreas: Record<string, number>;
+  languageFluency: Record<string, number>;
+  recentImprovements: Array<{
+    time: string;
+    area: string;
+    delta: number;
+    note: string;
+  }>;
+  categoryScores?: Record<string, number>;
+  totalDomains?: number;
+  neuralCoverage?: number;
+  avgKnowledge?: number;
+  totalKnowledge?: number;
+  neuralActivity?: string;
+  powerLevel?: string;
 }
 
-interface ActivePosition {
-  id: string;
-  type: "CE" | "PE";
-  strike: number;
-  lots: number;
-  entryPremium: number;
-  currentPremium: number;
-  target: number;
-  stopLoss: number;
-  pnl: number;
-  pnlPercent: number;
-  entryTime: string;
-  status: string;
-  exitPremium: number | null;
-  exitTime: string | null;
-  exitReason: string | null;
-  atrStopLoss?: number;
-  kissPhase?: string;
-  lossAlerted?: boolean;
+interface Memory {
+  id: number;
+  category: string;
+  content: string;
+  importance: number;
+  created_at: string;
+  tags: string[];
 }
 
-interface TradingSummary {
-  hasActivePosition: boolean;
-  activeCount: number;
-  exitedCount: number;
-  totalActivePnl: number;
-  totalExitedPnl: number;
-  totalPnl: number;
-  wins: number;
-  losses: number;
-  lossAlert: boolean;
-  kissDetected: boolean;
-  lossAlertThreshold: number;
-  minProfitTarget: number;
-  activePositions: ActivePosition[];
-  canTakeNewTrade: boolean;
-  recentOrders: any[];
+let msgCounter = 0;
+function genId() {
+  return "bot-" + Date.now() + "-" + ++msgCounter;
 }
 
-type VoiceStatus = "ready" | "listening" | "processing" | "speaking";
-
-const QUICK_ACTIONS = [
-  "What should I trade right now?",
-  "Explain your current analysis in detail",
-  "Is this a trap zone or safe to enter?",
-  "What is Cognitive Alpha saying?",
-  "Analyze Hurst exponent and entropy",
-  "Give me full Monte Carlo breakdown",
-  "Any doubts about the current signal?",
-  "What are global markets telling you?",
-];
-
-function buildJarvisContext(output: NeuralEngineOutput): string {
-  const d = output.decision;
-  const mc = output.monteCarlo;
-  const ph = output.physics;
-  const gl = output.global;
-  const hpi = output.hpiData;
-  const ent = output.entropyData;
-  const kal = output.kalmanData;
-  const fish = output.fisherData;
-  const hil = output.hilbertData;
-  const cog = output.cognitiveAlpha;
-  const exp = output.experienceReplay;
-  const wav = output.waveletData;
-  const lyap = output.lyapunovData;
-  const garch = output.garchData;
-  const mkv = output.markovData;
-  const four = output.fourierData;
-  const frac = output.fractalData;
-  const qnt = output.quantumData;
-  const cons = output.consciousness;
-
-  return [
-    `[JARVIS ENGINE STATE - ${output.engineVersion} - ${output.neuralLayers} Layers - ${output.totalFormulas} Formulas - Tick #${output.engineTick}]`,
-    `Decision: ${d.action} | Confidence: ${d.confidence}% | Signal: ${d.signalStrength} | Neural Score: ${d.neuralScore}%`,
-    `Strike: ${d.strike} | Premium: ${d.premium} | Target: ${d.target} | StopLoss: ${d.stopLoss}`,
-    `Consensus: BUY=${d.consensusVotes.buy} SELL=${d.consensusVotes.sell} HOLD=${d.consensusVotes.hold}`,
-    `Monte Carlo: ${mc.paths} paths | CE Win: ${mc.ceWinProb}% | PE Win: ${mc.peWinProb}% | Median: ${mc.medianPrice} | VaR95: ${mc.valueAtRisk95}`,
-    `Physics: Momentum=${ph.momentum} | Velocity=${ph.velocity} | RocketFuel=${ph.rocketFuel} | Direction=${ph.predictedDirection} ${ph.predictedMove}pts`,
-    `Hurst: ${hpi.hurstExponent} (${hpi.trendType}) | Reliability: ${hpi.trendReliability}% | FractalDim: ${hpi.fractalDimension}`,
-    `Entropy: ${ent.normalizedEntropy} (${ent.chaosLevel}) | TrapZone: ${ent.isTrapZone} | TrapProb: ${ent.trapProbability}%`,
-    `Kalman: Filtered=${kal.filteredPrice} | Predicted=${kal.predictedNextPrice} | Velocity=${kal.velocity} | Trend=${kal.trendDirection}`,
-    `Fisher: ${fish.fisherValue} | Crossover: ${fish.crossover} | Overbought: ${fish.overbought} | Oversold: ${fish.oversold}`,
-    `Hilbert: Period=${hil.dominantPeriod} | CyclePos=${hil.cyclePosition} | Strength=${hil.cycleStrength}%`,
-    `Cognitive Alpha: FastBrain=${cog.fastBrain.signal}(${cog.fastBrain.confidence}%) | SlowBrain=${cog.slowBrain.verdict} | Fusion=${cog.fusionAction}(${cog.fusionScore}) | Conflict=${cog.conflictDetected}`,
-    `Growth Brain: Level=${cog.growthBrain.adaptationLevel} | LearningRate=${cog.growthBrain.learningRate} | Improvement=${cog.growthBrain.improvementRate}%`,
-    `Experience: ${exp.totalExperiences} trades | WinRate=${exp.recentWinRate}% | BestSetup=${exp.bestSetup}`,
-    `Global: ${gl.globalSentiment} | Impact=${gl.netImpactOnNifty}% | VIX=${gl.vixLevel} | DXY=${gl.dollarIndex}`,
-    `ZeroLoss: Brokerage=Rs.${output.zeroLoss.brokerageCost} | MinProfit=Rs.${output.zeroLoss.minProfitTarget} | GreenCandles=${output.zeroLoss.greenCandlesDetected}/${output.zeroLoss.greenCandlesRequired} | Entry=${output.zeroLoss.entryConfirmed} | Safety=${output.zeroLoss.safetyStatus} | ATR=${output.zeroLoss.atrValue} | ATR_SL=${output.zeroLoss.atrStopLoss} | LossAlert=Rs.${output.zeroLoss.lossAlertThreshold}`,
-    `KissPattern: Phase=${output.zeroLoss.kissPattern.phase} | Drop=${output.zeroLoss.kissPattern.dropDepth}% | Bounce=${output.zeroLoss.kissPattern.bounceStrength}% | BookProfit=${output.zeroLoss.kissPattern.shouldBookProfit} | ${output.zeroLoss.kissPattern.description}`,
-    `Wavelet: ${wav.multiScaleTrend} | Purity=${wav.signalPurity}% | Trend=${wav.trendComponent}% | Noise=${wav.noiseComponent}%`,
-    `Lyapunov: ${lyap.lyapunovExponent} (${lyap.stabilityClass}) | ButterflyRisk=${lyap.butterflyRisk}% | Horizon=${lyap.predictabilityHorizon}`,
-    `GARCH: ${garch.volRegime} | CurrentVol=${garch.currentVolatility}% | ForecastVol=${garch.forecastedVolatility}% | Trend=${garch.volTrend} | HalfLife=${garch.halfLife}d`,
-    `Markov: ${mkv.currentState} -> ${mkv.mostLikelyNextState} | Continuation=${mkv.trendContinuationProb}% | Reversion=${mkv.meanReversionProb}%`,
-    `Fourier: ${four.seasonalBias} | CyclicalStrength=${four.cyclicalStrength}% | Harmonics=${four.harmonicCount}`,
-    `Fractal: D=${frac.boxCountDimension} (${frac.complexityLevel}) | Roughness=${frac.marketRoughness}% | PatternReliability=${frac.patternReliability}%`,
-    `Quantum: Collapsed=${qnt.collapsedStrategy}(${qnt.collapsedProbability}%) | State=${qnt.superpositionState} | Advantage=${qnt.quantumAdvantage}%`,
-    `Consciousness: ${cons.awarenessLevel} | BPM=${cons.heartbeatBPM} | Temp=${cons.brainTemperature}C | Load=${cons.cognitiveLoad}% | FormulaAgree=${cons.formulaAgreementRate}% | Score=${cons.consciousnessScore}%`,
-    `Interpretations:`,
-    `  Hurst: ${hpi.interpretation}`,
-    `  Entropy: ${ent.interpretation}`,
-    `  Kalman: ${kal.interpretation}`,
-    `  Fisher: ${fish.interpretation}`,
-    `  Hilbert: ${hil.interpretation}`,
-    `  Wavelet: ${wav.interpretation}`,
-    `  Lyapunov: ${lyap.interpretation}`,
-    `  GARCH: ${garch.interpretation}`,
-    `  Markov: ${mkv.interpretation}`,
-    `  Fourier: ${four.interpretation}`,
-    `  Fractal: ${frac.interpretation}`,
-    `  Quantum: ${qnt.interpretation}`,
-    `  Consciousness: ${cons.lastInsight}`,
-    `  SlowBrain Analyst: ${cog.slowBrain.analystView}`,
-    `  SlowBrain Skeptic: ${cog.slowBrain.skepticView}`,
-    `  SlowBrain Judge: ${cog.slowBrain.judgeVerdict}`,
-  ].join("\n");
+function getTimestamp(): string {
+  const now = new Date();
+  return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function PulsingMicButton({
-  status,
-  onPress,
-  small,
-}: {
-  status: VoiceStatus;
-  onPress: () => void;
-  small?: boolean;
-}) {
-  const pulseScale = useSharedValue(1);
-  const ringScale = useSharedValue(1);
-  const ringOpacity = useSharedValue(0);
+function PulsingDot({ color }: { color: string }) {
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
-    if (status === "listening") {
-      pulseScale.value = withRepeat(
-        withTiming(1.08, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-      ringScale.value = withRepeat(
-        withTiming(1.8, { duration: 1200, easing: Easing.out(Easing.ease) }),
-        -1,
-        false
-      );
-      ringOpacity.value = withRepeat(
-        withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
-        -1,
-        false
-      );
-    } else if (status === "processing") {
-      pulseScale.value = withRepeat(
-        withTiming(0.95, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-      ringScale.value = 1;
-      ringOpacity.value = 0;
-    } else if (status === "speaking") {
-      pulseScale.value = withRepeat(
-        withTiming(1.05, { duration: 500, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-      ringScale.value = 1;
-      ringOpacity.value = 0;
-    } else {
-      pulseScale.value = withTiming(1, { duration: 300 });
-      ringScale.value = 1;
-      ringOpacity.value = 0;
-    }
-  }, [status, pulseScale, ringScale, ringOpacity]);
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, [opacity]);
 
-  const micAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
-
-  const ringAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScale.value }],
-    opacity: ringOpacity.value,
-  }));
-
-  const micColor =
-    status === "listening"
-      ? Colors.dark.red
-      : status === "processing"
-        ? Colors.dark.gold
-        : status === "speaking"
-          ? NEON_GREEN
-          : CYAN;
-
-  const iconName =
-    status === "listening"
-      ? "mic"
-      : status === "processing"
-        ? "hourglass"
-        : status === "speaking"
-          ? "volume-high"
-          : "mic-outline";
-
-  const containerSize = small ? 40 : 160;
-  const ringSize = small ? 38 : 150;
-  const buttonSize = small ? 36 : 120;
-  const iconSize = small ? 20 : 48;
-
-  return (
-    <View style={[voiceStyles.micContainer, { width: containerSize, height: containerSize }]}>
-      <Animated.View
-        style={[
-          voiceStyles.micRing,
-          { width: ringSize, height: ringSize, borderRadius: ringSize / 2, borderColor: micColor },
-          ringAnimStyle,
-        ]}
-      />
-      <Animated.View style={micAnimStyle}>
-        <Pressable
-          onPress={onPress}
-          style={({ pressed }) => [
-            voiceStyles.micButton,
-            { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, borderColor: micColor },
-            status === "listening" && { backgroundColor: "rgba(239,68,68,0.15)" },
-            status === "speaking" && { backgroundColor: "rgba(57,255,20,0.08)" },
-            pressed && { opacity: 0.8 },
-          ]}
-          disabled={status === "processing" || status === "speaking"}
-        >
-          <Ionicons name={iconName as any} size={iconSize} color={micColor} />
-        </Pressable>
-      </Animated.View>
-    </View>
-  );
-}
-
-function WaveformBar({ index, active }: { index: number; active: boolean }) {
-  const height = useSharedValue(8);
-
-  useEffect(() => {
-    if (active) {
-      const delay = index * 80;
-      const baseHeight = 8 + Math.random() * 24;
-      setTimeout(() => {
-        height.value = withRepeat(
-          withTiming(baseHeight, {
-            duration: 300 + Math.random() * 200,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          -1,
-          true
-        );
-      }, delay);
-    } else {
-      height.value = withTiming(8, { duration: 300 });
-    }
-  }, [active, height, index]);
-
-  const barStyle = useAnimatedStyle(() => ({
-    height: height.value,
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
   }));
 
   return (
     <Animated.View
       style={[
-        voiceStyles.waveBar,
-        { backgroundColor: active ? CYAN : Colors.dark.textMuted },
-        barStyle,
+        {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: color,
+        },
+        animStyle,
       ]}
     />
   );
 }
 
-export default function BotScreen() {
+const CATEGORY_ICONS: Record<string, { icon: string; color: string }> = {
+  MARKET_CORE: { icon: "chart-line", color: "#00F3FF" },
+  GLOBAL_MARKETS: { icon: "earth", color: "#3B82F6" },
+  PRICE_DRIVERS: { icon: "chart-bell-curve-cumulative", color: "#F59E0B" },
+  FLOW_ANALYSIS: { icon: "swap-horizontal-bold", color: "#39FF14" },
+  MACRO_ECONOMY: { icon: "bank", color: "#A855F7" },
+  OPTIONS_MASTERY: { icon: "chart-box-outline", color: "#EF4444" },
+  AI_PREDICTION: { icon: "robot", color: "#EC4899" },
+  WORLD_EVENTS: { icon: "newspaper-variant-outline", color: "#F97316" },
+  CYBERSECURITY: { icon: "shield-lock", color: "#06B6D4" },
+  SOFTWARE_DEV: { icon: "code-braces", color: "#8B5CF6" },
+  POLITICS_ECONOMY: { icon: "gavel", color: "#EAB308" },
+};
+
+const POWER_COLORS: Record<string, string> = {
+  EVOLVING: "#64748B",
+  ADVANCED: "#3B82F6",
+  SUPER: "#A855F7",
+  HYPER: "#F59E0B",
+  ULTRA: "#EF4444",
+  OMEGA: "#39FF14",
+};
+
+function NeuralCore({
+  isTraining,
+  phase,
+  iq,
+  powerLevel,
+}: {
+  isTraining: boolean;
+  phase: string;
+  iq: number;
+  powerLevel: string;
+}) {
+  const coreScale = useSharedValue(1);
+  const ring1Scale = useSharedValue(1);
+  const ring2Scale = useSharedValue(1);
+  const ring3Scale = useSharedValue(1);
+  const coreOpacity = useSharedValue(0.8);
+  const ring1Opacity = useSharedValue(0.3);
+  const ring2Opacity = useSharedValue(0.2);
+  const ring3Opacity = useSharedValue(0.1);
+
+  useEffect(() => {
+    const d = isTraining ? 500 : 1500;
+    coreScale.value = withRepeat(withSequence(withTiming(1.08, { duration: d }), withTiming(0.94, { duration: d })), -1, false);
+    ring1Scale.value = withRepeat(withSequence(withTiming(1.12, { duration: d * 1.3 }), withTiming(0.95, { duration: d * 1.3 })), -1, false);
+    ring2Scale.value = withRepeat(withSequence(withTiming(1.18, { duration: d * 1.6 }), withTiming(0.92, { duration: d * 1.6 })), -1, false);
+    ring3Scale.value = withRepeat(withSequence(withTiming(1.25, { duration: d * 2 }), withTiming(0.9, { duration: d * 2 })), -1, false);
+    coreOpacity.value = withRepeat(withSequence(withTiming(1, { duration: d * 0.7 }), withTiming(0.6, { duration: d * 0.7 })), -1, false);
+    ring1Opacity.value = withRepeat(withSequence(withTiming(0.5, { duration: d }), withTiming(0.15, { duration: d })), -1, false);
+    ring2Opacity.value = withRepeat(withSequence(withTiming(0.35, { duration: d * 1.2 }), withTiming(0.08, { duration: d * 1.2 })), -1, false);
+    ring3Opacity.value = withRepeat(withSequence(withTiming(0.2, { duration: d * 1.5 }), withTiming(0.05, { duration: d * 1.5 })), -1, false);
+  }, [isTraining, coreScale, ring1Scale, ring2Scale, ring3Scale, coreOpacity, ring1Opacity, ring2Opacity, ring3Opacity]);
+
+  const coreStyle = useAnimatedStyle(() => ({ transform: [{ scale: coreScale.value }], opacity: coreOpacity.value }));
+  const r1Style = useAnimatedStyle(() => ({ transform: [{ scale: ring1Scale.value }], opacity: ring1Opacity.value }));
+  const r2Style = useAnimatedStyle(() => ({ transform: [{ scale: ring2Scale.value }], opacity: ring2Opacity.value }));
+  const r3Style = useAnimatedStyle(() => ({ transform: [{ scale: ring3Scale.value }], opacity: ring3Opacity.value }));
+
+  const pColor = POWER_COLORS[powerLevel] || CYAN;
+
   return (
-    <VisitorGate tabName="JARVIS Bot">
-      <BotScreenInner />
-    </VisitorGate>
+    <View style={nStyles.neuralCoreWrap}>
+      <Animated.View style={[nStyles.ring3, { borderColor: pColor }, r3Style]} />
+      <Animated.View style={[nStyles.ring2, { borderColor: pColor }, r2Style]} />
+      <Animated.View style={[nStyles.ring1, { borderColor: pColor }, r1Style]} />
+      <Animated.View style={[nStyles.coreCircle, { shadowColor: pColor }, coreStyle]}>
+        <MaterialCommunityIcons name="brain" size={32} color={pColor} />
+      </Animated.View>
+      <View style={nStyles.phaseTag}>
+        <PulsingDot color={isTraining ? AMBER : pColor} />
+        <Text style={[nStyles.phaseText, { color: isTraining ? AMBER : pColor }]}>{phase}</Text>
+      </View>
+    </View>
   );
 }
 
-function BotScreenInner() {
+function HexStatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
+  return (
+    <View style={[nStyles.hexCard, { borderColor: color + "30" }]}>
+      <View style={[nStyles.hexIconWrap, { backgroundColor: color + "15" }]}>
+        <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+      </View>
+      <Text style={[nStyles.hexValue, { color }]}>{value}</Text>
+      <Text style={nStyles.hexLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function CategoryNeuralMap({ name, score, catInfo }: { name: string; score: number; catInfo: { icon: string; color: string } }) {
+  const pct = Math.min(100, Math.max(0, score));
+  return (
+    <View style={nStyles.catMapRow}>
+      <View style={[nStyles.catIconCircle, { backgroundColor: catInfo.color + "20", borderColor: catInfo.color + "40" }]}>
+        <MaterialCommunityIcons name={catInfo.icon as any} size={14} color={catInfo.color} />
+      </View>
+      <View style={nStyles.catMapInfo}>
+        <View style={nStyles.catMapHeader}>
+          <Text style={nStyles.catMapName}>{name.replace(/_/g, " ")}</Text>
+          <Text style={[nStyles.catMapScore, { color: catInfo.color }]}>{score.toFixed(1)}%</Text>
+        </View>
+        <View style={nStyles.catMapTrack}>
+          <View style={[nStyles.catMapFill, { width: `${pct}%`, backgroundColor: catInfo.color }]} />
+          <View style={[nStyles.catMapGlow, { width: `${pct}%`, backgroundColor: catInfo.color }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function NeuralPathwayFeed({ improvements }: { improvements: Array<{ time: string; area: string; delta: number; note: string }> }) {
+  return (
+    <View style={nStyles.pathwayFeed}>
+      {improvements.slice().reverse().slice(0, 12).map((imp, i) => {
+        const isPositive = imp.delta > 0;
+        return (
+          <View key={i} style={nStyles.pathwayItem}>
+            <View style={[nStyles.pathwayDot, { backgroundColor: isPositive ? NEON_GREEN : RED }]} />
+            <View style={nStyles.pathwayLine} />
+            <View style={nStyles.pathwayContent}>
+              <View style={nStyles.pathwayHeader}>
+                <Text style={nStyles.pathwayArea}>{imp.area}</Text>
+                <Text style={[nStyles.pathwayDelta, { color: isPositive ? NEON_GREEN : RED }]}>
+                  {isPositive ? "+" : ""}{imp.delta.toFixed(2)}
+                </Text>
+              </View>
+              <Text style={nStyles.pathwayNote} numberOfLines={1}>{imp.note}</Text>
+              <Text style={nStyles.pathwayTime}>{imp.time}</Text>
+            </View>
+          </View>
+        );
+      })}
+      {improvements.length === 0 && (
+        <Text style={nStyles.pathwayEmpty}>Neural pathways initializing...</Text>
+      )}
+    </View>
+  );
+}
+
+function KnowledgeBar({ area, score }: { area: string; score: number }) {
+  const barColor =
+    score > 90
+      ? NEON_GREEN
+      : score > 75
+      ? CYAN
+      : score > 60
+      ? ELECTRIC_BLUE
+      : AMBER;
+  const widthPct = Math.min(100, Math.max(0, score));
+
+  return (
+    <View style={styles.kbRow}>
+      <View style={styles.kbLabelRow}>
+        <Text style={styles.kbArea}>{area}</Text>
+        <Text style={[styles.kbScore, { color: barColor }]}>
+          {score.toFixed(1)}
+        </Text>
+      </View>
+      <View style={styles.kbTrack}>
+        <View
+          style={[
+            styles.kbFill,
+            { width: `${widthPct}%`, backgroundColor: barColor },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ImprovementLine({
+  improvement,
+}: {
+  improvement: { time: string; area: string; delta: number; note: string };
+}) {
+  const deltaColor = improvement.delta > 0 ? NEON_GREEN : RED;
+  const sign = improvement.delta > 0 ? "+" : "";
+
+  return (
+    <View style={styles.impRow}>
+      <Text style={styles.impTime}>{improvement.time}</Text>
+      <Text style={styles.impArea}>{improvement.area}</Text>
+      <Text style={[styles.impDelta, { color: deltaColor }]}>
+        {sign}
+        {improvement.delta.toFixed(2)}
+      </Text>
+      <Text style={styles.impNote} numberOfLines={1}>
+        {improvement.note}
+      </Text>
+    </View>
+  );
+}
+
+export default function BotScreen() {
   const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webBottomInset = Platform.OS === "web" ? 84 : 0;
+  const TAB_BAR_HEIGHT = Platform.OS === "web" ? 84 : 50;
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [marketContext, setMarketContext] = useState<MarketContext | null>(null);
-  const [engineOutput, setEngineOutput] = useState<NeuralEngineOutput | null>(
-    null
+  const [assistantState, setAssistantState] = useState<AssistantState>("idle");
+  const [brainStatus, setBrainStatus] = useState<BrainStatus | null>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [activeTab, setActiveTab] = useState<"chat" | "brain" | "memory">(
+    "chat"
   );
-  const [isLiveData, setIsLiveData] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-
-  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("ready");
-
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const webAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const [activePositions, setActivePositions] = useState<ActivePosition[]>([]);
-  const [autoTradeMode, setAutoTradeMode] = useState(false);
-  const [positionPanelOpen, setPositionPanelOpen] = useState(true);
-  const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
-  const [profitModalVisible, setProfitModalVisible] = useState(false);
-  const [emergencyPosition, setEmergencyPosition] = useState<ActivePosition | null>(null);
-  const [profitPosition, setProfitPosition] = useState<ActivePosition | null>(null);
-  const [countdown, setCountdown] = useState(30);
-  const [tradingSummary, setTradingSummary] = useState<TradingSummary | null>(null);
-  const [orderBookChecked, setOrderBookChecked] = useState(false);
-
-  const [marketCommentary, setMarketCommentary] = useState(false);
-
-  const alertedPositionsRef = useRef<Set<string>>(new Set());
-  const positionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoTradePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoTradeEntryRef = useRef(false);
-  const commentaryRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const commentaryIndexRef = useRef(0);
-
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
-  const webBottomInset = Platform.OS === "web" ? 34 : 0;
-
-  function jarvisSpeak(text: string) {
-    const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
-    speak(cleanText, "en");
-  }
-
-  async function handleAutoExit(position: ActivePosition, reason: string) {
-    try {
-      const baseUrl = getApiUrl();
-      const res = await globalThis.fetch(`${baseUrl}api/positions/exit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ positionId: position.id, reason }),
-      });
-      if (!res.ok) return;
-      alertedPositionsRef.current.delete(position.id);
-
-      if (reason === "AUTO_STOP_LOSS") {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: genId(),
-            role: "assistant" as const,
-            content: `AUTO EXIT EXECUTED\n\nI've exited your ${position.type} ${position.strike} position.\nStop loss triggered at Rs.${position.currentPremium.toFixed(2)}\nP&L: Rs.${position.pnl.toFixed(2)} (${position.pnlPercent.toFixed(1)}%)\n\nYour capital is protected, sir.`,
-          },
-        ]);
-        jarvisSpeak("Sir, I'm exiting your position. Stop loss hit.");
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: genId(),
-            role: "assistant" as const,
-            content: `PROFIT BOOKED\n\nI've booked profit on your ${position.type} ${position.strike} position.\nExit at Rs.${position.currentPremium.toFixed(2)}\nP&L: Rs.${position.pnl.toFixed(2)} (+${position.pnlPercent.toFixed(1)}%)\n\nWell done, sir!`,
-          },
-        ]);
-        jarvisSpeak("Sir, profit booked at 80 percent. Well done.");
-      }
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch (err) {
-      console.error("Auto exit error:", err);
-    }
-  }
-
-  function startCountdown(position: ActivePosition, reason: string) {
-    setCountdown(30);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    let remaining = 30;
-    countdownRef.current = setInterval(() => {
-      remaining -= 1;
-      setCountdown(remaining);
-      if (remaining <= 0) {
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        countdownRef.current = null;
-        setEmergencyModalVisible(false);
-        setProfitModalVisible(false);
-        handleAutoExit(position, reason);
-      }
-    }, 1000);
-  }
-
-  function dismissEmergencyModal(hold: boolean) {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    countdownRef.current = null;
-    setEmergencyModalVisible(false);
-    if (!hold && emergencyPosition) {
-      handleAutoExit(emergencyPosition, "AUTO_STOP_LOSS");
-    }
-    setEmergencyPosition(null);
-  }
-
-  function dismissProfitModal(letItRun: boolean) {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    countdownRef.current = null;
-    setProfitModalVisible(false);
-    if (!letItRun && profitPosition) {
-      handleAutoExit(profitPosition, "AUTO_PROFIT_BOOK");
-    }
-    setProfitPosition(null);
-  }
+  const audioChunksRef = useRef<Blob[]>([]);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [showAllKnowledge, setShowAllKnowledge] = useState(false);
+  const [memoryInput, setMemoryInput] = useState("");
+  const [memoryCategory, setMemoryCategory] = useState("general");
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const liveLoopRef = useRef(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ uri: string; name: string; type: string; base64?: string } | null>(null);
 
   useEffect(() => {
-    const fetchTradingSummary = async () => {
+    let alive = true;
+    const poll = async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/trading/summary`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setTradingSummary(data);
-        if (!orderBookChecked) {
-          setOrderBookChecked(true);
-          const statusMsg = data.hasActivePosition
-            ? `ORDER BOOK CHECK\n\nActive Position Found: ${data.activeCount} trade(s)\nTotal P&L: Rs.${data.totalPnl.toFixed(2)}\nWins: ${data.wins} | Losses: ${data.losses}\n${data.lossAlert ? "WARNING: Loss exceeds Rs.300 threshold!" : "Status: Normal"}\n\nSequential mode: Cannot enter new trade until current exits.`
-            : `ORDER BOOK CHECK\n\nNo active positions. Ready to trade.\nToday's P&L: Rs.${data.totalPnl.toFixed(2)}\nWins: ${data.wins} | Losses: ${data.losses}\nMin Profit Target: Rs.${data.minProfitTarget}\nLoss Alert: Rs.${data.lossAlertThreshold}\n\nJARVIS is monitoring. You may enter a trade.`;
-          setMessages((prev) => [...prev, { id: genId(), role: "assistant" as const, content: statusMsg }]);
+        const res = await globalThis.fetch(`${baseUrl}api/brain/status`);
+        if (res.ok && alive) {
+          const data = await res.json();
+          setBrainStatus(data);
         }
       } catch {}
     };
-    fetchTradingSummary();
-  }, [orderBookChecked]);
-
-  useEffect(() => {
-    const pollPositions = async () => {
-      try {
-        const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/trading/summary`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setTradingSummary(data);
-        setActivePositions(data.activePositions || []);
-
-        if (!emergencyModalVisible && !profitModalVisible) {
-          for (const pos of (data.activePositions || []) as ActivePosition[]) {
-            if (alertedPositionsRef.current.has(pos.id)) continue;
-
-            if (pos.lossAlerted && pos.pnl <= -300) {
-              alertedPositionsRef.current.add(pos.id);
-              setEmergencyPosition(pos);
-              setEmergencyModalVisible(true);
-              startCountdown(pos, "ATR_STOP_LOSS");
-              jarvisSpeak("Sir, loss alert! Rs.300 threshold breached. ATR stop loss active.");
-              break;
-            }
-
-            if (pos.kissPhase === "KISS_BOUNCE" && pos.pnl > 0) {
-              alertedPositionsRef.current.add(pos.id);
-              setProfitPosition(pos);
-              setProfitModalVisible(true);
-              startCountdown(pos, "KISS_PATTERN_PROFIT");
-              jarvisSpeak("Sir, kiss pattern detected! Price bounced back above entry. Booking profit.");
-              break;
-            }
-
-            if (pos.pnlPercent <= -15) {
-              alertedPositionsRef.current.add(pos.id);
-              setEmergencyPosition(pos);
-              setEmergencyModalVisible(true);
-              startCountdown(pos, "AUTO_STOP_LOSS");
-              break;
-            }
-            if (pos.pnlPercent >= 80) {
-              alertedPositionsRef.current.add(pos.id);
-              setProfitPosition(pos);
-              setProfitModalVisible(true);
-              startCountdown(pos, "AUTO_PROFIT_BOOK");
-              break;
-            }
-          }
-        }
-      } catch {}
-    };
-    pollPositions();
-    positionPollRef.current = setInterval(pollPositions, 3000);
+    poll();
+    const interval = setInterval(poll, 3000);
     return () => {
-      if (positionPollRef.current) clearInterval(positionPollRef.current);
-    };
-  }, [emergencyModalVisible, profitModalVisible]);
-
-  useEffect(() => {
-    const pollAutoTrade = async () => {
-      try {
-        const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/auto-trade/mode`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setAutoTradeMode(data.autoTradeMode || false);
-      } catch {}
-    };
-    pollAutoTrade();
-    autoTradePollRef.current = setInterval(pollAutoTrade, 5000);
-    return () => {
-      if (autoTradePollRef.current) clearInterval(autoTradePollRef.current);
+      alive = false;
+      clearInterval(interval);
     };
   }, []);
 
   useEffect(() => {
-    if (!autoTradeMode || !engineOutput) return;
-    if (activePositions.length > 0) return;
-    if (tradingSummary && !tradingSummary.canTakeNewTrade) return;
-    if (autoTradeEntryRef.current) return;
-    const action = engineOutput.decision.action;
-    const confidence = engineOutput.decision.confidence;
-    if ((action === "BUY_CE" || action === "BUY_PE") && confidence > 75) {
-      autoTradeEntryRef.current = true;
-      const type = action === "BUY_CE" ? "CE" : "PE";
-      const strike = engineOutput.decision.strike;
-      const premium = engineOutput.decision.premium;
-      const target = engineOutput.decision.target;
-      const stopLoss = engineOutput.decision.stopLoss;
-
-      (async () => {
-        try {
-          const baseUrl = getApiUrl();
-          const res = await globalThis.fetch(`${baseUrl}api/positions/open`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type, strike, lots: 1, premium, target, stopLoss }),
-          });
-          if (!res.ok) {
-            autoTradeEntryRef.current = false;
-            return;
-          }
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: genId(),
-              role: "assistant" as const,
-              content: `AUTO TRADE ENTRY\n\nBUY ${type} ${strike}\nPremium: Rs.${premium}\nTarget: Rs.${target} | SL: Rs.${stopLoss}\nConfidence: ${confidence}%\n\nAuto-trade mode executed this entry.`,
-            },
-          ]);
-          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-          jarvisSpeak(`Sir, entering a trade. Buy ${type} at ${strike}.`);
-          setTimeout(() => { autoTradeEntryRef.current = false; }, 30000);
-        } catch {
-          autoTradeEntryRef.current = false;
+    const loadMemories = async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/brain/memory/list`);
+        if (res.ok) {
+          const data = await res.json();
+          setMemories(Array.isArray(data) ? data : data.memories || []);
         }
-      })();
-    }
-  }, [autoTradeMode, engineOutput, activePositions.length]);
-
-  const updateMarketContext = useCallback(async () => {
-    const { chain, isLive } = await fetchLiveOptionChain();
-    setIsLiveData(isLive);
-    const analysis = analyzeMarketBias(chain);
-    const result = runNeuralEngine(chain);
-    setEngineOutput(result);
-    setMarketContext({
-      spotPrice: chain.spotPrice,
-      pcr: chain.overallPCR,
-      bias: analysis.bias,
-    });
+      } catch {}
+    };
+    loadMemories();
   }, []);
-
-  useEffect(() => {
-    updateMarketContext();
-    const interval = setInterval(() => {
-      updateMarketContext();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [updateMarketContext]);
 
   useEffect(() => {
     return () => {
       if (soundRef.current) {
         soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
       }
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      if (recording) {
+        recording.stopAndUnloadAsync().catch(() => {});
       }
-      if (Platform.OS === "web" && webAudioRef.current) {
-        webAudioRef.current.pause();
-        webAudioRef.current = null;
-      }
-      if (commentaryRef.current) clearInterval(commentaryRef.current);
+      stopSpeech();
     };
   }, []);
 
-  useEffect(() => {
-    if (!marketCommentary || !engineOutput || !marketContext) {
-      if (commentaryRef.current) {
-        clearInterval(commentaryRef.current);
-        commentaryRef.current = null;
-      }
-      return;
-    }
-
-    function generateCommentary() {
-      if (!engineOutput || !marketContext) return;
-      const d = engineOutput.decision;
-      const spot = marketContext.spotPrice.toFixed(0);
-      const commentaries = [
-        `Sir, Nifty at ${spot}. Market bias is ${marketContext.bias}. PCR is ${marketContext.pcr.toFixed(2)}.`,
-        `Signal update: ${d.action} with ${d.confidence}% confidence. Neural score ${d.neuralScore}%.`,
-        `Volatility regime is ${engineOutput.garchData.volRegime}. Current vol at ${engineOutput.garchData.currentVolatility}% sir.`,
-        `Monte Carlo shows CE win probability ${engineOutput.monteCarlo.ceWinProb}%, PE win ${engineOutput.monteCarlo.peWinProb}%.`,
-        `Market momentum is ${engineOutput.physics.momentum}. Direction predicts ${engineOutput.physics.predictedDirection} by ${engineOutput.physics.predictedMove} points.`,
-        `Entropy level: ${engineOutput.entropyData.chaosLevel}. Trap zone: ${engineOutput.entropyData.isTrapZone ? "Yes, careful sir" : "No, we are safe"}.`,
-        `Hurst exponent at ${engineOutput.hpiData.hurstExponent}. Market is ${engineOutput.hpiData.trendType}. Reliability ${engineOutput.hpiData.trendReliability}%.`,
-        `Global sentiment: ${engineOutput.global.globalSentiment}. VIX at ${engineOutput.global.vixLevel}. Impact on Nifty ${engineOutput.global.netImpactOnNifty}%.`,
-        `Cognitive Alpha: Fast brain says ${engineOutput.cognitiveAlpha.fastBrain.signal}. Slow brain verdict: ${engineOutput.cognitiveAlpha.slowBrain.verdict}. Fusion: ${engineOutput.cognitiveAlpha.fusionAction}.`,
-        `Consciousness level: ${engineOutput.consciousness.awarenessLevel}. Brain temperature ${engineOutput.consciousness.brainTemperature} degrees. Formula agreement ${engineOutput.consciousness.formulaAgreementRate}%.`,
-      ];
-      const idx = commentaryIndexRef.current % commentaries.length;
-      commentaryIndexRef.current++;
-      const line = commentaries[idx];
-      setMessages((prev) => [...prev, { id: genId(), role: "assistant" as const, content: line }]);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-      jarvisSpeak(line);
-    }
-
-    generateCommentary();
-    commentaryRef.current = setInterval(generateCommentary, 15000);
-    return () => {
-      if (commentaryRef.current) clearInterval(commentaryRef.current);
-      commentaryRef.current = null;
-    };
-  }, [marketCommentary, engineOutput, marketContext]);
-
-  async function startRecordingNative() {
+  const refreshMemories = useCallback(async () => {
     try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) return;
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/brain/memory/list`);
+      if (res.ok) {
+        const data = await res.json();
+        setMemories(Array.isArray(data) ? data : data.memories || []);
+      }
+    } catch {}
+  }, []);
+
+  const handleStopSpeech = useCallback(() => {
+    stopSpeech();
+    if (soundRef.current) {
+      soundRef.current.stopAsync().catch(() => {});
+      soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    }
+    setAssistantState("idle");
+  }, []);
+
+  const assistantSpeak = useCallback((text: string) => {
+    stopSpeech();
+    const cleanText = text.replace(/[*#_`]/g, "").replace(/\n+/g, ". ");
+    if (!cleanText.trim()) return;
+    const hasTamil = /[\u0B80-\u0BFF]/.test(cleanText);
+    const lang = hasTamil ? "ta" : "en";
+    setAssistantState("speaking");
+    speak(
+      cleanText,
+      lang as "en" | "ta",
+      () => {
+        setAssistantState("idle");
+      },
+      () => {}
+    );
+  }, []);
+
+  const sendTextMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isStreaming) return;
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: "user",
+        content: text.trim(),
+        timestamp: getTimestamp(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsStreaming(true);
+      setAssistantState("thinking");
+
+      const aiMsgId = genId();
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: "assistant",
+        content: "",
+        timestamp: getTimestamp(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+
+      let fullResponse = "";
+
+      try {
+        const baseUrl = getApiUrl();
+        const response = await fetch(`${baseUrl}api/m3r/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text.trim() }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No reader available");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              if (dataStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.content) {
+                  fullResponse += parsed.content;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === aiMsgId
+                        ? { ...m, content: fullResponse }
+                        : m
+                    )
+                  );
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err: any) {
+        fullResponse =
+          fullResponse ||
+          "Sorry, I couldn't process that. Please try again, Sir.";
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId ? { ...m, content: fullResponse } : m
+          )
+        );
+      } finally {
+        setIsStreaming(false);
+        setAssistantState("idle");
+        setTimeout(
+          () => scrollRef.current?.scrollToEnd({ animated: true }),
+          150
+        );
+        if (autoSpeak && fullResponse) {
+          assistantSpeak(fullResponse);
+        }
+      }
+    },
+    [isStreaming, autoSpeak, assistantSpeak]
+  );
+
+  const handleSaveMemory = useCallback(async () => {
+    if (!memoryInput.trim()) return;
+    try {
+      const baseUrl = getApiUrl();
+      await globalThis.fetch(`${baseUrl}api/brain/memory/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: memoryInput.trim(),
+          category: memoryCategory,
+          importance: 8,
+        }),
+      });
+      setMemoryInput("");
+      refreshMemories();
+    } catch {}
+  }, [memoryInput, memoryCategory, refreshMemories]);
+
+  const handleDeleteMemory = useCallback(
+    async (id: number) => {
+      try {
+        const baseUrl = getApiUrl();
+        await globalThis.fetch(`${baseUrl}api/brain/memory/${id}`, {
+          method: "DELETE",
+        });
+        refreshMemories();
+      } catch {}
+    },
+    [refreshMemories]
+  );
+
+  const pickImage = useCallback(async () => {
+    setShowAttachMenu(false);
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          setPendingFile({
+            uri: URL.createObjectURL(file),
+            name: file.name,
+            type: file.type || "image/jpeg",
+            base64,
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    } else {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+          base64: true,
+          allowsEditing: false,
+        });
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          setPendingFile({
+            uri: asset.uri,
+            name: asset.fileName || "photo.jpg",
+            type: asset.mimeType || "image/jpeg",
+            base64: asset.base64 || undefined,
+          });
+        }
+      } catch (err) {
+        console.error("Image picker error:", err);
+      }
+    }
+  }, []);
+
+  const pickDocument = useCallback(async () => {
+    setShowAttachMenu(false);
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".pdf,.doc,.docx,.txt,.csv,.json,.xml,.html,.md";
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          setPendingFile({
+            uri: "",
+            name: file.name,
+            type: file.type || "application/octet-stream",
+            base64,
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    } else {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: false,
+          quality: 0.7,
+          base64: true,
+        });
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          setPendingFile({
+            uri: asset.uri,
+            name: asset.fileName || "file",
+            type: asset.mimeType || "application/octet-stream",
+            base64: asset.base64 || undefined,
+          });
+        }
+      } catch (err) {
+        console.error("File picker error:", err);
+      }
+    }
+  }, []);
+
+  const sendMessageWithFile = useCallback(
+    async (text: string, file: { uri: string; name: string; type: string; base64?: string }) => {
+      if (isStreaming) return;
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: "user",
+        content: text || `Sent: ${file.name}`,
+        timestamp: getTimestamp(),
+        attachmentName: file.name,
+        attachmentType: file.type,
+        imageBase64: file.type.startsWith("image/") ? file.base64 : undefined,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsStreaming(true);
+      setAssistantState("thinking");
+      setPendingFile(null);
+
+      const aiMsgId = genId();
+      setMessages((prev) => [...prev, { id: aiMsgId, role: "assistant", content: "", timestamp: getTimestamp() }]);
+
+      let fullResponse = "";
+
+      try {
+        const baseUrl = getApiUrl();
+        const formData = new FormData();
+        formData.append("message", text || `Analyze this file: ${file.name}`);
+
+        if (Platform.OS === "web") {
+          if (file.base64) {
+            const byteChars = atob(file.base64);
+            const byteNums = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+            const blob = new Blob([new Uint8Array(byteNums)], { type: file.type });
+            formData.append("file", blob, file.name);
+          } else if (file.uri) {
+            const resp = await globalThis.fetch(file.uri);
+            const blob = await resp.blob();
+            formData.append("file", blob, file.name);
+          }
+        } else {
+          formData.append("file", { uri: file.uri, name: file.name, type: file.type } as any);
+        }
+
+        const response = await globalThis.fetch(`${baseUrl}api/m3r/chat-with-file`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No reader");
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              if (dataStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.content) {
+                  fullResponse += parsed.content;
+                  setMessages((prev) => prev.map((m) => m.id === aiMsgId ? { ...m, content: fullResponse } : m));
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err: any) {
+        fullResponse = fullResponse || "Sorry Sir, file processing failed. Please try again.";
+        setMessages((prev) => prev.map((m) => m.id === aiMsgId ? { ...m, content: fullResponse } : m));
+      } finally {
+        setIsStreaming(false);
+        setAssistantState("idle");
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+        if (autoSpeak && fullResponse) assistantSpeak(fullResponse);
+      }
+    },
+    [isStreaming, autoSpeak, assistantSpeak]
+  );
+
+  const startRecordingNative = useCallback(async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) return;
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
-      const { recording } = await Audio.Recording.createAsync(
+      const { recording: rec } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      recordingRef.current = recording;
-      setVoiceStatus("listening");
+      setRecording(rec);
     } catch (err) {
-      console.error("Failed to start native recording:", err);
-      setVoiceStatus("ready");
+      console.error("startRecordingNative error:", err);
     }
-  }
+  }, []);
 
-  async function stopRecordingNative(): Promise<string | null> {
+  const stopRecordingNative = useCallback(async (): Promise<string | null> => {
     try {
-      const recording = recordingRef.current;
       if (!recording) return null;
       await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = recording.getURI();
-      recordingRef.current = null;
+      setRecording(null);
       if (!uri) return null;
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       return base64;
     } catch (err) {
-      console.error("Failed to stop native recording:", err);
-      recordingRef.current = null;
+      console.error("stopRecordingNative error:", err);
+      setRecording(null);
       return null;
     }
-  }
+  }, [recording]);
 
-  function startRecordingWeb() {
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        let mimeType = "audio/webm;codecs=opus";
-        if (typeof MediaRecorder !== "undefined" && !MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = "audio/webm";
+  const startRecordingWeb = useCallback(async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices) {
+        console.error("Media devices not available");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
         }
-        const recorder = new MediaRecorder(stream, { mimeType });
-        chunksRef.current = [];
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data);
-        };
-        mediaRecorderRef.current = recorder;
-        recorder.start();
-        setVoiceStatus("listening");
-      })
-      .catch((err) => {
-        console.error("Web recording error:", err);
-        setVoiceStatus("ready");
-      });
-  }
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+    } catch (err) {
+      console.error("startRecordingWeb error:", err);
+    }
+  }, []);
 
-  function stopRecordingWeb(): Promise<string | null> {
+  const stopRecordingWeb = useCallback((): Promise<string | null> => {
     return new Promise((resolve) => {
-      const recorder = mediaRecorderRef.current;
-      if (!recorder || recorder.state === "inactive") {
+      const mediaRecorder = mediaRecorderRef.current;
+      if (!mediaRecorder) {
         resolve(null);
         return;
       }
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
-          const base64 = dataUrl.split(",")[1] || null;
-          resolve(base64);
-        };
-        reader.readAsDataURL(blob);
-        recorder.stream.getTracks().forEach((t) => t.stop());
+      mediaRecorder.onstop = async () => {
+        try {
+          const blob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            const base64 = result.split(",")[1] || "";
+            resolve(base64);
+          };
+          reader.readAsDataURL(blob);
+        } catch {
+          resolve(null);
+        }
+        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
         mediaRecorderRef.current = null;
       };
-      recorder.stop();
+      mediaRecorder.stop();
     });
-  }
+  }, []);
 
-  async function playAudioNative(audioBase64: string) {
-    try {
+  const toggleLiveMode = useCallback(async () => {
+    if (isLiveMode) {
+      liveLoopRef.current = false;
+      setIsLiveMode(false);
+      setAssistantState("idle");
+      if (recording) {
+        try { await recording.stopAndUnloadAsync(); } catch {}
+        setRecording(null);
+      }
+      if (mediaRecorderRef.current) {
+        try { mediaRecorderRef.current.stop(); } catch {}
+        mediaRecorderRef.current = null;
+      }
+      stopSpeech();
       if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+        try { await soundRef.current.stopAsync(); await soundRef.current.unloadAsync(); } catch {}
+        soundRef.current = null;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-      const sound = new Audio.Sound();
-      soundRef.current = sound;
-      await sound.loadAsync(
-        { uri: `data:audio/mp3;base64,${audioBase64}` },
-        { volume: 1.0 }
-      );
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setVoiceStatus("ready");
+      return;
+    }
+    setIsLiveMode(true);
+    liveLoopRef.current = true;
+    setAssistantState("live");
+
+    const liveLoop = async () => {
+      while (liveLoopRef.current) {
+        try {
+          setAssistantState("listening");
+          if (Platform.OS === "web") {
+            await startRecordingWeb();
+          } else {
+            await startRecordingNative();
+          }
+          await new Promise((r) => setTimeout(r, 5000));
+          if (!liveLoopRef.current) break;
+
+          let base64: string | null = null;
+          if (Platform.OS === "web") {
+            base64 = await stopRecordingWeb();
+          } else {
+            base64 = await stopRecordingNative();
+          }
+
+          if (!base64 || !liveLoopRef.current) continue;
+
+          setAssistantState("thinking");
+          const baseUrl = getApiUrl();
+          const res = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64 }),
+          });
+
+          if (!res.ok || !liveLoopRef.current) continue;
+          const data = await res.json();
+
+          if (data.userText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "user", content: data.userText, timestamp: getTimestamp() }]);
+          }
+          if (data.aiText) {
+            setMessages((prev) => [...prev, { id: genId(), role: "assistant", content: data.aiText, timestamp: getTimestamp() }]);
+          }
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+
+          if (data.audioBase64 && liveLoopRef.current) {
+            setAssistantState("speaking");
+            await new Promise<void>((resolve) => {
+              if (Platform.OS === "web") {
+                const audioUrl = `data:audio/mp3;base64,${data.audioBase64}`;
+                const audioEl = new globalThis.Audio(audioUrl);
+                audioEl.onended = () => resolve();
+                audioEl.onerror = () => resolve();
+                audioEl.play().catch(() => resolve());
+              } else {
+                (async () => {
+                  try {
+                    const uri = FileSystem.cacheDirectory + "m3r_live.mp3";
+                    await FileSystem.writeAsStringAsync(uri, data.audioBase64, { encoding: FileSystem.EncodingType.Base64 });
+                    const { sound } = await Audio.Sound.createAsync({ uri });
+                    soundRef.current = sound;
+                    sound.setOnPlaybackStatusUpdate((status) => {
+                      if (status.isLoaded && status.didJustFinish) {
+                        sound.unloadAsync().catch(() => {});
+                        soundRef.current = null;
+                        resolve();
+                      }
+                    });
+                    await sound.playAsync();
+                  } catch { resolve(); }
+                })();
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Live mode error:", err);
+          await new Promise((r) => setTimeout(r, 1000));
         }
-      });
-      setVoiceStatus("speaking");
-      await sound.playAsync();
-    } catch (err) {
-      console.error("Native playback error:", err);
-      setVoiceStatus("ready");
-    }
-  }
-
-  function playAudioWeb(audioBase64: string) {
-    try {
-      const byteChars = atob(audioBase64);
-      const byteNumbers = new Uint8Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) {
-        byteNumbers[i] = byteChars.charCodeAt(i);
       }
-      const audioBlob = new Blob([byteNumbers], { type: "audio/mp3" });
-      const url = URL.createObjectURL(audioBlob);
-      const audio = new window.Audio(url);
-      webAudioRef.current = audio;
-      setVoiceStatus("speaking");
-      audio.play();
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        webAudioRef.current = null;
-        setVoiceStatus("ready");
-      };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        webAudioRef.current = null;
-        setVoiceStatus("ready");
-      };
-    } catch (err) {
-      console.error("Web playback error:", err);
-      setVoiceStatus("ready");
-    }
-  }
+      setAssistantState("idle");
+    };
 
-  function startRecording() {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      startRecordingNative();
+    liveLoop();
+  }, [isLiveMode, recording, startRecordingWeb, startRecordingNative, stopRecordingWeb, stopRecordingNative]);
+
+  const startRecording = useCallback(async () => {
+    setAssistantState("listening");
+    if (Platform.OS === "web") {
+      await startRecordingWeb();
     } else {
-      startRecordingWeb();
+      await startRecordingNative();
     }
-  }
+  }, [startRecordingWeb, startRecordingNative]);
 
-  async function stopRecordingAndSend() {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const stopRecordingAndProcess = useCallback(async () => {
+    let base64: string | null = null;
+    if (Platform.OS === "web") {
+      base64 = await stopRecordingWeb();
+    } else {
+      base64 = await stopRecordingNative();
     }
-    setVoiceStatus("processing");
 
-    let base64Audio: string | null = null;
-    try {
-      if (Platform.OS === "web") {
-        base64Audio = await stopRecordingWeb();
-      } else {
-        base64Audio = await stopRecordingNative();
-      }
-    } catch (err) {
-      console.error("Recording stop error:", err);
-      setVoiceStatus("ready");
+    if (!base64) {
+      setAssistantState("idle");
       return;
     }
 
-    if (!base64Audio) {
-      setVoiceStatus("ready");
-      return;
-    }
+    setAssistantState("thinking");
 
     try {
-      const { chain, isLive } = await fetchLiveOptionChain();
-      setIsLiveData(isLive);
-      const latestEngine = runNeuralEngine(chain);
-      setEngineOutput(latestEngine);
-      const jarvisContext = buildJarvisContext(latestEngine);
-
       const baseUrl = getApiUrl();
-      const response = await globalThis.fetch(
-        `${baseUrl}api/jarvis/voice`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            audio: base64Audio,
-            jarvisContext,
-          }),
-        }
-      );
+      const res = await globalThis.fetch(`${baseUrl}api/m3r/voice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio: base64 }),
+      });
 
-      if (!response.ok) {
-        throw new Error(`Voice API error: ${response.status}`);
+      if (!res.ok) {
+        throw new Error(`Voice API error: ${res.status}`);
       }
 
-      const data = await response.json();
+      const data = await res.json();
       const { userText, aiText, audioBase64 } = data;
 
       if (userText) {
         setMessages((prev) => [
           ...prev,
-          { id: genId(), role: "user" as const, content: userText },
+          {
+            id: genId(),
+            role: "user" as const,
+            content: userText,
+            timestamp: getTimestamp(),
+          },
         ]);
       }
 
       if (aiText) {
         setMessages((prev) => [
           ...prev,
-          { id: genId(), role: "assistant" as const, content: aiText },
+          {
+            id: genId(),
+            role: "assistant" as const,
+            content: aiText,
+            timestamp: getTimestamp(),
+          },
         ]);
       }
 
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(
+        () => scrollRef.current?.scrollToEnd({ animated: true }),
+        150
+      );
 
       if (audioBase64) {
+        setAssistantState("speaking");
         if (Platform.OS === "web") {
-          playAudioWeb(audioBase64);
+          const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
+          const audioEl = new globalThis.Audio(audioUrl);
+          audioEl.onended = () => {
+            setAssistantState("idle");
+          };
+          audioEl.onerror = () => {
+            setAssistantState("idle");
+          };
+          audioEl.play().catch(() => {
+            setAssistantState("idle");
+          });
         } else {
-          await playAudioNative(audioBase64);
+          try {
+            if (soundRef.current) {
+              await soundRef.current.unloadAsync();
+              soundRef.current = null;
+            }
+            const uri = FileSystem.cacheDirectory + "m3r_response.mp3";
+            await FileSystem.writeAsStringAsync(uri, audioBase64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            const { sound } = await Audio.Sound.createAsync({ uri });
+            soundRef.current = sound;
+            sound.setOnPlaybackStatusUpdate((status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                setAssistantState("idle");
+                sound.unloadAsync().catch(() => {});
+                soundRef.current = null;
+              }
+            });
+            await sound.playAsync();
+          } catch {
+            setAssistantState("idle");
+          }
         }
+      } else if (autoSpeak && aiText) {
+        assistantSpeak(aiText);
       } else {
-        setVoiceStatus("ready");
+        setAssistantState("idle");
       }
     } catch (err) {
-      console.error("Voice request error:", err);
+      console.error("Voice processing error:", err);
       setMessages((prev) => [
         ...prev,
         {
           id: genId(),
           role: "assistant" as const,
-          content: "Sorry, I encountered an error processing your voice. Please try again.",
+          content: "Sorry Sir, voice processing failed. Please try again.",
+          timestamp: getTimestamp(),
         },
       ]);
-      setVoiceStatus("ready");
+      setAssistantState("idle");
     }
-  }
+  }, [stopRecordingWeb, stopRecordingNative, autoSpeak, assistantSpeak]);
 
-  function handleMicPress() {
-    if (voiceStatus === "listening") {
-      stopRecordingAndSend();
-    } else if (voiceStatus === "ready") {
+  const handleMicPress = useCallback(() => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    if (assistantState === "listening") {
+      stopRecordingAndProcess();
+    } else if (assistantState === "idle") {
       startRecording();
     }
-  }
+  }, [assistantState, stopRecordingAndProcess, startRecording]);
 
-  async function sendMessage(message: string) {
-    if (isStreaming || !message.trim()) return;
-    if (Platform.OS !== "web")
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    const userMsg: ChatMessage = {
-      id: genId(),
-      role: "user",
-      content: message.trim(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsStreaming(true);
-
-    const { chain, isLive } = await fetchLiveOptionChain();
-    setIsLiveData(isLive);
-    const latestEngine = runNeuralEngine(chain);
-    setEngineOutput(latestEngine);
-    const jarvisContext = buildJarvisContext(latestEngine);
-    let fullContent = "";
-    let assistantAdded = false;
-
-    try {
-      const baseUrl = getApiUrl();
-      const response = await fetch(`${baseUrl}api/options/bot`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
-        body: JSON.stringify({
-          message: message.trim(),
-          optionChain: chain,
-          strategy: null,
-          jarvisContext,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed");
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No body");
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.content) {
-              fullContent += parsed.content;
-              if (!assistantAdded) {
-                setMessages((prev) => [
-                  ...prev,
-                  { id: genId(), role: "assistant", content: fullContent },
-                ]);
-                assistantAdded = true;
-              } else {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: fullContent,
-                  };
-                  return updated;
-                });
-              }
-            }
-          } catch {}
-        }
-      }
-    } catch {
-      if (!assistantAdded) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: genId(),
-            role: "assistant",
-            content: "Sorry, I encountered an error. Please try again.",
-          },
-        ]);
-      }
-    } finally {
-      setIsStreaming(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }
-
-  async function resetChat() {
-    if (Platform.OS !== "web")
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setMessages([]);
-    setInput("");
-    try {
-      const baseUrl = getApiUrl();
-      await fetch(`${baseUrl}api/options/bot/reset`, { method: "POST" });
-    } catch {}
-  }
-
-  const biasColor =
-    marketContext?.bias === "BULLISH"
-      ? Colors.dark.green
-      : marketContext?.bias === "BEARISH"
-        ? Colors.dark.red
-        : Colors.dark.gold;
-
-  const isRecordingOrProcessing = voiceStatus === "listening" || voiceStatus === "processing";
+  const formatUptime = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h}h ${m}m ${s}s`;
+  };
 
   return (
-    <View style={styles.container} testID="bot-screen">
-      <View style={{ paddingTop: insets.top + webTopInset }}>
-        <BrandHeader />
-      </View>
-      <View style={[styles.header, { paddingTop: 8 }]}>
-        <View style={styles.headerRow}>
-          <View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={styles.headerTitle}>JARVIS</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: isLiveData ? "rgba(0,255,136,0.15)" : "rgba(245,158,11,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isLiveData ? "#00FF88" : "#F59E0B" }} />
-                <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: isLiveData ? "#00FF88" : "#F59E0B" }}>{isLiveData ? "LIVE" : "SIM"}</Text>
-              </View>
-            </View>
-            <View style={styles.statusRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>
-                {engineOutput
-                  ? `v8.0 | Tick #${engineOutput.engineTick}`
-                  : "Initializing..."}
-              </Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.resetBtn,
-                marketCommentary && { backgroundColor: "rgba(0,212,255,0.2)" },
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => {
-                setMarketCommentary(!marketCommentary);
-                if (marketCommentary) stopSpeech();
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-            >
-              <Ionicons
-                name={marketCommentary ? "radio" : "radio-outline"}
-                size={20}
-                color={marketCommentary ? CYAN : Colors.dark.textMuted}
-              />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.resetBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={resetChat}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={20}
-                color={Colors.dark.textMuted}
-              />
-            </Pressable>
-          </View>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: Platform.OS === "web" ? webTopInset : insets.top },
+      ]}
+    >
+      <BrandHeader />
+
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>
+            M3R <Text style={{ color: CYAN }}>AI</Text>
+          </Text>
+          <Text style={styles.subtitle}>Personal Assistant</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <Pressable onPress={() => setAutoSpeak(!autoSpeak)}>
+            <Ionicons
+              name={autoSpeak ? "volume-high" : "volume-mute"}
+              size={18}
+              color={autoSpeak ? CYAN : "rgba(255,255,255,0.3)"}
+            />
+          </Pressable>
+          <PulsingDot
+            color={brainStatus?.isTraining ? AMBER : NEON_GREEN}
+          />
+          <Text style={styles.phaseText}>
+            {brainStatus?.currentPhase || "OFFLINE"}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.chatWrapper}>
-        {marketContext && engineOutput && (
-          <View style={styles.marketBadge}>
-            <Text style={styles.marketBadgeText}>
-              NIFTY {marketContext.spotPrice.toFixed(0)} |{" "}
-              {engineOutput.cognitiveAlpha.fusionAction.replace("_", " ")}{" "}
-              |{" "}
-              <Text style={{ color: biasColor }}>{marketContext.bias}</Text>
-              {" | "}
-              <Text
-                style={{
-                  color: engineOutput.entropyData.isTrapZone
-                    ? Colors.dark.red
-                    : Colors.dark.green,
-                }}
+      <View style={styles.iqBar}>
+        <View style={styles.iqItem}>
+          <FontAwesome5 name="brain" size={12} color={PURPLE} />
+          <Text style={styles.iqLabel}>IQ</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.iq?.toFixed(1) || "---"}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="git-branch" size={12} color={CYAN} />
+          <Text style={styles.iqLabel}>GEN</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.generation || 0}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="school" size={12} color={NEON_GREEN} />
+          <Text style={styles.iqLabel}>CYCLES</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.totalLearningCycles || 0}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="time" size={12} color={AMBER} />
+          <Text style={styles.iqLabel}>UPTIME</Text>
+          <Text style={styles.iqValue}>
+            {formatUptime(brainStatus?.uptime || 0)}
+          </Text>
+        </View>
+        <View style={styles.iqItem}>
+          <Ionicons name="chatbubbles" size={12} color={ELECTRIC_BLUE} />
+          <Text style={styles.iqLabel}>TALKS</Text>
+          <Text style={styles.iqValue}>
+            {brainStatus?.totalInteractions || 0}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.tabBar}>
+        {(["chat", "brain", "memory"] as const).map((tab) => (
+          <Pressable
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            style={[
+              styles.tabBtn,
+              activeTab === tab && styles.tabBtnActive,
+            ]}
+          >
+            <Ionicons
+              name={
+                tab === "chat"
+                  ? "chatbubble-ellipses"
+                  : tab === "brain"
+                  ? "hardware-chip"
+                  : "bookmark"
+              }
+              size={14}
+              color={
+                activeTab === tab ? CYAN : "rgba(255,255,255,0.4)"
+              }
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab && styles.tabTextActive,
+              ]}
+            >
+              {tab.toUpperCase()}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {activeTab === "chat" && (
+          <>
+            {messages.length === 0 && (
+              <View style={styles.emptyState}>
+                <NeuralCore
+                  isTraining={brainStatus?.isTraining || false}
+                  phase={brainStatus?.currentPhase || "IDLE"}
+                  iq={brainStatus?.iq || 0}
+                  powerLevel={brainStatus?.powerLevel || "EVOLVING"}
+                />
+                <Text style={styles.emptyTitle}>M3R AI Assistant</Text>
+                <Text style={styles.emptySubtitle}>
+                  M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN
+                </Text>
+                <Text style={styles.emptyHint}>
+                  உங்க personal assistant ready! எதையும் கேளுங்க...
+                </Text>
+
+                <View style={styles.suggestionsGrid}>
+                  {[
+                    "நிஃப்டி ட்ரெண்ட் என்ன?",
+                    "brain status காட்டு",
+                    "என்ன கத்துக்கிட்ட?",
+                    "What should I trade today?",
+                    "Teach me iron condor",
+                    "How's your IQ growing?",
+                  ].map((q) => (
+                    <Pressable
+                      key={q}
+                      onPress={() => {
+                        setInput(q);
+                        sendTextMessage(q);
+                      }}
+                      style={styles.suggestionChip}
+                    >
+                      <Text style={styles.suggestionText}>{q}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {messages.map((msg) => (
+              <View
+                key={msg.id}
+                style={[
+                  styles.msgRow,
+                  msg.role === "user"
+                    ? styles.msgRowRight
+                    : styles.msgRowLeft,
+                ]}
               >
-                {engineOutput.entropyData.isTrapZone ? "TRAP" : "CLEAR"}
+                {msg.role === "assistant" && (
+                  <View style={styles.aiAvatar}>
+                    <MaterialCommunityIcons
+                      name="brain"
+                      size={14}
+                      color={CYAN}
+                    />
+                  </View>
+                )}
+                <View
+                  style={[
+                    styles.msgBubble,
+                    msg.role === "user"
+                      ? styles.userBubble
+                      : styles.aiBubble,
+                  ]}
+                >
+                  {msg.imageBase64 && (
+                    <Image
+                      source={{ uri: `data:image/jpeg;base64,${msg.imageBase64}` }}
+                      style={{ width: 200, height: 150, borderRadius: 8, marginBottom: 6 }}
+                      resizeMode="cover"
+                    />
+                  )}
+                  {msg.imageUrl && (
+                    <Image
+                      source={{ uri: msg.imageUrl }}
+                      style={{ width: 200, height: 200, borderRadius: 8, marginBottom: 6 }}
+                      resizeMode="cover"
+                    />
+                  )}
+                  {msg.attachmentName && !msg.imageBase64 && (
+                    <View style={styles.attachBadge}>
+                      <Ionicons name="document-attach" size={12} color={AMBER} />
+                      <Text style={styles.attachName} numberOfLines={1}>{msg.attachmentName}</Text>
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      styles.msgText,
+                      msg.role === "user"
+                        ? styles.userMsgText
+                        : styles.aiMsgText,
+                    ]}
+                    selectable
+                  >
+                    {msg.content}
+                  </Text>
+                  <View style={styles.msgFooter}>
+                    <Text style={styles.msgTime}>{msg.timestamp}</Text>
+                    {msg.role === "assistant" && (
+                      <Pressable
+                        onPress={() => {
+                          if (assistantState === "speaking") {
+                            handleStopSpeech();
+                          } else {
+                            assistantSpeak(msg.content);
+                          }
+                        }}
+                      >
+                        <Ionicons
+                          name={assistantState === "speaking" ? "stop-circle" : "volume-medium"}
+                          size={14}
+                          color={assistantState === "speaking" ? RED : CYAN}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+                {msg.role === "user" && (
+                  <View style={styles.userAvatar}>
+                    <FontAwesome5
+                      name="crown"
+                      size={10}
+                      color={AMBER}
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+
+            {isStreaming && (
+              <View style={styles.thinkingRow}>
+                <ActivityIndicator color={CYAN} size="small" />
+                <Text style={styles.thinkingText}>
+                  M3R AI thinking...
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === "brain" && brainStatus && (
+          <>
+            <View style={nStyles.labHeader}>
+              <View style={nStyles.labTitleRow}>
+                <MaterialCommunityIcons name="atom-variant" size={16} color={CYAN} />
+                <Text style={nStyles.labTitle}>LAMY NEURAL LAB</Text>
+              </View>
+              <View style={nStyles.labBadge}>
+                <PulsingDot color={POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN} />
+                <Text style={[nStyles.labBadgeText, { color: POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN }]}>
+                  {brainStatus.powerLevel || "EVOLVING"}
+                </Text>
+              </View>
+            </View>
+
+            <NeuralCore
+              isTraining={brainStatus.isTraining}
+              phase={brainStatus.currentPhase}
+              iq={brainStatus.iq}
+              powerLevel={brainStatus.powerLevel || "EVOLVING"}
+            />
+
+            <View style={nStyles.iqDisplay}>
+              <Text style={[nStyles.iqBigNumber, { color: POWER_COLORS[brainStatus.powerLevel || "EVOLVING"] || CYAN }]}>
+                {brainStatus.iq.toFixed(1)}
               </Text>
+              <Text style={nStyles.iqUnit}>IQ</Text>
+            </View>
+
+            <View style={nStyles.hexGrid}>
+              <HexStatCard label="DOMAINS" value={brainStatus.totalDomains || Object.keys(brainStatus.knowledgeAreas).length} icon="brain" color={CYAN} />
+              <HexStatCard label="GEN" value={`G${brainStatus.generation}`} icon="dna" color={PURPLE} />
+              <HexStatCard label="ACCURACY" value={`${brainStatus.accuracyScore.toFixed(0)}%`} icon="target" color={NEON_GREEN} />
+              <HexStatCard label="EQ" value={brainStatus.emotionalIQ.toFixed(0)} icon="heart-pulse" color={RED} />
+              <HexStatCard label="CYCLES" value={brainStatus.totalLearningCycles} icon="sync" color={AMBER} />
+              <HexStatCard label="COVERAGE" value={`${(brainStatus.neuralCoverage || 0).toFixed(0)}%`} icon="chart-arc" color={ELECTRIC_BLUE} />
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <MaterialCommunityIcons name="sitemap" size={14} color={CYAN} />
+                <Text style={nStyles.sectionTitle}>NEURAL CATEGORY MAP</Text>
+              </View>
+              {Object.entries(brainStatus.categoryScores || {}).map(([cat, scoreData]) => {
+                const catInfo = CATEGORY_ICONS[cat] || { icon: "brain", color: CYAN };
+                const score = typeof scoreData === "object" && scoreData !== null ? (scoreData as any).avg || 0 : (scoreData as number);
+                return (
+                  <CategoryNeuralMap key={cat} name={cat} score={score} catInfo={catInfo} />
+                );
+              })}
+              {!brainStatus.categoryScores && Object.entries(brainStatus.knowledgeAreas)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .slice(0, 11)
+                .map(([area, score]) => (
+                  <KnowledgeBar key={area} area={area} score={score as number} />
+                ))
+              }
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <Ionicons name="language" size={14} color={AMBER} />
+                <Text style={nStyles.sectionTitle}>LANGUAGE NEURAL LINKS</Text>
+              </View>
+              {Object.entries(brainStatus.languageFluency).map(([lang, score]) => (
+                <KnowledgeBar key={lang} area={lang.charAt(0).toUpperCase() + lang.slice(1)} score={score as number} />
+              ))}
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <View style={nStyles.sectionHeaderRow}>
+                  <MaterialCommunityIcons name="book-open-variant" size={14} color={PURPLE} />
+                  <Text style={nStyles.sectionTitle}>ALL KNOWLEDGE DOMAINS</Text>
+                </View>
+                <Pressable onPress={() => setShowAllKnowledge(!showAllKnowledge)}>
+                  <Text style={nStyles.toggleText}>{showAllKnowledge ? "Collapse" : `Show All (${Object.keys(brainStatus.knowledgeAreas).length})`}</Text>
+                </Pressable>
+              </View>
+              {Object.entries(brainStatus.knowledgeAreas)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .slice(0, showAllKnowledge ? 999 : 10)
+                .map(([area, score]) => (
+                  <KnowledgeBar key={area} area={area} score={score as number} />
+                ))}
+            </View>
+
+            <View style={nStyles.sectionPanel}>
+              <View style={nStyles.sectionHeader}>
+                <MaterialCommunityIcons name="lightning-bolt" size={14} color={NEON_GREEN} />
+                <Text style={nStyles.sectionTitle}>LIVE NEURAL PATHWAYS</Text>
+              </View>
+              <NeuralPathwayFeed improvements={brainStatus.recentImprovements} />
+            </View>
+
+            <Pressable
+              onPress={() => {
+                const baseUrl = getApiUrl();
+                globalThis.fetch(`${baseUrl}api/brain/train`, { method: "POST" });
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              }}
+              style={nStyles.trainBtn}
+            >
+              <MaterialCommunityIcons name="lightning-bolt" size={18} color={DEEP_BLACK} />
+              <Text style={nStyles.trainBtnText}>FORCE NEURAL TRAINING CYCLE</Text>
+            </Pressable>
+
+            <View style={nStyles.copyrightBar}>
+              <Ionicons name="shield-checkmark" size={10} color="rgba(255,255,255,0.2)" />
+              <Text style={nStyles.copyrightText}>© M3R Innovative Fintech Solutions | MANIKANDAN RAJENDRAN</Text>
+            </View>
+          </>
+        )}
+
+        {activeTab === "brain" && !brainStatus && (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={CYAN} size="large" />
+            <Text style={styles.emptyHint}>
+              Connecting to Brain Engine...
             </Text>
           </View>
         )}
 
-        {tradingSummary && (
-          <View style={autoStyles.summaryBar}>
-            <View style={autoStyles.summaryItem}>
-              <Text style={autoStyles.summaryLabel}>TODAY P&L</Text>
-              <Text style={[autoStyles.summaryValue, { color: tradingSummary.totalPnl >= 0 ? NEON_GREEN : Colors.dark.red }]}>
-                {tradingSummary.totalPnl >= 0 ? "+" : ""}Rs.{tradingSummary.totalPnl.toFixed(0)}
+        {activeTab === "memory" && (
+          <>
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons name="bookmark" size={14} color={AMBER} />{" "}
+                PERMANENT MEMORY
               </Text>
-            </View>
-            <View style={autoStyles.summaryDivider} />
-            <View style={autoStyles.summaryItem}>
-              <Text style={autoStyles.summaryLabel}>W/L</Text>
-              <Text style={autoStyles.summaryValue}>{tradingSummary.wins}/{tradingSummary.losses}</Text>
-            </View>
-            <View style={autoStyles.summaryDivider} />
-            <View style={autoStyles.summaryItem}>
-              <Text style={autoStyles.summaryLabel}>STATUS</Text>
-              <Text style={[autoStyles.summaryValue, { color: tradingSummary.canTakeNewTrade ? NEON_GREEN : Colors.dark.gold, fontSize: 10 }]}>
-                {tradingSummary.canTakeNewTrade ? "READY" : "IN TRADE"}
+              <Text style={styles.memoryHint}>
+                You say = I remember FOREVER
               </Text>
-            </View>
-            {tradingSummary.lossAlert && (
-              <>
-                <View style={autoStyles.summaryDivider} />
-                <View style={autoStyles.summaryItem}>
-                  <Ionicons name="warning" size={12} color={Colors.dark.red} />
-                  <Text style={[autoStyles.summaryValue, { color: Colors.dark.red, fontSize: 9 }]}>LOSS ALERT</Text>
-                </View>
-              </>
-            )}
-          </View>
-        )}
 
-        {activePositions.length > 0 && (
-          <View style={autoStyles.positionPanel}>
-            <Pressable
-              style={autoStyles.positionPanelHeader}
-              onPress={() => setPositionPanelOpen(!positionPanelOpen)}
-            >
-              <View style={autoStyles.positionPanelTitleRow}>
-                <Ionicons name="pulse" size={14} color={NEON_GREEN} />
-                <Text style={autoStyles.positionPanelTitle}>
-                  LIVE POSITIONS ({activePositions.length})
-                </Text>
-                {autoTradeMode && (
-                  <View style={autoStyles.autoModeBadge}>
-                    <Text style={autoStyles.autoModeBadgeText}>AUTO</Text>
-                  </View>
-                )}
+              <View style={styles.memoryInputRow}>
+                <TextInput
+                  placeholder="Tell me to remember something..."
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={memoryInput}
+                  onChangeText={setMemoryInput}
+                  style={styles.memoryTextInput}
+                  multiline
+                />
               </View>
-              <Ionicons
-                name={positionPanelOpen ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={Colors.dark.textMuted}
-              />
-            </Pressable>
-            {positionPanelOpen && activePositions.map((pos) => {
-              const pnlColor = pos.pnl >= 0 ? NEON_GREEN : Colors.dark.red;
-              const kissColor = pos.kissPhase === "KISS_BOUNCE" ? NEON_GREEN
-                : pos.kissPhase === "RECOVERING" ? Colors.dark.gold
-                : pos.kissPhase === "DROPPING" ? Colors.dark.red
-                : pos.kissPhase === "BOTTOMED" ? "#FF8C00"
-                : Colors.dark.textMuted;
-              return (
-                <View key={pos.id} style={autoStyles.positionRow}>
-                  <View style={autoStyles.positionLeft}>
-                    <Text style={[autoStyles.positionType, { color: pos.type === "CE" ? NEON_GREEN : Colors.dark.red }]}>
-                      {pos.type} {pos.strike}
-                    </Text>
-                    <Text style={autoStyles.positionPremiums}>
-                      Entry: Rs.{pos.entryPremium.toFixed(2)} | Now: Rs.{pos.currentPremium.toFixed(2)}
-                    </Text>
-                    <View style={autoStyles.atrRow}>
-                      {pos.atrStopLoss !== undefined && (
-                        <Text style={autoStyles.atrText}>
-                          ATR SL: Rs.{pos.atrStopLoss.toFixed(2)}
-                        </Text>
-                      )}
-                      {pos.kissPhase && pos.kissPhase !== "NONE" && (
-                        <View style={[autoStyles.kissBadge, { borderColor: kissColor }]}>
-                          <Text style={[autoStyles.kissText, { color: kissColor }]}>
-                            {pos.kissPhase === "KISS_BOUNCE" ? "KISS!" : pos.kissPhase}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={autoStyles.positionRight}>
-                    <Text style={[autoStyles.positionPnl, { color: pnlColor }]}>
-                      {pos.pnl >= 0 ? "+" : ""}Rs.{pos.pnl.toFixed(2)}
-                    </Text>
-                    <Text style={[autoStyles.positionPnlPct, { color: pnlColor }]}>
-                      {pos.pnlPercent >= 0 ? "+" : ""}{pos.pnlPercent.toFixed(1)}%
-                    </Text>
-                    {pos.lossAlerted && (
-                      <View style={autoStyles.lossAlertBadge}>
-                        <Ionicons name="alert-circle" size={10} color={Colors.dark.red} />
-                      </View>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        <ScrollView
-          ref={scrollRef}
-          style={styles.chatArea}
-          contentContainerStyle={styles.chatContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() =>
-            scrollRef.current?.scrollToEnd({ animated: true })
-          }
-        >
-          {messages.length === 0 && (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="hardware-chip" size={36} color={CYAN} />
-              </View>
-              <Text style={styles.emptyTitle}>JARVIS AI Assistant</Text>
-              <Text style={styles.emptySubtitle}>
-                Your personal AI trading assistant. I analyze markets using 9
-                neural layers, Monte Carlo simulation, Cognitive Alpha brain,
-                and advanced formulas. Ask me anything and I'll explain my
-                thinking in detail.
-              </Text>
-              <View style={styles.quickActions}>
-                {QUICK_ACTIONS.map((q) => (
+              <View style={styles.memoryActionsRow}>
+                {[
+                  "general",
+                  "trading",
+                  "personal",
+                  "rules",
+                  "important",
+                ].map((cat) => (
                   <Pressable
-                    key={q}
-                    style={({ pressed }) => [
-                      styles.quickChip,
-                      pressed && { opacity: 0.7 },
+                    key={cat}
+                    onPress={() => setMemoryCategory(cat)}
+                    style={[
+                      styles.catChip,
+                      memoryCategory === cat &&
+                        styles.catChipActive,
                     ]}
-                    onPress={() => sendMessage(q)}
                   >
-                    <Text style={styles.quickChipText}>{q}</Text>
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        memoryCategory === cat &&
+                          styles.catChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
-            </View>
-          )}
-
-          {messages.map((msg) => (
-            <View
-              key={msg.id}
-              style={[
-                styles.messageBubble,
-                msg.role === "user"
-                  ? styles.userBubble
-                  : styles.assistantBubble,
-              ]}
-            >
-              {msg.role === "assistant" && (
-                <View style={styles.assistantHeader}>
-                  <Ionicons name="hardware-chip" size={14} color={CYAN} />
-                  <Text style={styles.assistantLabel}>JARVIS</Text>
-                </View>
-              )}
-              <Text
+              <Pressable
+                onPress={handleSaveMemory}
+                disabled={!memoryInput.trim()}
                 style={[
-                  styles.messageText,
-                  msg.role === "user" && styles.userText,
+                  styles.saveMemoryBtn,
+                  !memoryInput.trim() && { opacity: 0.3 },
                 ]}
               >
-                {msg.content}
-              </Text>
+                <Ionicons name="save" size={14} color={DEEP_BLACK} />
+                <Text style={styles.saveMemoryBtnText}>
+                  SAVE TO PERMANENT MEMORY
+                </Text>
+              </Pressable>
             </View>
-          ))}
 
-          {isStreaming &&
-            !messages.some(
-              (m) =>
-                m.role === "assistant" && m === messages[messages.length - 1]
-            ) && (
-              <View style={[styles.messageBubble, styles.assistantBubble]}>
-                <ActivityIndicator
-                  size="small"
-                  color={Colors.dark.accent}
-                />
-              </View>
-            )}
-        </ScrollView>
-      </View>
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>
+                <Ionicons name="server" size={14} color={CYAN} />{" "}
+                STORED MEMORIES ({memories.length})
+              </Text>
+              {memories.map((mem) => (
+                <View key={mem.id} style={styles.memoryItem}>
+                  <View style={styles.memoryItemHeader}>
+                    <View
+                      style={[
+                        styles.memCatBadge,
+                        {
+                          backgroundColor:
+                            mem.category === "trading"
+                              ? "rgba(0,243,255,0.2)"
+                              : mem.category === "important"
+                              ? "rgba(239,68,68,0.2)"
+                              : mem.category === "rules"
+                              ? "rgba(245,158,11,0.2)"
+                              : "rgba(255,255,255,0.1)",
+                        },
+                      ]}
+                    >
+                      <Text style={styles.memCatText}>
+                        {mem.category}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handleDeleteMemory(mem.id)}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={14}
+                        color="rgba(255,255,255,0.3)"
+                      />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.memContent}>
+                    {mem.content}
+                  </Text>
+                  <Text style={styles.memDate}>
+                    {new Date(mem.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+              ))}
+              {memories.length === 0 && (
+                <Text style={styles.emptyMemText}>
+                  No memories saved yet. Tell me what to remember!
+                </Text>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      {(assistantState === "speaking" || isLiveMode) && (
+        <Pressable
+          onPress={() => {
+            if (isLiveMode) { toggleLiveMode(); return; }
+            handleStopSpeech();
+          }}
+          style={[styles.speakingBar, isLiveMode && { backgroundColor: "rgba(239,68,68,0.08)", borderTopColor: "rgba(239,68,68,0.25)" }]}
+        >
+          <View style={[styles.speakingPulse, isLiveMode && { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+            <Ionicons name={isLiveMode ? "radio" : "volume-high"} size={16} color={isLiveMode ? RED : CYAN} />
+          </View>
+          <Text style={[styles.speakingText, isLiveMode && { color: RED }]}>
+            {isLiveMode ? (assistantState === "listening" ? "Listening..." : assistantState === "thinking" ? "Thinking..." : assistantState === "speaking" ? "Speaking..." : "LIVE Mode Active") : "M3R பேசுகிறது..."}
+          </Text>
+          <View style={styles.stopBtn}>
+            <Ionicons name="stop" size={14} color="#fff" />
+            <Text style={styles.stopBtnText}>{isLiveMode ? "END" : "STOP"}</Text>
+          </View>
+        </Pressable>
+      )}
+
+      {pendingFile && (
+        <View style={styles.pendingFileBar}>
+          {pendingFile.type.startsWith("image/") && pendingFile.base64 ? (
+            <Image source={{ uri: `data:${pendingFile.type};base64,${pendingFile.base64}` }} style={{ width: 40, height: 40, borderRadius: 6 }} />
+          ) : (
+            <View style={styles.pendingFileIcon}>
+              <Ionicons name="document" size={18} color={AMBER} />
+            </View>
+          )}
+          <Text style={styles.pendingFileName} numberOfLines={1}>{pendingFile.name}</Text>
+          <Pressable onPress={() => setPendingFile(null)}>
+            <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+          </Pressable>
+        </View>
+      )}
+
+      {showAttachMenu && (
+        <View style={styles.attachMenu}>
+          <Pressable onPress={pickImage} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
+              <Ionicons name="image" size={20} color={ELECTRIC_BLUE} />
+            </View>
+            <Text style={styles.attachMenuText}>Photo</Text>
+          </Pressable>
+          <Pressable onPress={pickDocument} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(245,158,11,0.15)" }]}>
+              <Ionicons name="document" size={20} color={AMBER} />
+            </View>
+            <Text style={styles.attachMenuText}>File</Text>
+          </Pressable>
+          <Pressable onPress={() => setShowAttachMenu(false)} style={styles.attachMenuItem}>
+            <View style={[styles.attachMenuIcon, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+              <Ionicons name="close" size={20} color={RED} />
+            </View>
+            <Text style={styles.attachMenuText}>Cancel</Text>
+          </Pressable>
+        </View>
+      )}
 
       <View
         style={[
-          styles.inputContainer,
+          styles.inputBar,
           {
             paddingBottom:
-              Platform.OS === "web" ? webBottomInset : insets.bottom + 8,
+              Platform.OS === "web"
+                ? TAB_BAR_HEIGHT + 8
+                : Math.max(insets.bottom, TAB_BAR_HEIGHT) + 8,
           },
         ]}
       >
-        <View style={styles.inputRow}>
-          <PulsingMicButton status={voiceStatus} onPress={handleMicPress} small />
+        <Pressable
+          onPress={() => setShowAttachMenu(!showAttachMenu)}
+          style={styles.attachBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Attach file"
+          accessibilityRole="button"
+        >
+          <Ionicons name="add-circle-outline" size={24} color={showAttachMenu ? CYAN : "rgba(255,255,255,0.4)"} />
+        </Pressable>
 
-          {isRecordingOrProcessing ? (
-            <View style={styles.recordingArea}>
-              {voiceStatus === "listening" ? (
-                <>
-                  <View style={styles.inlineWaveformRow}>
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <WaveformBar key={i} index={i} active />
-                    ))}
-                  </View>
-                  <Text style={styles.listeningText}>Listening...</Text>
-                </>
-              ) : (
-                <>
-                  <ActivityIndicator size="small" color={Colors.dark.gold} />
-                  <Text style={styles.processingText}>Processing...</Text>
-                </>
-              )}
-            </View>
-          ) : (
-            <TextInput
-              style={styles.input}
-              placeholder="Ask JARVIS anything..."
-              placeholderTextColor={Colors.dark.textMuted}
-              value={input}
-              onChangeText={setInput}
-              multiline
-              maxLength={500}
-              editable={!isStreaming}
-            />
+        <Pressable
+          onPress={() => {
+            if (assistantState === "speaking") handleStopSpeech();
+            handleMicPress();
+          }}
+          style={[
+            styles.micBtn,
+            assistantState === "listening" && styles.micBtnActive,
+          ]}
+        >
+          <Ionicons
+            name={assistantState === "listening" ? "mic" : "mic-outline"}
+            size={20}
+            color={assistantState === "listening" ? "#fff" : CYAN}
+          />
+          {assistantState === "listening" && (
+            <View style={styles.micRecordingDot} />
           )}
+        </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.sendBtn,
-              (!input.trim() || isStreaming || isRecordingOrProcessing) && styles.sendBtnDisabled,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={() => sendMessage(input)}
-            disabled={!input.trim() || isStreaming || isRecordingOrProcessing}
-          >
-            <Ionicons
-              name="send"
-              size={18}
-              color={
-                input.trim() && !isStreaming && !isRecordingOrProcessing
-                  ? "#fff"
-                  : Colors.dark.textMuted
-              }
-            />
-          </Pressable>
-        </View>
+        <TextInput
+          placeholder="Sir, உங்க command..."
+          placeholderTextColor="rgba(0,243,255,0.25)"
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={() => {
+            if (pendingFile) {
+              sendMessageWithFile(input, pendingFile);
+              setInput("");
+            } else if (input.trim()) {
+              sendTextMessage(input);
+              setInput("");
+            }
+          }}
+          style={styles.textInput}
+        />
+
+        <Pressable
+          onPress={() => {
+            if (pendingFile) {
+              sendMessageWithFile(input, pendingFile);
+              setInput("");
+            } else if (input.trim()) {
+              sendTextMessage(input);
+              setInput("");
+            }
+          }}
+          disabled={!input.trim() && !pendingFile}
+          style={styles.sendBtn}
+        >
+          <Ionicons
+            name="send"
+            size={18}
+            color={input.trim() || pendingFile ? CYAN : "rgba(255,255,255,0.15)"}
+          />
+        </Pressable>
+
+        <Pressable
+          onPress={toggleLiveMode}
+          style={[styles.liveBtn, isLiveMode && styles.liveBtnActive]}
+        >
+          <Ionicons name="radio" size={16} color={isLiveMode ? "#fff" : NEON_GREEN} />
+          <Text style={[styles.liveBtnText, isLiveMode && { color: "#fff" }]}>LIVE</Text>
+        </Pressable>
       </View>
-
-      <Modal
-        visible={emergencyModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => dismissEmergencyModal(true)}
-      >
-        <View style={autoStyles.modalOverlay}>
-          <View style={autoStyles.modalContainer}>
-            <View style={[autoStyles.modalHeader, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
-              <Ionicons name="warning" size={28} color={Colors.dark.red} />
-              <Text style={[autoStyles.modalHeaderText, { color: Colors.dark.red }]}>
-                EMERGENCY EXIT
-              </Text>
-            </View>
-            {emergencyPosition && (
-              <View style={autoStyles.modalBody}>
-                <Text style={autoStyles.modalPositionInfo}>
-                  {emergencyPosition.type} {emergencyPosition.strike}
-                </Text>
-                <Text style={[autoStyles.modalPnl, { color: Colors.dark.red }]}>
-                  Rs.{emergencyPosition.pnl.toFixed(2)} ({emergencyPosition.pnlPercent.toFixed(1)}%)
-                </Text>
-                <Text style={autoStyles.modalJarvisMsg}>
-                  {emergencyPosition.lossAlerted 
-                    ? `Sir, loss Rs.${Math.abs(emergencyPosition.pnl).toFixed(0)} exceeds Rs.300 threshold.\nATR Stop Loss: Rs.${emergencyPosition.atrStopLoss?.toFixed(2) || "N/A"}\nShall I exit?`
-                    : "Sir, your position is in loss. Shall I exit?"}
-                </Text>
-                <View style={autoStyles.countdownCircle}>
-                  <Text style={autoStyles.countdownNumber}>{countdown}</Text>
-                  <Text style={autoStyles.countdownLabel}>seconds</Text>
-                </View>
-                <View style={autoStyles.modalButtons}>
-                  <Pressable
-                    style={[autoStyles.modalBtn, { backgroundColor: Colors.dark.red }]}
-                    onPress={() => dismissEmergencyModal(false)}
-                  >
-                    <Text style={autoStyles.modalBtnText}>EXIT NOW</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[autoStyles.modalBtn, autoStyles.modalBtnOutline]}
-                    onPress={() => dismissEmergencyModal(true)}
-                  >
-                    <Text style={[autoStyles.modalBtnText, { color: Colors.dark.textSecondary }]}>
-                      HOLD
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={profitModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => dismissProfitModal(true)}
-      >
-        <View style={autoStyles.modalOverlay}>
-          <View style={autoStyles.modalContainer}>
-            <View style={[autoStyles.modalHeader, { backgroundColor: "rgba(57,255,20,0.1)" }]}>
-              <Ionicons name="checkmark-circle" size={28} color={NEON_GREEN} />
-              <Text style={[autoStyles.modalHeaderText, { color: NEON_GREEN }]}>
-                PROFIT TARGET HIT
-              </Text>
-            </View>
-            {profitPosition && (
-              <View style={autoStyles.modalBody}>
-                <Text style={autoStyles.modalPositionInfo}>
-                  {profitPosition.type} {profitPosition.strike}
-                </Text>
-                <Text style={[autoStyles.modalPnl, { color: NEON_GREEN }]}>
-                  +Rs.{profitPosition.pnl.toFixed(2)} (+{profitPosition.pnlPercent.toFixed(1)}%)
-                </Text>
-                <Text style={autoStyles.modalJarvisMsg}>
-                  {profitPosition.kissPhase === "KISS_BOUNCE"
-                    ? "Sir, Kiss Pattern detected! Price dropped and bounced back above entry. Perfect time to book profit!"
-                    : "Sir, 80% profit reached! Shall I book?"}
-                </Text>
-                <View style={[autoStyles.countdownCircle, { borderColor: NEON_GREEN }]}>
-                  <Text style={[autoStyles.countdownNumber, { color: NEON_GREEN }]}>{countdown}</Text>
-                  <Text style={autoStyles.countdownLabel}>seconds</Text>
-                </View>
-                <View style={autoStyles.modalButtons}>
-                  <Pressable
-                    style={[autoStyles.modalBtn, { backgroundColor: NEON_GREEN }]}
-                    onPress={() => dismissProfitModal(false)}
-                  >
-                    <Text style={[autoStyles.modalBtnText, { color: "#000" }]}>BOOK PROFIT</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[autoStyles.modalBtn, autoStyles.modalBtnOutline]}
-                    onPress={() => dismissProfitModal(true)}
-                  >
-                    <Text style={[autoStyles.modalBtnText, { color: Colors.dark.textSecondary }]}>
-                      LET IT RUN
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
-const autoStyles = StyleSheet.create({
-  summaryBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 16,
-    marginTop: 44,
-    marginBottom: 4,
-    backgroundColor: "rgba(17, 24, 39, 0.95)",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    zIndex: 10,
-  },
-  summaryItem: {
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  summaryLabel: {
-    fontSize: 8,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.textMuted,
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontSize: 12,
-    fontFamily: "DMSans_700Bold",
-    color: Colors.dark.text,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.dark.border,
-  },
-  positionPanel: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 4,
-    backgroundColor: "rgba(17, 24, 39, 0.95)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    overflow: "hidden",
-    zIndex: 9,
-  },
-  positionPanelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  positionPanelTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  positionPanelTitle: {
-    fontSize: 12,
-    fontFamily: "DMSans_700Bold",
-    color: NEON_GREEN,
-    letterSpacing: 1,
-  },
-  autoModeBadge: {
-    backgroundColor: "rgba(245,158,11,0.2)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  autoModeBadgeText: {
-    fontSize: 9,
-    fontFamily: "DMSans_700Bold",
-    color: Colors.dark.gold,
-    letterSpacing: 1,
-  },
-  positionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
-  },
-  positionLeft: {
-    flex: 1,
-  },
-  positionType: {
-    fontSize: 13,
-    fontFamily: "DMSans_700Bold",
-    letterSpacing: 0.5,
-  },
-  positionPremiums: {
-    fontSize: 10,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  positionRight: {
-    alignItems: "flex-end",
-  },
-  positionPnl: {
-    fontSize: 13,
-    fontFamily: "DMSans_700Bold",
-  },
-  positionPnlPct: {
-    fontSize: 10,
-    fontFamily: "DMSans_600SemiBold",
-    marginTop: 1,
-  },
-  atrRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 3,
-  },
-  atrText: {
-    fontSize: 9,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.gold,
-    letterSpacing: 0.3,
-  },
-  kissBadge: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-  },
-  kissText: {
-    fontSize: 8,
-    fontFamily: "DMSans_700Bold",
-    letterSpacing: 0.5,
-  },
-  lossAlertBadge: {
-    marginTop: 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalContainer: {
-    width: "100%",
-    maxWidth: 360,
-    backgroundColor: Colors.dark.surface,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  modalHeaderText: {
-    fontSize: 18,
-    fontFamily: "DMSans_700Bold",
-    letterSpacing: 2,
-  },
-  modalBody: {
-    padding: 24,
-    alignItems: "center",
-  },
-  modalPositionInfo: {
-    fontSize: 20,
-    fontFamily: "DMSans_700Bold",
-    color: Colors.dark.text,
-    letterSpacing: 1,
-  },
-  modalPnl: {
-    fontSize: 24,
-    fontFamily: "DMSans_700Bold",
-    marginTop: 8,
-  },
-  modalJarvisMsg: {
-    fontSize: 14,
-    fontFamily: "DMSans_500Medium",
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-    marginTop: 16,
-    lineHeight: 20,
-  },
-  countdownCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 3,
-    borderColor: Colors.dark.red,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  countdownNumber: {
-    fontSize: 32,
-    fontFamily: "DMSans_700Bold",
-    color: Colors.dark.red,
-  },
-  countdownLabel: {
-    fontSize: 10,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: -2,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
-    width: "100%",
-  },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalBtnOutline: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  modalBtnText: {
-    fontSize: 14,
-    fontFamily: "DMSans_700Bold",
-    color: "#fff",
-    letterSpacing: 1,
-  },
-});
-
-const voiceStyles = StyleSheet.create({
-  micContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  micRing: {
-    position: "absolute",
-    borderWidth: 2,
-  },
-  micButton: {
-    backgroundColor: "rgba(0,212,255,0.08)",
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  waveBar: {
-    width: 3,
-    borderRadius: 2,
-    minHeight: 6,
-  },
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: DEEP_BLACK,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: Colors.dark.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
-  },
-  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontFamily: "DMSans_700Bold",
-    color: CYAN,
-    letterSpacing: 2,
+  title: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
-  creatorRow: {
+  subtitle: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    marginBottom: 4,
-    opacity: 0.8,
+    gap: 8,
   },
-  creatorLabel: {
+  phaseText: {
     fontSize: 9,
-    fontFamily: "DMSans_600SemiBold",
     color: CYAN,
-    letterSpacing: 1.5,
+    fontWeight: "700" as const,
+    letterSpacing: 1,
     textTransform: "uppercase" as const,
   },
-  statusRow: {
+  iqBar: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(0, 243, 255, 0.04)",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: PANEL_BORDER,
+  },
+  iqItem: {
+    alignItems: "center",
+    gap: 2,
+  },
+  iqLabel: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: "600" as const,
+    letterSpacing: 0.5,
+  },
+  iqValue: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: PANEL_BORDER,
+  },
+  tabBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.dark.green,
-  },
-  statusText: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.green,
-  },
-  resetBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.surfaceElevated,
-    alignItems: "center",
     justifyContent: "center",
+    gap: 5,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  chatWrapper: {
-    flex: 1,
-    position: "relative",
+  tabBtnActive: {
+    borderBottomColor: CYAN,
   },
-  marketBadge: {
-    position: "absolute",
-    top: 8,
-    left: 16,
-    right: 16,
-    zIndex: 10,
-    backgroundColor: "rgba(17, 24, 39, 0.9)",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    alignItems: "center",
+  tabText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: "rgba(255,255,255,0.4)",
+    letterSpacing: 0.5,
   },
-  marketBadgeText: {
-    fontSize: 12,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.textSecondary,
-    letterSpacing: 0.3,
-  },
-  chatArea: {
-    flex: 1,
-  },
-  chatContent: {
-    padding: 20,
-    paddingTop: 48,
-    paddingBottom: 20,
+  tabTextActive: {
+    color: CYAN,
   },
   emptyState: {
     alignItems: "center",
-    paddingTop: 40,
-  },
-  emptyIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(59, 130, 246, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
+    paddingTop: 30,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.text,
-    textAlign: "center",
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    marginTop: 16,
   },
   emptySubtitle: {
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-    marginTop: 8,
-    paddingHorizontal: 20,
-    lineHeight: 20,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
   },
-  quickActions: {
-    marginTop: 24,
-    width: "100%",
+  emptyHint: {
+    fontSize: 12,
+    color: "rgba(0,243,255,0.5)",
+    marginTop: 8,
+    textAlign: "center" as const,
+  },
+  suggestionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
     justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+    paddingHorizontal: 10,
   },
-  quickChip: {
-    backgroundColor: Colors.dark.card,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  suggestionChip: {
+    backgroundColor: "rgba(0, 243, 255, 0.08)",
     borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  quickChipText: {
-    fontSize: 13,
-    fontFamily: "DMSans_500Medium",
-    color: Colors.dark.text,
-  },
-  messageBubble: {
+    borderColor: "rgba(0, 243, 255, 0.15)",
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
-    maxWidth: "90%",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  suggestionText: {
+    fontSize: 11,
+    color: CYAN,
+  },
+  msgRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    marginVertical: 3,
+    gap: 6,
+  },
+  msgRowRight: {
+    justifyContent: "flex-end",
+  },
+  msgRowLeft: {
+    justifyContent: "flex-start",
+  },
+  msgBubble: {
+    maxWidth: "75%",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   userBubble: {
-    backgroundColor: Colors.dark.accent,
-    alignSelf: "flex-end",
+    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.25)",
     borderBottomRightRadius: 4,
   },
-  assistantBubble: {
-    backgroundColor: Colors.dark.card,
-    alignSelf: "flex-start",
-    borderBottomLeftRadius: 4,
+  aiBubble: {
+    backgroundColor: PANEL_BG,
     borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
+    borderColor: PANEL_BORDER,
+    borderBottomLeftRadius: 4,
   },
-  assistantHeader: {
+  msgText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  userMsgText: {
+    color: "#FFFFFF",
+  },
+  aiMsgText: {
+    color: "rgba(255,255,255,0.9)",
+  },
+  msgFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 8,
+  },
+  msgTime: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.25)",
+  },
+  aiAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0, 243, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thinkingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  thinkingText: {
+    fontSize: 12,
+    color: CYAN,
+    fontStyle: "italic" as const,
+  },
+  brainOrbContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 120,
+    height: 130,
+    alignSelf: "center" as const,
+  },
+  brainOrbRing: {
+    position: "absolute" as const,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+  },
+  brainOrbCore: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(0, 243, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brainOrbPhase: {
+    fontSize: 8,
+    fontWeight: "700" as const,
+    letterSpacing: 1,
+    marginTop: 6,
+    textTransform: "uppercase" as const,
+  },
+  brainCenterSection: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  bigIqText: {
+    fontSize: 38,
+    fontWeight: "800" as const,
+    color: CYAN,
+    marginTop: 8,
+    letterSpacing: 1,
+  },
+  iqLabelBig: {
+    fontSize: 10,
+    fontWeight: "600" as const,
+    color: "rgba(255,255,255,0.35)",
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  brainStatsRow: {
+    flexDirection: "row",
+    gap: 24,
+    marginTop: 16,
+  },
+  brainStatItem: {
+    alignItems: "center",
+  },
+  brainStatValue: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+  },
+  brainStatLabel: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  panel: {
+    backgroundColor: PANEL_BG,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 14,
+  },
+  panelTitle: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  panelHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  showAllText: {
+    fontSize: 10,
+    color: CYAN,
+    fontWeight: "600" as const,
+  },
+  kbRow: {
+    marginBottom: 8,
+  },
+  kbLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 3,
+  },
+  kbArea: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "capitalize" as const,
+  },
+  kbScore: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+  },
+  kbTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 3,
+    overflow: "hidden" as const,
+  },
+  kbFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  impRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  impTime: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.25)",
+    width: 50,
+  },
+  impArea: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "600" as const,
+    width: 70,
+    textTransform: "capitalize" as const,
+  },
+  impDelta: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    width: 40,
+  },
+  impNote: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
+    flex: 1,
+  },
+  emptyLogText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.25)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 10,
+  },
+  trainButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AMBER,
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 8,
+    paddingVertical: 12,
+  },
+  trainButtonText: {
+    fontSize: 12,
+    fontWeight: "800" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 1,
+  },
+  memoryHint: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.35)",
+    fontStyle: "italic" as const,
+    marginBottom: 10,
+  },
+  memoryInputRow: {
+    marginBottom: 10,
+  },
+  memoryTextInput: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    color: "#FFFFFF",
+    fontSize: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 60,
+    textAlignVertical: "top" as const,
+  },
+  memoryActionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 10,
+  },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  catChipActive: {
+    backgroundColor: "rgba(0, 243, 255, 0.15)",
+    borderColor: CYAN,
+  },
+  catChipText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: "600" as const,
+    textTransform: "capitalize" as const,
+  },
+  catChipTextActive: {
+    color: CYAN,
+  },
+  saveMemoryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: CYAN,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  saveMemoryBtnText: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 0.5,
+  },
+  memoryItem: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 8,
   },
-  assistantLabel: {
-    fontSize: 11,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.accent,
+  memoryItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  memCatBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  memCatText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    color: "#FFFFFF",
     textTransform: "uppercase" as const,
     letterSpacing: 0.5,
   },
-  messageText: {
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.text,
-    lineHeight: 22,
+  memContent: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 17,
   },
-  userText: {
-    color: "#ffffff",
+  memDate: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.2)",
+    marginTop: 6,
   },
-  inputContainer: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    backgroundColor: Colors.dark.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+  emptyMemText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.25)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 16,
   },
-  inputRow: {
+  inputBar: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
+    paddingTop: 8,
     gap: 8,
+    backgroundColor: "rgba(5, 5, 8, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: PANEL_BORDER,
+    zIndex: 50,
   },
-  input: {
-    flex: 1,
-    backgroundColor: Colors.dark.inputBg,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.text,
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  recordingArea: {
-    flex: 1,
+  speakingBar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(0, 243, 255, 0.06)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 243, 255, 0.15)",
     gap: 10,
-    backgroundColor: Colors.dark.inputBg,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
   },
-  inlineWaveformRow: {
+  speakingPulse: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 243, 255, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speakingText: {
+    flex: 1,
+    fontSize: 12,
+    color: CYAN,
+    fontWeight: "500",
+  },
+  stopBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    height: 24,
+    gap: 4,
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.4)",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  listeningText: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.red,
-    letterSpacing: 0.5,
+  stopBtnText: {
+    fontSize: 11,
+    color: RED,
+    fontWeight: "700",
   },
-  processingText: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.gold,
-    letterSpacing: 0.5,
+  micBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 243, 255, 0.1)",
+    borderWidth: 1.5,
+    borderColor: "rgba(0, 243, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micBtnActive: {
+    backgroundColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: RED,
+    borderWidth: 2,
+  },
+  micRecordingDot: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: RED,
+  },
+  textInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.1)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    color: "#FFFFFF",
+    fontSize: 13,
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  sendBtnDisabled: {
-    backgroundColor: Colors.dark.surfaceElevated,
+  attachBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(245,158,11,0.1)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  attachName: {
+    fontSize: 10,
+    color: AMBER,
+    fontWeight: "600" as const,
+    flex: 1,
+  },
+  attachMenu: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(10, 20, 30, 0.98)",
+    borderTopWidth: 1,
+    borderTopColor: PANEL_BORDER,
+    zIndex: 100,
+  },
+  attachMenuItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  attachMenuIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  attachMenuText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "600" as const,
+  },
+  pendingFileBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(245,158,11,0.06)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(245,158,11,0.15)",
+  },
+  pendingFileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: "rgba(245,158,11,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingFileName: {
+    flex: 1,
+    fontSize: 12,
+    color: AMBER,
+    fontWeight: "600" as const,
+  },
+  liveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(57,255,20,0.08)",
+    borderWidth: 1.5,
+    borderColor: "rgba(57,255,20,0.25)",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  liveBtnActive: {
+    backgroundColor: "rgba(239,68,68,0.3)",
+    borderColor: RED,
+  },
+  liveBtnText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    color: NEON_GREEN,
+    letterSpacing: 1,
+  },
+});
+
+const nStyles = StyleSheet.create({
+  neuralCoreWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 160,
+    marginVertical: 8,
+  },
+  ring3: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderStyle: "dashed" as any,
+  },
+  ring2: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1.5,
+  },
+  ring1: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+  },
+  coreCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(10, 20, 30, 0.9)",
+    borderWidth: 2,
+    borderColor: "rgba(0, 243, 255, 0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  phaseTag: {
+    position: "absolute",
+    bottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.15)",
+  },
+  phaseText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    letterSpacing: 1.5,
+  },
+  labHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  labTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  labTitle: {
+    fontSize: 13,
+    fontWeight: "900" as const,
+    color: CYAN,
+    letterSpacing: 2,
+  },
+  labBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(10, 20, 30, 0.8)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  labBadgeText: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+    letterSpacing: 1.5,
+  },
+  iqDisplay: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 4,
+    marginBottom: 6,
+  },
+  iqBigNumber: {
+    fontSize: 42,
+    fontWeight: "900" as const,
+    letterSpacing: -1,
+  },
+  iqUnit: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.3)",
+    letterSpacing: 2,
+  },
+  hexGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 10,
+  },
+  hexCard: {
+    width: "30%" as any,
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: "center",
+    gap: 4,
+  },
+  hexIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hexValue: {
+    fontSize: 16,
+    fontWeight: "900" as const,
+  },
+  hexLabel: {
+    fontSize: 8,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.35)",
+    letterSpacing: 1,
+  },
+  sectionPanel: {
+    backgroundColor: "rgba(10, 20, 30, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 243, 255, 0.1)",
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 10,
+    padding: 14,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    color: "#FFFFFF",
+    letterSpacing: 1.5,
+  },
+  toggleText: {
+    fontSize: 9,
+    color: CYAN,
+    fontWeight: "700" as const,
+  },
+  catMapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  catIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catMapInfo: {
+    flex: 1,
+  },
+  catMapHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  catMapName: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 0.5,
+    textTransform: "uppercase" as any,
+  },
+  catMapScore: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+  },
+  catMapTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 3,
+    overflow: "hidden" as const,
+    position: "relative" as const,
+  },
+  catMapFill: {
+    height: 6,
+    borderRadius: 3,
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+  },
+  catMapGlow: {
+    height: 6,
+    borderRadius: 3,
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    opacity: 0.3,
+  },
+  pathwayFeed: {
+    gap: 2,
+  },
+  pathwayItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  pathwayDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  pathwayLine: {
+    position: "absolute" as const,
+    left: 3.5,
+    top: 12,
+    bottom: -2,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  pathwayContent: {
+    flex: 1,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.03)",
+  },
+  pathwayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  pathwayArea: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "capitalize" as any,
+  },
+  pathwayDelta: {
+    fontSize: 10,
+    fontWeight: "900" as const,
+  },
+  pathwayNote: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.3)",
+    marginTop: 2,
+  },
+  pathwayTime: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.15)",
+    marginTop: 2,
+  },
+  pathwayEmpty: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.2)",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    paddingVertical: 12,
+  },
+  trainBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AMBER,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    paddingVertical: 14,
+    shadowColor: AMBER,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  trainBtnText: {
+    fontSize: 12,
+    fontWeight: "900" as const,
+    color: DEEP_BLACK,
+    letterSpacing: 1.5,
+  },
+  copyrightBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: 10,
+    marginBottom: 16,
+    paddingVertical: 6,
+  },
+  copyrightText: {
+    fontSize: 8,
+    color: "rgba(255,255,255,0.15)",
+    letterSpacing: 0.5,
   },
 });

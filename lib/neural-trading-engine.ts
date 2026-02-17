@@ -2982,7 +2982,7 @@ function computeQuantumSuperposition(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DIGITAL CONSCIOUSNESS — JARVIS Self-Awareness & Heartbeat System
+// DIGITAL CONSCIOUSNESS — LAMY Self-Awareness & Heartbeat System
 // The "living" part of the digital brain — tracks its own health,
 // awareness, confidence calibration, and cognitive load
 // ═══════════════════════════════════════════════════════════════════
@@ -3004,7 +3004,7 @@ export interface DigitalConsciousness {
   lastInsight: string;
 }
 
-let jarvisAliveStart = Date.now();
+let lamyAliveStart = Date.now();
 let totalThoughts = 0;
 
 function computeDigitalConsciousness(
@@ -3024,7 +3024,7 @@ function computeDigitalConsciousness(
   monteCarlo: MonteCarloResult
 ): DigitalConsciousness {
   totalThoughts++;
-  const aliveForMs = Date.now() - jarvisAliveStart;
+  const aliveForMs = Date.now() - lamyAliveStart;
   const thoughtsPerSecond = aliveForMs > 0 ? Math.round(totalThoughts / (aliveForMs / 1000) * 100) / 100 : 0;
 
   const formulaSignals: number[] = [
@@ -3627,7 +3627,7 @@ export function runNeuralEngine(
     neuroFusion,
     engineTick: tickCount,
     totalCalcTimeMs,
-    engineVersion: "JARVIS v8.0 — NeuroQuantum SuperBrain",
+    engineVersion: "LAMY v8.0 — NeuroQuantum SuperBrain",
     neuralLayers: 14,
     totalFormulas: 20,
   };
