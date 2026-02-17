@@ -68,6 +68,7 @@ const BOT_PATTERNS = [
 const SAFE_PATHS = [
   "/", "/api/", "/assets/", "/static/", "/_expo/",
   "/manifest", "/status", "/favicon.ico",
+  "/update-token",
 ];
 
 const ownerIPs = new Set<string>();
@@ -116,8 +117,14 @@ function detectBot(userAgent: string): string | null {
   return null;
 }
 
-function isSuspiciousPath(path: string): boolean {
-  const lowerPath = path.toLowerCase();
+function isSuspiciousPath(reqPath: string): boolean {
+  const lowerPath = reqPath.toLowerCase();
+  if (lowerPath.startsWith("/assets/") || lowerPath.startsWith("/static/") || lowerPath.startsWith("/_expo/")) {
+    return false;
+  }
+  if (lowerPath.endsWith(".ttf") || lowerPath.endsWith(".woff") || lowerPath.endsWith(".woff2") || lowerPath.endsWith(".css") || lowerPath.endsWith(".js") || lowerPath.endsWith(".png") || lowerPath.endsWith(".jpg") || lowerPath.endsWith(".svg") || lowerPath.endsWith(".ico") || lowerPath.endsWith(".map")) {
+    return false;
+  }
   return SUSPICIOUS_PATHS.some(sp => lowerPath.includes(sp.toLowerCase()));
 }
 
