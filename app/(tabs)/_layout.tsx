@@ -26,9 +26,13 @@ function NativeTabLayout() {
         <Icon sf={{ default: "bolt.shield", selected: "bolt.shield.fill" }} md="auto_fix_high" />
         <Label>Strategy</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="lamy">
+        <Icon sf={{ default: "heart.fill", selected: "heart.fill" }} md="favorite" />
+        <Label>LAMY</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ai">
         <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
-        <Label>LAMY</Label>
+        <Label>AI Chat</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="portfolio">
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
@@ -113,9 +117,18 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ai"
+        name="lamy"
         options={{
           title: "LAMY",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="ai"
+        options={{
+          title: "AI Chat",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="brain" size={size - 2} color={color} />
           ),

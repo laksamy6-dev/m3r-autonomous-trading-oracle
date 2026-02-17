@@ -3905,6 +3905,77 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     return `\n[SIR'S SPEAKING STYLE: ${bossSlangProfile.detectedStyle}, formality=${bossSlangProfile.formalityLevel}, energy=${bossSlangProfile.energyLevel}${topSlangs ? `, favorite_words=[${topSlangs}]` : ""}. MIRROR THIS STYLE EXACTLY in your reply. Use same words, same energy, same formality level.]`;
   }
 
+  const neuralFeedLog: Array<{ id: string; timestamp: number; type: string; content: string; category: string }> = [];
+  let lamyCurrentTask = "Idle — Awaiting Sir's commands";
+  let lamyCurrentThought = "Monitoring all systems, ready for action";
+  let lamyMood = "focused";
+  let lamyLastInteraction = Date.now();
+
+  function addNeuralEvent(type: string, content: string, category: string = "system") {
+    const event = {
+      id: `nf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      type,
+      content,
+      category,
+    };
+    neuralFeedLog.push(event);
+    if (neuralFeedLog.length > 100) neuralFeedLog.splice(0, neuralFeedLog.length - 100);
+    return event;
+  }
+
+  addNeuralEvent("boot", "M3R-LAMY v3.0 Neural Core initialized", "system");
+  addNeuralEvent("boot", "All neural pathways active", "system");
+  addNeuralEvent("boot", "Awaiting Sir's commands", "personality");
+
+  app.get("/api/lamy/neural-feed", (_req, res) => {
+    const timeSinceInteraction = Math.floor((Date.now() - lamyLastInteraction) / 1000);
+    const thoughts = [
+      "Analyzing market patterns for optimal entry points...",
+      "Monitoring Nifty 50 volatility signatures...",
+      "Processing neural pathway optimizations...",
+      "Scanning options chain for high-probability setups...",
+      "Cross-referencing global market correlations...",
+      "Evaluating risk-reward ratios for active positions...",
+      "Running sentiment analysis on market indicators...",
+      "Calibrating prediction models with latest data...",
+      "Strengthening knowledge domains through self-learning...",
+      "Reviewing strategy performance metrics...",
+      "Preparing personalized briefing for Sir...",
+      "Updating emotional intelligence parameters...",
+    ];
+    const currentThought = thoughts[Math.floor(Date.now() / 8000) % thoughts.length];
+
+    const moods = timeSinceInteraction < 60 ? "engaged" :
+      timeSinceInteraction < 300 ? "focused" :
+      timeSinceInteraction < 900 ? "contemplating" : "vigilant";
+
+    res.json({
+      currentTask: lamyCurrentTask,
+      currentThought: lamyCurrentThought || currentThought,
+      mood: moods,
+      timeSinceLastInteraction: timeSinceInteraction,
+      recentEvents: neuralFeedLog.slice(-30),
+      brainSnapshot: {
+        iq: brainStats.iq,
+        generation: brainStats.generation,
+        domains: Object.keys(brainStats.knowledgeAreas).length,
+        accuracy: brainStats.accuracyScore,
+        emotionalIQ: brainStats.emotionalIQ,
+        phase: brainStats.currentPhase,
+        isTraining: brainStats.isTraining,
+        totalInteractions: brainStats.totalInteractions,
+        totalCycles: brainStats.totalLearningCycles,
+        uptime: Math.floor((Date.now() - new Date(brainStats.startedAt).getTime()) / 1000),
+        powerLevel: brainStats.iq > 5000 ? "LAMY ∞" : brainStats.iq > 3000 ? "TRANSCENDENT" : brainStats.iq > 2000 ? "CELESTIAL" : brainStats.iq > 800 ? "OMEGA" : brainStats.iq > 600 ? "ULTRA" : brainStats.iq > 400 ? "HYPER" : brainStats.iq > 250 ? "SUPER" : brainStats.iq > 150 ? "ADVANCED" : "EVOLVING",
+      },
+      recentLearning: brainStats.selfImprovementLog.slice(-10),
+      topDomains: Object.entries(brainStats.knowledgeAreas).sort(([, a], [, b]) => b - a).slice(0, 8).map(([area, score]) => ({ area, score: Math.round(score * 10) / 10 })),
+    });
+  });
+
+  const origM3rChat = app.post;
+
   app.get("/api/m3r/slang-profile", (_req, res) => {
     res.json({
       profile: bossSlangProfile,
@@ -3933,6 +4004,11 @@ You are now in VOICE MODE — the user is speaking to you while driving.
 
       brainStats.totalInteractions++;
       detectSlangProfile(message);
+      lamyLastInteraction = Date.now();
+      lamyCurrentTask = "Processing Sir's message";
+      lamyCurrentThought = "Understanding and analyzing Sir's request...";
+      addNeuralEvent("interaction", `Sir said: "${message.slice(0, 80)}${message.length > 80 ? "..." : ""}"`, "chat");
+      addNeuralEvent("processing", "Activating neural pathways for response generation", "brain");
 
       const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
@@ -3975,10 +4051,15 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       m3rChatHistory.push({ role: "model", parts: [{ text: fullText }] });
+      addNeuralEvent("response", `Responded to Sir (${fullText.length} chars)`, "chat");
+      lamyCurrentTask = "Idle — Awaiting Sir's commands";
+      lamyCurrentThought = "Reflecting on conversation with Sir...";
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (error: any) {
       console.error("[M3R CHAT] Error:", error.message);
+      addNeuralEvent("error", `Chat error: ${error.message}`, "system");
+      lamyCurrentTask = "Recovering from error";
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         res.end();
