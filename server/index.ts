@@ -186,6 +186,15 @@ function configureExpoAndLanding(app: express.Application) {
 
   log(hasWebBuild ? "Serving M3R web app from dist/" : "No web build found, using landing page");
 
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const blockedFiles = ['.vault-data.json', '.env', '.gitignore', '.vault'];
+    const reqFile = path.basename(req.path);
+    if (blockedFiles.includes(reqFile) || req.path.includes('.vault')) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    next();
+  });
+
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
