@@ -39,7 +39,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import pg from "pg";
 import { isTelegramConfigured, sendTelegramMessage, sendTradingAlert, getBotInfo } from "./telegram";
 import { initTelegramEngine, triggerMarketAnalysis, triggerBrainReport, triggerTokenCheck, triggerHeartbeat } from "./telegram-engine";
@@ -4150,21 +4150,235 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
-      const response = await genAI.models.generateContentStream({
+      const tradeFunctionDeclarations = [
+        {
+          name: "place_upstox_order",
+          description: "Place a LIVE order on Upstox broker. Use this when Sir asks to buy/sell options or when you decide to place a trade. This executes a REAL order on the market.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              option_type: { type: Type.STRING, enum: ["CE", "PE"], description: "CE for Call, PE for Put" },
+              strike_price: { type: Type.NUMBER, description: "Strike price (e.g. 25700)" },
+              lots: { type: Type.NUMBER, description: "Number of lots (default 1)" },
+              transaction_type: { type: Type.STRING, enum: ["BUY", "SELL"], description: "BUY or SELL" },
+              order_type: { type: Type.STRING, enum: ["MARKET", "LIMIT"], description: "MARKET for instant, LIMIT for specific price" },
+              limit_price: { type: Type.NUMBER, description: "Limit price (only for LIMIT orders)" },
+            },
+            required: ["option_type", "strike_price", "lots", "transaction_type"],
+          },
+        },
+        {
+          name: "get_nifty_spot_price",
+          description: "Get current Nifty 50 spot price from Upstox",
+          parameters: { type: Type.OBJECT, properties: {} },
+        },
+        {
+          name: "get_option_chain",
+          description: "Get live Nifty 50 option chain with premiums, OI, Greeks from Upstox",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              expiry: { type: Type.STRING, description: "Expiry date in YYYY-MM-DD format (optional)" },
+            },
+          },
+        },
+        {
+          name: "get_upstox_positions",
+          description: "Get current open positions from Upstox",
+          parameters: { type: Type.OBJECT, properties: {} },
+        },
+        {
+          name: "get_upstox_funds",
+          description: "Check available funds/margin in Upstox account",
+          parameters: { type: Type.OBJECT, properties: {} },
+        },
+      ];
+
+      async function executeTradeFunction(name: string, args: any): Promise<string> {
+        try {
+          if (name === "place_upstox_order") {
+            if (!upstoxAccessToken) return JSON.stringify({ error: "Upstox not connected. Token expired." });
+            const lotSize = 65;
+            const quantity = (args.lots || 1) * lotSize;
+            const strike = args.strike_price;
+            const optType = args.option_type;
+
+            const chainRes = await globalThis.fetch(
+              `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
+              { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+            );
+            const chainData = await chainRes.json();
+            let instrumentKey = "";
+            let currentPremium = 0;
+            if (chainData.status === "success" && chainData.data) {
+              const match = chainData.data.find((item: any) => item.strike_price === Number(strike));
+              if (match) {
+                instrumentKey = optType === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+                currentPremium = optType === "CE" ? (match.call_options?.market_data?.ltp || 0) : (match.put_options?.market_data?.ltp || 0);
+              }
+            }
+            if (!instrumentKey) return JSON.stringify({ error: `Cannot find instrument for ${optType} ${strike}` });
+
+            const orderType = args.order_type || "MARKET";
+            const upstoxPayload = {
+              quantity,
+              product: "I",
+              validity: "DAY",
+              price: orderType === "LIMIT" ? args.limit_price : 0,
+              tag: `LAMY-${Date.now()}`,
+              instrument_token: instrumentKey,
+              order_type: orderType,
+              transaction_type: args.transaction_type || "BUY",
+              disclosed_quantity: 0,
+              trigger_price: 0,
+              is_amo: false,
+            };
+
+            console.log("[LAMY TRADE] Placing order:", JSON.stringify(upstoxPayload));
+            const orderRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${upstoxAccessToken}`, "Content-Type": "application/json", Accept: "application/json" },
+              body: JSON.stringify(upstoxPayload),
+            });
+            const orderData = await orderRes.json();
+            console.log("[LAMY TRADE] Result:", JSON.stringify(orderData));
+
+            if (orderData.status === "success") {
+              const orderId = orderData.data?.order_id;
+              sendTelegramMessage(`🔥 LAMY AUTO TRADE\n${args.transaction_type} ${args.lots} lot ${optType} ${strike}\nPremium: ₹${currentPremium}\nOrder ID: ${orderId}\nQuantity: ${quantity}`);
+              return JSON.stringify({ success: true, order_id: orderId, premium: currentPremium, quantity, strike, type: optType, transaction: args.transaction_type });
+            } else {
+              return JSON.stringify({ success: false, error: orderData.message || "Order rejected by Upstox", details: orderData });
+            }
+          }
+
+          if (name === "get_nifty_spot_price") {
+            if (!upstoxAccessToken) return JSON.stringify({ error: "Upstox offline" });
+            const r = await globalThis.fetch(`https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`, {
+              headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+            });
+            const d = await r.json();
+            const ltp = d.data?.["NSE_INDEX:Nifty 50"]?.last_price || 0;
+            return JSON.stringify({ spot_price: ltp });
+          }
+
+          if (name === "get_option_chain") {
+            if (!upstoxAccessToken) return JSON.stringify({ error: "Upstox offline" });
+            const url = args.expiry
+              ? `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}&expiry_date=${args.expiry}`
+              : `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`;
+            const r = await globalThis.fetch(url, {
+              headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+            });
+            const d = await r.json();
+            if (d.status === "success" && d.data) {
+              const spot = d.data[0]?.underlying_spot_price || 0;
+              const atm = Math.round(spot / 50) * 50;
+              const nearStrikes = d.data.filter((item: any) => Math.abs(item.strike_price - atm) <= 500);
+              const summary = nearStrikes.map((item: any) => ({
+                strike: item.strike_price,
+                ce_premium: item.call_options?.market_data?.ltp || 0,
+                ce_oi: item.call_options?.market_data?.oi || 0,
+                pe_premium: item.put_options?.market_data?.ltp || 0,
+                pe_oi: item.put_options?.market_data?.oi || 0,
+                expiry: item.expiry,
+                lot_size: item.call_options?.lot_size || 65,
+              }));
+              return JSON.stringify({ spot_price: spot, atm_strike: atm, expiry: d.data[0]?.expiry, options: summary });
+            }
+            return JSON.stringify({ error: "No option chain data" });
+          }
+
+          if (name === "get_upstox_positions") {
+            if (!upstoxAccessToken) return JSON.stringify({ error: "Upstox offline" });
+            const r = await globalThis.fetch("https://api.upstox.com/v2/portfolio/short-term-positions", {
+              headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+            });
+            return JSON.stringify(await r.json());
+          }
+
+          if (name === "get_upstox_funds") {
+            if (!upstoxAccessToken) return JSON.stringify({ error: "Upstox offline" });
+            const r = await globalThis.fetch("https://api.upstox.com/v2/user/get-funds-and-margin", {
+              headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+            });
+            return JSON.stringify(await r.json());
+          }
+
+          return JSON.stringify({ error: "Unknown function" });
+        } catch (err: any) {
+          console.error(`[LAMY FUNC] ${name} error:`, err.message);
+          return JSON.stringify({ error: err.message });
+        }
+      }
+
+      const response = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
         contents: m3rChatHistory,
         config: {
-          systemInstruction: systemInstruction + slangContext,
-          tools: [{ googleSearch: {} }],
+          systemInstruction: systemInstruction + slangContext + "\n\nIMPORTANT: When Sir asks to trade, BUY, SELL, or place an order, you MUST use the place_upstox_order function. NEVER just describe what you would do — actually DO it by calling the function. Check spot price and option chain first using the available functions, then place the order. Lot size is 65.",
+          tools: [{ googleSearch: {} }, { functionDeclarations: tradeFunctionDeclarations as any }],
         }
       });
 
       let fullText = "";
-      for await (const chunk of response) {
-        const text = chunk.text || '';
-        if (text) {
-          fullText += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      let functionCalls: any[] = [];
+
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.text) {
+            fullText += part.text;
+          }
+          if (part.functionCall) {
+            functionCalls.push(part.functionCall);
+          }
+        }
+      }
+
+      if (fullText) {
+        res.write(`data: ${JSON.stringify({ content: fullText })}\n\n`);
+      }
+
+      if (functionCalls.length > 0) {
+        const functionResponses: any[] = [];
+        for (const fc of functionCalls) {
+          console.log(`[LAMY FUNC] Calling: ${fc.name}(${JSON.stringify(fc.args)})`);
+          const result = await executeTradeFunction(fc.name, fc.args || {});
+          console.log(`[LAMY FUNC] Result: ${result.substring(0, 200)}`);
+          functionResponses.push({
+            name: fc.name,
+            response: JSON.parse(result),
+          });
+        }
+
+        m3rChatHistory.push({
+          role: "model",
+          parts: functionCalls.map(fc => ({ functionCall: { name: fc.name, args: fc.args } }))
+        });
+        m3rChatHistory.push({
+          role: "user",
+          parts: functionResponses.map(fr => ({ functionResponse: fr }))
+        });
+
+        const followUp = await genAI.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: m3rChatHistory,
+          config: {
+            systemInstruction: systemInstruction + slangContext,
+            tools: [{ googleSearch: {} }, { functionDeclarations: tradeFunctionDeclarations as any }],
+          }
+        });
+
+        let followUpText = "";
+        if (followUp.candidates?.[0]?.content?.parts) {
+          for (const part of followUp.candidates[0].content.parts) {
+            if (part.text) followUpText += part.text;
+          }
+        }
+
+        if (followUpText) {
+          fullText += followUpText;
+          res.write(`data: ${JSON.stringify({ content: followUpText })}\n\n`);
         }
       }
 
