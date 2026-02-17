@@ -4130,9 +4130,13 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const memoryContext = await getMemoriesForContext();
 
       const tradingContext = (() => {
+        let ctx = `\n[TRADING STATUS: Upstox=${upstoxAccessToken ? "CONNECTED" : "OFFLINE"}, AutoTrade=${autoTradeMode ? "ON" : "OFF"}, LotSize=65]`;
+        ctx += `\n[CRITICAL REMINDER: I CAN place LIVE orders via POST /api/order/place. I NEVER say "I can't trade" or "setup pending". Trading is FULLY ACTIVE when Upstox is connected.]`;
         const active = activePositions.filter(p => p.status === "ACTIVE");
-        if (active.length === 0) return "";
-        return "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
+        if (active.length > 0) {
+          ctx += "\n[LIVE POSITIONS: " + active.map(p => `${p.type} ${p.strike} Entry:₹${p.entryPremium} Current:₹${p.currentPremium} P&L:₹${p.pnl.toFixed(0)}`).join(", ") + "]";
+        }
+        return ctx;
       })();
 
       const codeContext = detectCodeRequest(message);
