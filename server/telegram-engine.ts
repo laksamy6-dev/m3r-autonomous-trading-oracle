@@ -399,7 +399,7 @@ async function runTokenHealthCheck() {
     alerts.push("❌ Upstox API Key missing — Configure in Settings to enable trading");
   }
   if (!tokens.openaiKey) {
-    alerts.push("⚠️ M3R Brain API Key (Gemini) missing — AI intelligence limited");
+    alerts.push("⚠️ LAMY Brain API Key missing — AI intelligence limited");
   }
 
   if (alerts.length === 0) return;

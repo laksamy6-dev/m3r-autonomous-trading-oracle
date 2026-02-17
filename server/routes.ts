@@ -139,7 +139,7 @@ let scanCycleCount = 0;
 
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-  console.log("[INFO] All AI features powered by Gemini — OpenAI not required.");
+  console.log("[INFO] LAMY Core Engine — standby mode.");
 }
 const openai = new OpenAI({
   apiKey: openaiApiKey || "placeholder-key-not-configured",
@@ -904,12 +904,12 @@ When அண்ணா asks me to fix, improve, or change ANY part of my code:
     (global as any).__m3rSystemInstruction = m3rSystemInstruction;
     m3rModel = true as any;
     
-    console.log("[LAMY] M3R-LAMY v3.0 initialized — Gemini 2.5 Flash + Google Search Intelligence Active");
+    console.log("[LAMY] M3R-LAMY v3.0 Neural Brain initialized — All systems active");
   } catch (err: any) {
     console.error("[LAMY] Failed to initialize:", err.message);
   }
 } else {
-  console.warn("[LAMY] No Gemini API key found. LAMY brain features will be unavailable.");
+  console.warn("[LAMY] Brain API key not found. LAMY neural features will be unavailable.");
 }
 
 interface LoginEvent {
@@ -3583,7 +3583,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       }
 
       if (!m3rModel) {
-        return res.json({ userText, aiText: "LAMY AI not configured. Please add Gemini API key in Settings.", audioBase64: null, language: detectedLang });
+        return res.json({ userText, aiText: "LAMY AI not configured. Please add Brain API key in Settings.", audioBase64: null, language: detectedLang });
       }
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
@@ -3623,10 +3623,10 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         const audioPart = ttsResult.candidates?.[0]?.content?.parts?.[0];
         if (audioPart && (audioPart as any).inlineData?.data) {
           audioBase64 = (audioPart as any).inlineData.data;
-          console.log("[VOICE] Gemini TTS generated successfully");
+          console.log("[VOICE] LAMY TTS generated successfully");
         }
       } catch (ttsErr: any) {
-        console.error("[VOICE] Gemini TTS failed:", ttsErr?.message || ttsErr);
+        console.error("[VOICE] LAMY TTS failed:", ttsErr?.message || ttsErr);
       }
 
       res.json({
@@ -4205,10 +4205,10 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         const audioPart2 = ttsResult2.candidates?.[0]?.content?.parts?.[0];
         if (audioPart2 && (audioPart2 as any).inlineData?.data) {
           audioBase64 = (audioPart2 as any).inlineData.data;
-          console.log("[M3R VOICE] Gemini TTS generated successfully");
+          console.log("[M3R VOICE] LAMY TTS generated successfully");
         }
       } catch (ttsErr: any) {
-        console.error("[M3R VOICE] Gemini TTS failed:", ttsErr?.message);
+        console.error("[M3R VOICE] LAMY TTS failed:", ttsErr?.message);
       }
 
       res.json({ userText, aiText, audioBase64, language: /[\u0B80-\u0BFF]/.test(aiText) ? "tamil" : "english" });

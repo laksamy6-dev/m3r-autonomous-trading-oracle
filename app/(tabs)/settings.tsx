@@ -481,7 +481,7 @@ export default function SettingsScreen() {
           <View style={styles.statusCard}>
             <View style={styles.statusRow}>
               <Ionicons name="sparkles" size={20} color={CYAN} />
-              <Text style={styles.statusLabel}>OpenAI (GPT)</Text>
+              <Text style={styles.statusLabel}>LAMY Core Engine</Text>
               <View style={[styles.statusBadge, styles.statusOn]}>
                 <Text style={styles.statusBadgeText}>Active</Text>
               </View>
@@ -491,7 +491,7 @@ export default function SettingsScreen() {
           <View style={styles.statusCard}>
             <View style={styles.statusRow}>
               <MaterialCommunityIcons name="brain" size={20} color="#A855F7" />
-              <Text style={styles.statusLabel}>LAMY Brain (Gemini)</Text>
+              <Text style={styles.statusLabel}>LAMY Neural Brain</Text>
               <View style={[styles.statusBadge, vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? styles.statusOn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>{vaultKeys.find(k => k.id === "GEMINI_API_KEY")?.hasValue ? "Active" : "Not Set"}</Text>
               </View>
