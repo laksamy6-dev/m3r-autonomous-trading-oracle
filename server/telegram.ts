@@ -2,7 +2,7 @@ const TELEGRAM_API = "https://api.telegram.org";
 
 function getConfig() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatId = process.env.TELEGRAM_CHAT_ID_OVERRIDE || process.env.TELEGRAM_CHAT_ID;
   return { token, chatId };
 }
 
