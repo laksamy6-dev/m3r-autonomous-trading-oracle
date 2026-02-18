@@ -3476,7 +3476,7 @@ Provide the full 10-section comprehensive analysis now.`;
       orderBook.push(order);
 
       const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
-      const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+      const tgChatId = process.env.TELEGRAM_CHAT_ID_OVERRIDE || process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
       if (tgToken && tgChatId) {
         const msg = [
           `🔴 LIVE ORDER ${upstoxData.status === "success" ? "EXECUTED" : "FAILED"}`,
