@@ -4885,6 +4885,149 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     return codeContext;
   }
 
+  async function checkUpstoxTokenHealth(): Promise<{ valid: boolean; message: string }> {
+    if (!upstoxAccessToken) return { valid: false, message: "No Upstox token configured" };
+    try {
+      const res = await globalThis.fetch("https://api.upstox.com/v2/user/profile", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" },
+      });
+      if (res.ok) return { valid: true, message: "Token valid" };
+      return { valid: false, message: "Token expired — re-authentication needed" };
+    } catch {
+      return { valid: false, message: "Could not verify token — network error" };
+    }
+  }
+
+  async function sendTelegramMessage(text: string) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+    if (!botToken || !chatId) return;
+    try {
+      await globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      });
+    } catch {}
+  }
+
+  let marketSchedulerInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startMarketScheduler() {
+    if (marketSchedulerInterval) return;
+    console.log("[LAMY SCHEDULER] Market hours scheduler started — checking every 60 seconds");
+
+    marketSchedulerInterval = setInterval(() => {
+      if (!autoTradeMode) return;
+
+      const { dayOfWeek, currentMins } = getTimeStrings();
+      const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+      const preMarketMins = 9 * 60;
+      const closeMins = 15 * 60 + 30;
+
+      if (isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
+        if (!autoScanActive) {
+          console.log("[LAMY SCHEDULER] Market is open + autoTradeMode ON — starting scan");
+          startAutoScanInternal("market_scheduler");
+        }
+      } else {
+        if (autoScanActive) {
+          console.log("[LAMY SCHEDULER] Market closed — stopping scan");
+          stopAutoScanInternal("market_scheduler");
+        }
+      }
+    }, 60000);
+  }
+
+  setTimeout(async () => {
+    const { istStr, uaeStr, dayOfWeek, currentMins } = getTimeStrings();
+    const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+    const preMarketMins = 9 * 60;
+    const closeMins = 15 * 60 + 30;
+    const marketOpen = isWeekday && currentMins >= preMarketMins && currentMins < closeMins;
+
+    console.log(`[LAMY BOOT] IST: ${istStr} | UAE: ${uaeStr} | Market: ${marketOpen ? "OPEN" : "CLOSED"} | AutoTrade: ${autoTradeMode ? "ON" : "OFF"}`);
+
+    const tokenHealth = await checkUpstoxTokenHealth();
+    console.log(`[LAMY BOOT] Upstox token: ${tokenHealth.valid ? "VALID" : "INVALID"} — ${tokenHealth.message}`);
+
+    const bootLines: string[] = [
+      `*LAMY - System Boot Report*`,
+      ``,
+      `IST: ${istStr} | UAE: ${uaeStr}`,
+      `Market: ${marketOpen ? "OPEN" : "CLOSED"}`,
+      `Auto-Trade: ${autoTradeMode ? "ON" : "OFF"}`,
+      `Upstox: ${tokenHealth.valid ? "Connected" : tokenHealth.message}`,
+    ];
+
+    if (autoTradeMode) {
+      startMarketScheduler();
+
+      if (tokenHealth.valid && marketOpen) {
+        bootLines.push(``, `Auto-scan starting automatically...`);
+        await startAutoScanInternal("server_boot");
+      } else if (!tokenHealth.valid) {
+        bootLines.push(``, `Upstox token expired! Please re-authenticate.`);
+        if (upstoxApiKey) {
+          const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://m3r-fintech.replit.app"}/api/upstox/callback`;
+          const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+          bootLines.push(`Login: ${authUrl}`);
+        }
+      } else if (!marketOpen) {
+        bootLines.push(``, `Market closed — scan will auto-start when market opens`);
+      }
+    } else {
+      bootLines.push(``, `Auto-trade is OFF. Enable it in Settings to start autonomous trading.`);
+    }
+
+    sendTelegramMessage(bootLines.join("\n"));
+  }, 3000);
+
+  app.get("/api/lamy/autonomy-status", async (_req, res) => {
+    const { istStr, uaeStr, dayOfWeek, currentMins } = getTimeStrings();
+    const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+    const preMarketMins = 9 * 60;
+    const closeMins = 15 * 60 + 30;
+    const marketOpen = isWeekday && currentMins >= preMarketMins && currentMins < closeMins;
+
+    const tokenHealth = await checkUpstoxTokenHealth();
+
+    const checks = [
+      { id: "upstox_keys", label: "Upstox API Keys", ok: !!(upstoxApiKey && upstoxApiSecret), detail: upstoxApiKey ? "Configured" : "Not set" },
+      { id: "upstox_token", label: "Upstox Token", ok: tokenHealth.valid, detail: tokenHealth.message },
+      { id: "auto_trade_mode", label: "Auto-Trade Mode", ok: autoTradeMode, detail: autoTradeMode ? "ON" : "OFF" },
+      { id: "auto_scan", label: "Auto-Scan", ok: autoScanActive, detail: autoScanActive ? `Active — Cycle #${scanCycleCount}` : "Inactive" },
+      { id: "market_hours", label: "Market Hours", ok: marketOpen, detail: marketOpen ? "Market is OPEN" : "Market is CLOSED" },
+      { id: "telegram", label: "Telegram Notifications", ok: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID), detail: process.env.TELEGRAM_BOT_TOKEN ? "Configured" : "Not set" },
+      { id: "gemini", label: "LAMY Brain (Gemini)", ok: !!process.env.GEMINI_API_KEY, detail: process.env.GEMINI_API_KEY ? "Active" : "Not set" },
+    ];
+
+    const allGreen = checks.every(c => c.ok);
+    const readyToTrade = checks.filter(c => ["upstox_keys", "upstox_token", "auto_trade_mode", "market_hours"].includes(c.id)).every(c => c.ok);
+
+    let authUrl = "";
+    if (!tokenHealth.valid && upstoxApiKey) {
+      const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://m3r-fintech.replit.app"}/api/upstox/callback`;
+      authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    }
+
+    res.json({
+      checks,
+      allGreen,
+      readyToTrade,
+      autoTradeMode,
+      autoScanActive,
+      scanCycleCount,
+      marketOpen,
+      istTime: istStr,
+      uaeTime: uaeStr,
+      authUrl,
+      proposalCount: tradeProposals.length,
+      pendingCount: tradeProposals.filter(p => p.status === "PENDING").length,
+      executedCount: tradeProposals.filter(p => p.status === "LIVE_EXECUTED").length,
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
