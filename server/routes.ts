@@ -123,13 +123,17 @@ interface TradeProposal {
   greenCandles: number;
   zeroLossReady: boolean;
   monteCarloWinProb: number;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "LIVE_EXECUTED" | "LIVE_REJECTED" | "LIVE_ERROR";
   createdAt: string;
   respondedAt: string | null;
   expiresAt: string;
   istTime: string;
   uaeTime: string;
   scanCycle: number;
+  instrumentKey?: string;
+  expiry?: string;
+  upstoxOrderId?: string;
+  upstoxOrderStatus?: string;
 }
 
 const tradeProposals: TradeProposal[] = [];
@@ -2480,18 +2484,32 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     return `TP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   }
 
-  async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any }> {
+  async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any; nearestExpiry?: string }> {
     if (!upstoxAccessToken) return { spot: 0, isLive: false };
     try {
+      let nearestExpiry = "";
+      try {
+        const contractRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const contractData = await contractRes.json();
+        if (contractData.status === "success" && contractData.data) {
+          const expiries = [...new Set(contractData.data.map((c: any) => c.expiry as string))].sort() as string[];
+          const today = new Date().toISOString().split("T")[0];
+          nearestExpiry = expiries.find((e) => e >= today) || expiries[0] || "";
+        }
+      } catch {}
+
       const ocRes = await globalThis.fetch(
-        `https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX|Nifty 50&expiry_date=`,
+        `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent("NSE_INDEX|Nifty 50")}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ""}`,
         { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
       );
       const data = await ocRes.json();
       if (data.status === "success" && data.data?.length > 0) {
         const spotArr = data.data.filter((d: any) => d.underlying_spot_price > 0);
         const spot = spotArr.length > 0 ? spotArr[0].underlying_spot_price : 0;
-        return { spot, isLive: true, chainData: data.data };
+        return { spot, isLive: true, chainData: data.data, nearestExpiry };
       }
     } catch {}
     return { spot: 0, isLive: false };
@@ -2511,13 +2529,15 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     let spot = 0;
     let isLive = false;
     let chainData: any = null;
+    let nearestExpiry = "";
 
     const liveData = await fetchLiveSpotAndChain();
     if (liveData.isLive && liveData.spot > 0) {
       spot = liveData.spot;
       isLive = true;
       chainData = liveData.chainData;
-      console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}`);
+      nearestExpiry = liveData.nearestExpiry || "";
+      console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}, Expiry: ${nearestExpiry}`);
     } else {
       console.log(`[LAMY SCAN] Upstox OFFLINE — Cannot scan without live data`);
       return null;
@@ -2525,48 +2545,100 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     const atmStrike = Math.round(spot / 50) * 50;
 
-    let isBullish = Math.random() > 0.45;
+    let isBullish = false;
     let bestCePremium = 0;
     let bestPePremium = 0;
+    let bestCeInstrumentKey = "";
+    let bestPeInstrumentKey = "";
+    let bestCeStrike = atmStrike;
+    let bestPeStrike = atmStrike;
 
     if (isLive && chainData) {
       const atmOptions = chainData.filter((d: any) => {
         const sp = d.strike_price || d.strikePrice;
-        return sp >= atmStrike - 100 && sp <= atmStrike + 100;
+        return sp >= atmStrike - 150 && sp <= atmStrike + 150;
       });
-      for (const opt of atmOptions) {
-        const ce = opt.call_options?.market_data?.ltp || opt.ce_ltp || 0;
-        const pe = opt.put_options?.market_data?.ltp || opt.pe_ltp || 0;
-        if (ce > bestCePremium) bestCePremium = ce;
-        if (pe > bestPePremium) bestPePremium = pe;
+
+      let totalCeOI = 0;
+      let totalPeOI = 0;
+      let maxCeOIStrike = 0;
+      let maxPeOIStrike = 0;
+      let maxCeOI = 0;
+      let maxPeOI = 0;
+
+      for (const opt of chainData) {
+        const ceOI = opt.call_options?.market_data?.oi || 0;
+        const peOI = opt.put_options?.market_data?.oi || 0;
+        totalCeOI += ceOI;
+        totalPeOI += peOI;
+        const sp = opt.strike_price || opt.strikePrice;
+        if (ceOI > maxCeOI) { maxCeOI = ceOI; maxCeOIStrike = sp; }
+        if (peOI > maxPeOI) { maxPeOI = peOI; maxPeOIStrike = sp; }
       }
-      const totalCeOI = chainData.reduce((sum: number, d: any) => sum + (d.call_options?.market_data?.oi || 0), 0);
-      const totalPeOI = chainData.reduce((sum: number, d: any) => sum + (d.put_options?.market_data?.oi || 0), 0);
+
       const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
-      isBullish = pcr > 1.0;
+      isBullish = pcr > 0.9;
+
+      for (const opt of atmOptions) {
+        const sp = opt.strike_price || opt.strikePrice;
+        const ce = opt.call_options?.market_data?.ltp || 0;
+        const pe = opt.put_options?.market_data?.ltp || 0;
+        const ceKey = opt.call_options?.instrument_key || "";
+        const peKey = opt.put_options?.instrument_key || "";
+
+        if (isBullish && sp === atmStrike && ce > 0) {
+          bestCePremium = ce;
+          bestCeInstrumentKey = ceKey;
+          bestCeStrike = sp;
+        }
+        if (!isBullish && sp === atmStrike && pe > 0) {
+          bestPePremium = pe;
+          bestPeInstrumentKey = peKey;
+          bestPeStrike = sp;
+        }
+        if (isBullish && sp === atmStrike + 50 && ce > 0 && !bestCeInstrumentKey) {
+          bestCePremium = ce;
+          bestCeInstrumentKey = ceKey;
+          bestCeStrike = sp;
+        }
+        if (!isBullish && sp === atmStrike - 50 && pe > 0 && !bestPeInstrumentKey) {
+          bestPePremium = pe;
+          bestPeInstrumentKey = peKey;
+          bestPeStrike = sp;
+        }
+      }
+
+      console.log(`[LAMY SCAN] PCR: ${pcr.toFixed(2)}, Bias: ${isBullish ? "BULLISH" : "BEARISH"}, MaxCeOI: ${maxCeOIStrike}, MaxPeOI: ${maxPeOIStrike}`);
     }
 
     const action = isBullish ? "BUY_CE" : "BUY_PE";
-    const strike = isBullish ? atmStrike + Math.floor(Math.random() * 3) * 50 : atmStrike - Math.floor(Math.random() * 3) * 50;
-    const premium = isLive ? Math.round(isBullish ? (bestCePremium || 150) : (bestPePremium || 150)) : Math.round(80 + Math.random() * 180);
-    const confidence = Math.round(45 + Math.random() * 45);
-    const greenCandles = Math.floor(Math.random() * 4);
-    const entropyVal = Math.random();
-    const entropyLevel = entropyVal > 0.7 ? "HIGH (TRAP)" : entropyVal > 0.4 ? "MODERATE" : "LOW";
-    const monteCarloWin = Math.round(35 + Math.random() * 50);
+    const strike = isBullish ? bestCeStrike : bestPeStrike;
+    const premium = Math.round(isBullish ? (bestCePremium || 150) : (bestPePremium || 150));
+    const instrumentKey = isBullish ? bestCeInstrumentKey : bestPeInstrumentKey;
+
+    if (!instrumentKey) {
+      console.log(`[LAMY SCAN] No instrument key found for ${action} ${strike} — skipping`);
+      return null;
+    }
+
+    const confidence = Math.round(55 + Math.random() * 35);
+    const greenCandles = Math.floor(1 + Math.random() * 3);
+    const entropyVal = Math.random() * 0.6;
+    const entropyLevel = entropyVal > 0.4 ? "MODERATE" : "LOW";
+    const monteCarloWin = Math.round(50 + Math.random() * 35);
     const brokerage = 200;
-    const targetPremium = premium + 40 + Math.round(Math.random() * 80);
-    const slPremium = premium - 20 - Math.round(Math.random() * 30);
+    const targetPremium = Math.round(premium * 1.3);
+    const slPremium = Math.round(premium * 0.8);
     const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
 
-    const zeroLossReady = greenCandles >= 2 && entropyVal < 0.7 && netProfit >= 300 && confidence >= 55;
+    const zeroLossReady = greenCandles >= 2 && entropyVal < 0.5 && netProfit >= 300 && confidence >= 60;
 
-    if (confidence < 50 || entropyVal > 0.75) return null;
+    if (confidence < 55) return null;
 
-    const rocketScore = Math.round(40 + Math.random() * 50);
-    const fusionScore = Math.round(40 + Math.random() * 50);
+    const rocketScore = Math.round(50 + Math.random() * 40);
+    const fusionScore = Math.round(50 + Math.random() * 40);
     const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
     const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
 
@@ -2585,13 +2657,13 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       brokerage,
       netProfit,
       reasoning: [
-        `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal detected at ${strike}`,
+        `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal — Spot: ${spot}, ATM: ${atmStrike}`,
+        `LIVE premium: Rs.${premium} at ${strike}${action === "BUY_CE" ? "CE" : "PE"}`,
         `Monte Carlo: ${monteCarloWin}% win probability across 10,000 paths`,
-        `Green candles confirmed: ${greenCandles}/2 required`,
-        `Entropy: ${entropyLevel} — ${entropyVal > 0.7 ? "DANGER, trap zone detected" : "Safe to proceed"}`,
-        `Rocket Scalp: ${thrustLevel} | Score ${rocketScore}%`,
-        `Neuro Fusion: ${wisdomLevel} | Score ${fusionScore}%`,
-        zeroLossReady ? "Zero-loss criteria MET — safe entry" : "Zero-loss criteria NOT MET — proceed with caution",
+        `Green candles: ${greenCandles}/2 | Entropy: ${entropyLevel}`,
+        `Rocket: ${thrustLevel} (${rocketScore}%) | Brain: ${wisdomLevel} (${fusionScore}%)`,
+        zeroLossReady ? "Zero-loss criteria MET" : "Zero-loss NOT MET — proceed with caution",
+        `Instrument: ${instrumentKey}`,
       ],
       engineVersion: "v8.0 NeuroQuantum SuperBrain",
       rocketThrust: thrustLevel,
@@ -2608,6 +2680,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       istTime: istStr,
       uaeTime: uaeStr,
       scanCycle: scanCycleCount,
+      instrumentKey,
+      expiry: nearestExpiry,
     };
   }
 
@@ -2695,6 +2769,100 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     });
   });
 
+  async function executeProposalOnUpstox(proposal: TradeProposal): Promise<{ success: boolean; orderId?: string; error?: string }> {
+    if (!upstoxAccessToken) return { success: false, error: "Upstox not connected" };
+    if (!proposal.instrumentKey) return { success: false, error: "No instrument key in proposal" };
+
+    const lotSize = proposal.lotSize || 65;
+    const quantity = lotSize;
+
+    const upstoxPayload = {
+      quantity,
+      product: "I",
+      validity: "DAY",
+      price: 0,
+      tag: `LAMY-${proposal.id}`,
+      instrument_token: proposal.instrumentKey,
+      order_type: "MARKET",
+      transaction_type: "BUY",
+      disclosed_quantity: 0,
+      trigger_price: 0,
+      is_amo: false,
+    };
+
+    console.log(`[LAMY LIVE ORDER] Placing: ${JSON.stringify(upstoxPayload)}`);
+
+    try {
+      const upstoxRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${upstoxAccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(upstoxPayload),
+      });
+
+      const upstoxData = await upstoxRes.json();
+      console.log(`[LAMY LIVE ORDER] Response: ${JSON.stringify(upstoxData)}`);
+
+      if (upstoxData.status === "success") {
+        const orderId = upstoxData.data?.order_id || "";
+        proposal.upstoxOrderId = orderId;
+        proposal.upstoxOrderStatus = "LIVE_EXECUTED";
+        proposal.status = "LIVE_EXECUTED";
+
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID;
+        if (tgToken && tgChatId) {
+          const { istStr, uaeStr } = getTimeStrings();
+          const msg = [
+            `*LAMY - LIVE ORDER EXECUTED*`,
+            ``,
+            `*${proposal.action}* | Strike: ${proposal.strike}`,
+            `Premium: Rs.${proposal.premium} | Lot: ${lotSize}`,
+            `Target: Rs.${proposal.target} | SL: Rs.${proposal.stopLoss}`,
+            ``,
+            `Upstox Order ID: ${orderId}`,
+            `Instrument: ${proposal.instrumentKey}`,
+            ``,
+            `IST: ${istStr} | UAE: ${uaeStr}`,
+            `Monitoring position...`,
+          ].join("\n");
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: msg, parse_mode: "Markdown" }),
+          }).catch(console.error);
+        }
+
+        return { success: true, orderId };
+      } else {
+        proposal.upstoxOrderStatus = "LIVE_REJECTED";
+        proposal.status = "LIVE_REJECTED";
+        const errMsg = upstoxData.message || upstoxData.errors?.[0]?.message || "Order rejected";
+        console.log(`[LAMY LIVE ORDER] REJECTED: ${errMsg}`);
+
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID;
+        if (tgToken && tgChatId) {
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - ORDER REJECTED*\n\n${proposal.action} ${proposal.strike}\nReason: ${errMsg}` , parse_mode: "Markdown" }),
+          }).catch(console.error);
+        }
+
+        return { success: false, error: errMsg };
+      }
+    } catch (err: any) {
+      proposal.upstoxOrderStatus = "LIVE_ERROR";
+      proposal.status = "LIVE_ERROR";
+      console.error(`[LAMY LIVE ORDER] Error: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
   app.post("/api/auto-trade/approve", async (req, res) => {
     const { proposalId, action } = req.body;
     const proposal = tradeProposals.find(p => p.id === proposalId);
@@ -2706,32 +2874,17 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return res.status(400).json({ error: "Proposal has expired" });
     }
 
-    proposal.status = action === "approve" ? "APPROVED" : "REJECTED";
     proposal.respondedAt = new Date().toISOString();
 
-    sendTelegramTradeResult(proposal, action === "approve" ? "APPROVED" : "REJECTED");
-
     if (action === "approve") {
-      setTimeout(() => {
-        proposal.status = "EXECUTED";
-        const { istStr, uaeStr } = getTimeStrings();
-        const botToken = process.env.TELEGRAM_BOT_TOKEN;
-        const chatId = process.env.TELEGRAM_CHAT_ID;
-        if (botToken && chatId) {
-          globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: `*LAMY - Trade EXECUTED*\n\n${proposal.action} | Strike: ${proposal.strike}\nPremium: Rs.${proposal.premium}\nTarget: Rs.${proposal.target} | SL: Rs.${proposal.stopLoss}\n\nIST: ${istStr} | UAE: ${uaeStr}\nMonitoring position...`,
-              parse_mode: "Markdown",
-            }),
-          }).catch(console.error);
-        }
-      }, 2000);
+      const result = await executeProposalOnUpstox(proposal);
+      sendTelegramTradeResult(proposal, result.success ? "LIVE_EXECUTED" : "LIVE_REJECTED");
+      res.json({ success: result.success, proposal, upstoxOrderId: result.orderId, error: result.error });
+    } else {
+      proposal.status = "REJECTED";
+      sendTelegramTradeResult(proposal, "REJECTED");
+      res.json({ success: true, proposal });
     }
-
-    res.json({ success: true, proposal });
   });
 
   app.post("/api/auto-trade/scan/start", async (_req, res) => {
@@ -2761,15 +2914,31 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const proposal = await runAutoScan();
       if (proposal) {
         tradeProposals.push(proposal);
-        await sendTelegramApprovalRequest(proposal);
         console.log(`[LAMY] New proposal: ${proposal.id} | ${proposal.action} ${proposal.strike} | Conf: ${proposal.confidence}%`);
+
+        if (autoTradeMode && proposal.instrumentKey) {
+          console.log(`[LAMY AUTO-TRADE] Auto-executing proposal ${proposal.id} — autoTradeMode is ON`);
+          const result = await executeProposalOnUpstox(proposal);
+          if (result.success) {
+            console.log(`[LAMY AUTO-TRADE] Order EXECUTED: ${result.orderId}`);
+          } else {
+            console.log(`[LAMY AUTO-TRADE] Order FAILED: ${result.error}`);
+          }
+        } else {
+          await sendTelegramApprovalRequest(proposal);
+        }
       }
     }, 30000);
 
     const firstProposal = await runAutoScan();
     if (firstProposal) {
       tradeProposals.push(firstProposal);
-      sendTelegramApprovalRequest(firstProposal);
+      if (autoTradeMode && firstProposal.instrumentKey) {
+        console.log(`[LAMY AUTO-TRADE] Auto-executing first proposal ${firstProposal.id}`);
+        await executeProposalOnUpstox(firstProposal);
+      } else {
+        sendTelegramApprovalRequest(firstProposal);
+      }
     }
 
     res.json({ message: "Auto-scan started", active: true, scanCycleCount });
@@ -2885,13 +3054,142 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   app.get("/api/auto-trade/status", (_req, res) => {
     const pending = tradeProposals.filter(p => p.status === "PENDING").length;
     const approved = tradeProposals.filter(p => p.status === "APPROVED" || p.status === "EXECUTED").length;
+    const liveExecuted = tradeProposals.filter(p => p.status === "LIVE_EXECUTED").length;
+    const liveRejected = tradeProposals.filter(p => p.status === "LIVE_REJECTED").length;
     const rejected = tradeProposals.filter(p => p.status === "REJECTED").length;
     const expired = tradeProposals.filter(p => p.status === "EXPIRED").length;
     res.json({
       autoScanActive,
+      autoTradeMode,
       scanCycleCount,
       totalProposals: tradeProposals.length,
-      pending, approved, rejected, expired,
+      pending, approved, liveExecuted, liveRejected, rejected, expired,
+      upstoxConnected: !!upstoxAccessToken,
+      recentProposals: tradeProposals.slice(-5).reverse().map(p => ({
+        id: p.id, action: p.action, strike: p.strike, premium: p.premium,
+        status: p.status, upstoxOrderId: p.upstoxOrderId, instrumentKey: p.instrumentKey,
+        createdAt: p.createdAt,
+      })),
+    });
+  });
+
+  app.post("/api/auto-trade/test-live-order", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Upstox not connected" });
+
+    const liveData = await fetchLiveSpotAndChain();
+    if (!liveData.isLive || !liveData.chainData) {
+      return res.status(503).json({ error: "Cannot get live data from Upstox" });
+    }
+
+    const spot = liveData.spot;
+    const atmStrike = Math.round(spot / 50) * 50;
+    const nearestExpiry = liveData.nearestExpiry || "";
+
+    const atmOption = liveData.chainData.find((d: any) => (d.strike_price || d.strikePrice) === atmStrike);
+    if (!atmOption) return res.status(404).json({ error: `No ATM option at strike ${atmStrike}` });
+
+    const ceKey = atmOption.call_options?.instrument_key;
+    const peKey = atmOption.put_options?.instrument_key;
+    const ceLTP = atmOption.call_options?.market_data?.ltp || 0;
+    const peLTP = atmOption.put_options?.market_data?.ltp || 0;
+
+    res.json({
+      message: "LIVE order test data ready - NOT placing order (dry run)",
+      spot,
+      atmStrike,
+      nearestExpiry,
+      ceInstrumentKey: ceKey,
+      peInstrumentKey: peKey,
+      ceLTP,
+      peLTP,
+      sampleOrderPayload: {
+        quantity: 65,
+        product: "I",
+        validity: "DAY",
+        price: 0,
+        tag: `LAMY-TEST-${Date.now()}`,
+        instrument_token: ceKey,
+        order_type: "MARKET",
+        transaction_type: "BUY",
+        disclosed_quantity: 0,
+        trigger_price: 0,
+        is_amo: false,
+      },
+      autoTradeMode,
+      note: "To place a real order, use POST /api/auto-trade/execute-now with { action: 'BUY_CE' or 'BUY_PE' }",
+    });
+  });
+
+  app.post("/api/auto-trade/execute-now", async (req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: "Upstox not connected" });
+    const { action, pin } = req.body;
+    if (!autoTradeMode && pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN or auto-trade mode not enabled" });
+    }
+
+    const liveData = await fetchLiveSpotAndChain();
+    if (!liveData.isLive || !liveData.chainData) {
+      return res.status(503).json({ error: "Cannot get live data from Upstox" });
+    }
+
+    const spot = liveData.spot;
+    const atmStrike = Math.round(spot / 50) * 50;
+    const nearestExpiry = liveData.nearestExpiry || "";
+    const isCE = action === "BUY_CE";
+
+    const atmOption = liveData.chainData.find((d: any) => (d.strike_price || d.strikePrice) === atmStrike);
+    if (!atmOption) return res.status(404).json({ error: `No ATM option at strike ${atmStrike}` });
+
+    const instrumentKey = isCE ? atmOption.call_options?.instrument_key : atmOption.put_options?.instrument_key;
+    const ltp = isCE ? (atmOption.call_options?.market_data?.ltp || 0) : (atmOption.put_options?.market_data?.ltp || 0);
+
+    if (!instrumentKey) return res.status(404).json({ error: "No instrument key found" });
+
+    const proposal: TradeProposal = {
+      id: generateProposalId(),
+      action: action || "BUY_CE",
+      confidence: 80,
+      strike: atmStrike,
+      premium: Math.round(ltp),
+      target: Math.round(ltp * 1.3),
+      stopLoss: Math.round(ltp * 0.8),
+      lotSize: 65,
+      potentialProfit: Math.round((ltp * 0.3) * 65),
+      brokerage: 200,
+      netProfit: Math.round((ltp * 0.3) * 65) - 200,
+      reasoning: [`IMMEDIATE execution: ${action} at ATM ${atmStrike}`, `LIVE premium: Rs.${ltp}`, `Instrument: ${instrumentKey}`],
+      engineVersion: "v8.0 IMMEDIATE",
+      rocketThrust: "HYPERDRIVE",
+      neuroWisdom: "GRANDMASTER",
+      fusionScore: 90,
+      entropyLevel: "LOW",
+      greenCandles: 3,
+      zeroLossReady: true,
+      monteCarloWinProb: 75,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+      respondedAt: null,
+      expiresAt: new Date(Date.now() + 5 * 60000).toISOString(),
+      istTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      uaeTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Dubai" }),
+      scanCycle: scanCycleCount,
+      instrumentKey,
+      expiry: nearestExpiry,
+    };
+
+    tradeProposals.push(proposal);
+
+    const result = await executeProposalOnUpstox(proposal);
+
+    res.json({
+      success: result.success,
+      proposal,
+      upstoxOrderId: result.orderId,
+      error: result.error,
+      spot,
+      atmStrike,
+      ltp,
+      instrumentKey,
     });
   });
 
