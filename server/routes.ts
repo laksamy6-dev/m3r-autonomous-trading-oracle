@@ -2773,6 +2773,18 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     if (!upstoxAccessToken) return { success: false, error: "Upstox not connected" };
     if (!proposal.instrumentKey) return { success: false, error: "No instrument key in proposal" };
 
+    const hasActivePosition = activePositions.some(p => p.status === "ACTIVE");
+    const hasRecentLiveOrder = tradeProposals.some(p =>
+      p.id !== proposal.id &&
+      (p.status === "LIVE_EXECUTED") &&
+      Date.now() - new Date(p.createdAt).getTime() < 300000
+    );
+    if (hasActivePosition || hasRecentLiveOrder) {
+      console.log(`[LAMY LIVE ORDER] BLOCKED — ${hasActivePosition ? "active position exists" : "recent order already placed"}`);
+      proposal.status = "REJECTED";
+      return { success: false, error: "Already have an active position or recent order" };
+    }
+
     const lotSize = proposal.lotSize || 65;
     const quantity = lotSize;
 
@@ -2911,6 +2923,18 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     autoScanInterval = setInterval(async () => {
       if (!autoScanActive) return;
+
+      const hasActivePosition = activePositions.some(p => p.status === "ACTIVE");
+      const hasRecentLiveOrder = tradeProposals.some(p =>
+        p.status === "LIVE_EXECUTED" &&
+        Date.now() - new Date(p.createdAt).getTime() < 300000
+      );
+
+      if (hasActivePosition || hasRecentLiveOrder) {
+        console.log(`[LAMY SCAN] Skipping — ${hasActivePosition ? "active position exists" : "recent live order placed"}`);
+        return;
+      }
+
       const proposal = await runAutoScan();
       if (proposal) {
         tradeProposals.push(proposal);
@@ -2930,15 +2954,20 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       }
     }, 30000);
 
-    const firstProposal = await runAutoScan();
-    if (firstProposal) {
-      tradeProposals.push(firstProposal);
-      if (autoTradeMode && firstProposal.instrumentKey) {
-        console.log(`[LAMY AUTO-TRADE] Auto-executing first proposal ${firstProposal.id}`);
-        await executeProposalOnUpstox(firstProposal);
-      } else {
-        sendTelegramApprovalRequest(firstProposal);
+    const hasActivePosition = activePositions.some(p => p.status === "ACTIVE");
+    if (!hasActivePosition) {
+      const firstProposal = await runAutoScan();
+      if (firstProposal) {
+        tradeProposals.push(firstProposal);
+        if (autoTradeMode && firstProposal.instrumentKey) {
+          console.log(`[LAMY AUTO-TRADE] Auto-executing first proposal ${firstProposal.id}`);
+          await executeProposalOnUpstox(firstProposal);
+        } else {
+          sendTelegramApprovalRequest(firstProposal);
+        }
       }
+    } else {
+      console.log(`[LAMY] Active position exists — monitoring only, no new trades`);
     }
 
     res.json({ message: "Auto-scan started", active: true, scanCycleCount });
