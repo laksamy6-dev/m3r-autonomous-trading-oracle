@@ -1760,20 +1760,18 @@ Based on this data, give me:
     }
   });
 
+  const UPSTOX_REDIRECT_URI = "https://m3rinnovativefintechsolution.com/api/upstox/callback";
+
   app.get("/api/upstox/login", (req, res) => {
     if (!upstoxApiKey) return res.status(400).send("Upstox API key not configured");
-    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
-    const host = req.get("host") || "";
-    const redirectUri = `${proto}://${host}/api/upstox/callback`;
+    const redirectUri = UPSTOX_REDIRECT_URI;
     const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     res.redirect(authUrl);
   });
 
   app.get("/api/upstox/auth-url", (req, res) => {
     if (!upstoxApiKey) return res.status(400).json({ error: "Upstox API key not configured" });
-    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
-    const host = req.get("host") || "";
-    const redirectUri = `${proto}://${host}/api/upstox/callback`;
+    const redirectUri = UPSTOX_REDIRECT_URI;
     const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     res.json({ authUrl, redirectUri });
   });
@@ -1783,9 +1781,7 @@ Based on this data, give me:
     if (!code) return res.status(400).json({ error: "No authorization code" });
 
     try {
-      const proto = req.get("x-forwarded-proto") || req.protocol || "https";
-      const host = req.get("host") || "";
-      const redirectUri = `${proto}://${host}/api/upstox/callback`;
+      const redirectUri = UPSTOX_REDIRECT_URI;
       const tokenRes = await globalThis.fetch("https://api.upstox.com/v2/login/authorization/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
