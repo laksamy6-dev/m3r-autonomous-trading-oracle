@@ -2899,12 +2899,12 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     }
   });
 
-  app.post("/api/auto-trade/scan/start", async (_req, res) => {
-    if (autoScanActive) return res.json({ message: "Already scanning", active: true, scanCycleCount });
+  async function startAutoScanInternal(source: string = "manual") {
+    if (autoScanActive) return { message: "Already scanning", active: true, scanCycleCount };
 
     autoScanActive = true;
     scanCycleCount = 0;
-    console.log("[LAMY] Auto-scan STARTED");
+    console.log(`[LAMY] Auto-scan STARTED (source: ${source})`);
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
     const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
@@ -2915,7 +2915,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `*LAMY - Auto-Scan ACTIVATED*\n\nScanning market with 20 neural formulas...\nTrade proposals will be sent for your approval.\n\nIST: ${istStr} | UAE: ${uaeStr}`,
+          text: `*LAMY - Auto-Scan ACTIVATED*\n\nSource: ${source}\nScanning market with 20 neural formulas...\n${autoTradeMode ? "AUTO-TRADE MODE ON — Will execute trades automatically" : "Trade proposals will be sent for your approval."}\n\nIST: ${istStr} | UAE: ${uaeStr}`,
           parse_mode: "Markdown",
         }),
       }).catch(console.error);
@@ -2923,6 +2923,14 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     autoScanInterval = setInterval(async () => {
       if (!autoScanActive) return;
+
+      const { dayOfWeek, currentMins } = getTimeStrings();
+      const closeMins = 15 * 60 + 30;
+      if (dayOfWeek === 0 || dayOfWeek === 6 || currentMins >= closeMins) {
+        console.log("[LAMY] Market closed — auto-stopping scan");
+        stopAutoScanInternal("market_closed");
+        return;
+      }
 
       const hasActivePosition = activePositions.some(p => p.status === "ACTIVE");
       const hasRecentLiveOrder = tradeProposals.some(p =>
@@ -2970,13 +2978,13 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       console.log(`[LAMY] Active position exists — monitoring only, no new trades`);
     }
 
-    res.json({ message: "Auto-scan started", active: true, scanCycleCount });
-  });
+    return { message: "Auto-scan started", active: true, scanCycleCount };
+  }
 
-  app.post("/api/auto-trade/scan/stop", (_req, res) => {
+  function stopAutoScanInternal(source: string = "manual") {
     autoScanActive = false;
     if (autoScanInterval) { clearInterval(autoScanInterval); autoScanInterval = null; }
-    console.log("[LAMY] Auto-scan STOPPED");
+    console.log(`[LAMY] Auto-scan STOPPED (source: ${source})`);
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
     const chatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
@@ -2987,12 +2995,20 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `*LAMY - Auto-Scan DEACTIVATED*\n\nScanning paused. ${scanCycleCount} cycles completed.\n\nIST: ${istStr} | UAE: ${uaeStr}`,
+          text: `*LAMY - Auto-Scan DEACTIVATED*\n\nSource: ${source}\n${scanCycleCount} cycles completed.\n\nIST: ${istStr} | UAE: ${uaeStr}`,
           parse_mode: "Markdown",
         }),
       }).catch(console.error);
     }
+  }
 
+  app.post("/api/auto-trade/scan/start", async (_req, res) => {
+    const result = await startAutoScanInternal("user_dashboard");
+    res.json(result);
+  });
+
+  app.post("/api/auto-trade/scan/stop", (_req, res) => {
+    stopAutoScanInternal("user_dashboard");
     res.json({ message: "Auto-scan stopped", active: false, scanCycleCount });
   });
 
@@ -3348,7 +3364,11 @@ Provide the full 10-section comprehensive analysis now.`;
   });
 
   let currentPin = "1234";
-  let autoTradeMode = false;
+  const savedAutoTrade = savedVault.AUTO_TRADE_MODE === "true";
+  let autoTradeMode = savedAutoTrade;
+  if (savedAutoTrade) {
+    console.log("[AUTO-TRADE] Mode restored from vault: ENABLED");
+  }
 
   interface ActivePosition {
     id: string;
@@ -3519,7 +3539,28 @@ Provide the full 10-section comprehensive analysis now.`;
       }
     }
     autoTradeMode = !!enabled;
-    console.log(`[AUTO-TRADE] Mode ${autoTradeMode ? "ENABLED" : "DISABLED"}`);
+    const currentVault = loadVaultFromFile();
+    if (autoTradeMode) {
+      currentVault.AUTO_TRADE_MODE = "true";
+    } else {
+      delete currentVault.AUTO_TRADE_MODE;
+    }
+    saveVaultToFile(currentVault);
+    console.log(`[AUTO-TRADE] Mode ${autoTradeMode ? "ENABLED" : "DISABLED"} (persisted to vault)`);
+
+    if (autoTradeMode && !autoScanActive) {
+      const { dayOfWeek, currentMins } = getTimeStrings();
+      const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+      const preMarketMins = 9 * 60;
+      const closeMins = 15 * 60 + 30;
+      if (isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
+        console.log("[AUTO-TRADE] Market is open — auto-starting scan");
+        startAutoScanInternal();
+      } else {
+        console.log("[AUTO-TRADE] Market closed — scan will auto-start when market opens");
+      }
+    }
+
     res.json({ success: true, autoTradeMode });
   });
 
