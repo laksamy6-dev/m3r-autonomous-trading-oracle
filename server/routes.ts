@@ -3812,6 +3812,47 @@ Provide the full 10-section comprehensive analysis now.`;
     res.json({ success: true, autoTradeMode });
   });
 
+  app.post("/api/auto-trade/auto-start", async (req, res) => {
+    const { pin } = req.body;
+    if (pin !== currentPin) {
+      return res.status(403).json({ error: "Invalid PIN" });
+    }
+
+    if (!autoTradeMode) {
+      autoTradeMode = true;
+      const currentVault = loadVaultFromFile();
+      currentVault.AUTO_TRADE_MODE = "true";
+      saveVaultToFile(currentVault);
+      console.log("[AUTO-START] Auto-trade mode ENABLED via quick token update");
+    }
+
+    const { dayOfWeek, currentMins } = getTimeStrings();
+    const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+    const preMarketMins = 9 * 60;
+    const closeMins = 15 * 60 + 30;
+
+    if (!autoScanActive && isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
+      console.log("[AUTO-START] Market open — starting scan after token update");
+      await startAutoScanInternal("token_update");
+      const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+      const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+      if (tgToken && tgChatId) {
+        globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: tgChatId,
+            text: `*LAMY AUTO-START*\nToken updated + Auto-trade ENABLED + Scan STARTED\nLAMY is now hunting for trades!`,
+            parse_mode: "Markdown",
+          }),
+        }).catch(() => {});
+      }
+      return res.json({ success: true, autoTradeMode: true, scanStarted: true, message: "Token updated, auto-trade ON, scan started!" });
+    }
+
+    res.json({ success: true, autoTradeMode: true, scanStarted: false, message: isWeekday ? "Auto-trade ON. Scan will start when market opens." : "Auto-trade ON. Market closed (weekend). Scan will start Monday." });
+  });
+
   app.get("/api/positions/active", (_req, res) => {
     const active = activePositions.filter(p => p.status === "ACTIVE");
     res.json({ positions: active, autoTradeMode });

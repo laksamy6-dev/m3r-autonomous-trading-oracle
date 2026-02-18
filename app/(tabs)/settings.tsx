@@ -121,6 +121,10 @@ export default function SettingsScreen() {
   const [vaultEditValue, setVaultEditValue] = useState("");
   const [vaultSaving, setVaultSaving] = useState(false);
 
+  const [quickToken, setQuickToken] = useState("");
+  const [quickTokenSaving, setQuickTokenSaving] = useState(false);
+  const [quickTokenResult, setQuickTokenResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
     loadSettings();
     checkStatuses();
@@ -180,6 +184,47 @@ export default function SettingsScreen() {
       }
     } catch {} finally {
       setVaultLoading(false);
+    }
+  }
+
+  async function quickUpdateToken() {
+    if (!quickToken.trim()) return;
+    setQuickTokenSaving(true);
+    setQuickTokenResult(null);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/vault/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: savedPin, keyId: "UPSTOX_ACCESS_TOKEN", value: quickToken.trim() }),
+      });
+      if (res.ok) {
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setQuickToken("");
+        clearUpstoxStatusCache();
+        await new Promise(r => setTimeout(r, 2000));
+        await checkStatuses();
+        fetchVaultKeys();
+        if (upstoxStatus?.connected || true) {
+          const statusRes = await globalThis.fetch(`${baseUrl}api/upstox/status`);
+          const statusData = await statusRes.json();
+          setUpstoxStatus(statusData);
+          if (statusData.connected) {
+            setQuickTokenResult({ success: true, message: `Token VERIFIED! Upstox LIVE${statusData.userName ? ` (${statusData.userName})` : ""}. LAMY ready to trade!` });
+            try {
+              await globalThis.fetch(`${baseUrl}api/auto-trade/auto-start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: savedPin }) });
+            } catch {}
+          } else {
+            setQuickTokenResult({ success: false, message: "Token saved but validation failed. Check if the token is correct." });
+          }
+        }
+      } else {
+        setQuickTokenResult({ success: false, message: "Failed to save token. Try again." });
+      }
+    } catch {
+      setQuickTokenResult({ success: false, message: "Network error. Check connection." });
+    } finally {
+      setQuickTokenSaving(false);
     }
   }
 
@@ -404,6 +449,91 @@ export default function SettingsScreen() {
           >
             <Ionicons name="lock-open" size={18} color={CYAN} />
           </Pressable>
+        </View>
+
+        <View style={[styles.section, { borderWidth: 1, borderColor: upstoxStatus?.connected ? NEON_GREEN + "40" : Colors.dark.gold + "60", borderRadius: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Ionicons name="flash" size={18} color={Colors.dark.gold} />
+            <Text style={[styles.sectionTitle, { marginBottom: 0, color: Colors.dark.gold }]}>DAILY TOKEN UPDATE</Text>
+          </View>
+          <Text style={{ fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginBottom: 10 }}>
+            Paste your Upstox access token here. One tap — LAMY handles the rest.
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <View style={[{ width: 8, height: 8, borderRadius: 4 }, { backgroundColor: upstoxStatus?.connected ? NEON_GREEN : RED_ALERT }]} />
+            <Text style={{ fontSize: 12, fontFamily: "DMSans_600SemiBold", color: upstoxStatus?.connected ? NEON_GREEN : RED_ALERT }}>
+              {upstoxStatus?.connected ? "LIVE - Trading Ready" : upstoxStatus?.configured ? "Token Expired - Paste New Token" : "Not Configured"}
+            </Text>
+          </View>
+
+          {!upstoxStatus?.connected && (
+            <View>
+              <TextInput
+                style={{
+                  backgroundColor: "#1a1a2e",
+                  borderRadius: 8,
+                  padding: 12,
+                  color: "#fff",
+                  fontFamily: "DMSans_400Regular",
+                  fontSize: 13,
+                  borderWidth: 1,
+                  borderColor: Colors.dark.gold + "40",
+                  marginBottom: 8,
+                }}
+                value={quickToken}
+                onChangeText={(t) => { setQuickToken(t); setQuickTokenResult(null); }}
+                placeholder="Paste Upstox access token here..."
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                multiline
+                numberOfLines={2}
+              />
+              <Pressable
+                onPress={quickUpdateToken}
+                disabled={quickTokenSaving || !quickToken.trim()}
+                style={({ pressed }) => [{
+                  backgroundColor: quickToken.trim() ? Colors.dark.gold : Colors.dark.gold + "40",
+                  borderRadius: 8,
+                  padding: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  opacity: pressed ? 0.8 : 1,
+                }]}
+              >
+                {quickTokenSaving ? (
+                  <>
+                    <ActivityIndicator size="small" color="#000" />
+                    <Text style={{ fontSize: 14, fontFamily: "DMSans_700Bold", color: "#000" }}>Verifying...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="rocket" size={18} color="#000" />
+                    <Text style={{ fontSize: 14, fontFamily: "DMSans_700Bold", color: "#000" }}>Update & Go Live</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {quickTokenResult && (
+            <View style={{ marginTop: 8, padding: 10, borderRadius: 8, backgroundColor: quickTokenResult.success ? NEON_GREEN + "15" : RED_ALERT + "15" }}>
+              <Text style={{ fontSize: 12, fontFamily: "DMSans_600SemiBold", color: quickTokenResult.success ? NEON_GREEN : RED_ALERT }}>
+                {quickTokenResult.message}
+              </Text>
+            </View>
+          )}
+
+          {upstoxStatus?.connected && (
+            <View style={{ marginTop: 4, padding: 10, borderRadius: 8, backgroundColor: NEON_GREEN + "10" }}>
+              <Text style={{ fontSize: 12, fontFamily: "DMSans_600SemiBold", color: NEON_GREEN }}>
+                Upstox connected and trading-ready. No action needed until tomorrow.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
