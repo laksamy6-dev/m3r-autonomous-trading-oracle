@@ -1760,9 +1760,20 @@ Based on this data, give me:
     }
   });
 
+  app.get("/api/upstox/login", (req, res) => {
+    if (!upstoxApiKey) return res.status(400).send("Upstox API key not configured");
+    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+    const host = req.get("host") || "";
+    const redirectUri = `${proto}://${host}/api/upstox/callback`;
+    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    res.redirect(authUrl);
+  });
+
   app.get("/api/upstox/auth-url", (req, res) => {
     if (!upstoxApiKey) return res.status(400).json({ error: "Upstox API key not configured" });
-    const redirectUri = `${req.protocol}://${req.get("host")}/api/upstox/callback`;
+    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+    const host = req.get("host") || "";
+    const redirectUri = `${proto}://${host}/api/upstox/callback`;
     const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${upstoxApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     res.json({ authUrl, redirectUri });
   });
@@ -1772,7 +1783,9 @@ Based on this data, give me:
     if (!code) return res.status(400).json({ error: "No authorization code" });
 
     try {
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/upstox/callback`;
+      const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+      const host = req.get("host") || "";
+      const redirectUri = `${proto}://${host}/api/upstox/callback`;
       const tokenRes = await globalThis.fetch("https://api.upstox.com/v2/login/authorization/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
@@ -1785,10 +1798,23 @@ Based on this data, give me:
         }).toString(),
       });
       const tokenData = await tokenRes.json();
+      console.log("[UPSTOX] Token response:", tokenData.access_token ? "Token received" : "No token", tokenData.error || "");
       upstoxAccessToken = tokenData.access_token || null;
       upstoxTokenValid = null;
       upstoxTokenLastChecked = 0;
-      res.send("<html><body><h2>Connected to Upstox!</h2><p>You can close this window.</p></body></html>");
+      if (upstoxAccessToken) {
+        try {
+          const fs = await import("fs");
+          const vaultPath = "./vault-tokens.json";
+          let vault: any = {};
+          try { vault = JSON.parse(fs.readFileSync(vaultPath, "utf-8")); } catch {}
+          vault.upstox_access_token = upstoxAccessToken;
+          vault.upstox_token_time = new Date().toISOString();
+          fs.writeFileSync(vaultPath, JSON.stringify(vault, null, 2));
+          console.log("[UPSTOX] Token saved to vault");
+        } catch (e: any) { console.error("[UPSTOX] Vault save error:", e.message); }
+      }
+      res.send(`<html><head><style>body{background:#050508;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;flex-direction:column;gap:16px}h2{color:#00F3FF}p{color:#94A3B8}</style></head><body><h2>M3R LAMY - Upstox Connected!</h2><p>Token refreshed successfully. You can close this window.</p><p>LIVE trading mode activated.</p></body></html>`);
     } catch (error) {
       res.status(500).send("<html><body><h2>Connection Failed</h2></body></html>");
     }
