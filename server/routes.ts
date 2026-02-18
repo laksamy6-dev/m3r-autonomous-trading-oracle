@@ -2719,7 +2719,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
 
-    const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 300 && confidence >= 60;
+    const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 500 && confidence >= 60;
 
     if (confidence < 55) {
       console.log(`[LAMY SCAN] Confidence too low: ${confidence}% — skipping (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
@@ -2915,6 +2915,35 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         proposal.upstoxOrderStatus = "LIVE_EXECUTED";
         proposal.status = "LIVE_EXECUTED";
 
+        const posType = proposal.action === "BUY_CE" ? "CE" : "PE";
+        const newPosition: ActivePosition = {
+          id: orderId || `POS-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+          type: posType as "CE" | "PE",
+          strike: proposal.strike,
+          lots: 1,
+          entryPremium: proposal.premium,
+          currentPremium: proposal.premium,
+          target: proposal.target,
+          stopLoss: proposal.stopLoss,
+          pnl: 0,
+          pnlPercent: 0,
+          entryTime: new Date().toISOString(),
+          status: "ACTIVE",
+          exitPremium: null,
+          exitTime: null,
+          exitReason: null,
+          premiumHistory: [proposal.premium],
+          peakPremium: proposal.premium,
+          lowestPremium: proposal.premium,
+          atrStopLoss: proposal.premium * 0.85,
+          kissPhase: "NONE",
+          lossAlerted: false,
+          instrumentKey: proposal.instrumentKey || "",
+        };
+        activePositions.push(newPosition);
+        startPositionMonitoring();
+        console.log(`[LAMY AUTO-TRADE] ActivePosition CREATED: ${newPosition.id} | ${posType} ${proposal.strike} @ Rs.${proposal.premium}`);
+
         const tgToken = process.env.TELEGRAM_BOT_TOKEN;
         const tgChatId = process.env.TELEGRAM_CHAT_ID;
         if (tgToken && tgChatId) {
@@ -2928,9 +2957,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
             ``,
             `Upstox Order ID: ${orderId}`,
             `Instrument: ${proposal.instrumentKey}`,
+            `Position tracking: ACTIVE`,
             ``,
             `IST: ${istStr} | UAE: ${uaeStr}`,
-            `Monitoring position...`,
+            `Monitoring position for profit booking...`,
           ].join("\n");
           globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: "POST",
@@ -3014,6 +3044,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     autoScanInterval = setInterval(async () => {
       if (!autoScanActive) return;
+      scanCycleCount++;
 
       const { dayOfWeek, currentMins } = getTimeStrings();
       const closeMins = 15 * 60 + 30;
@@ -3029,9 +3060,40 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         Date.now() - new Date(p.createdAt).getTime() < 300000
       );
 
-      if (hasActivePosition || hasRecentLiveOrder) {
-        console.log(`[LAMY SCAN] Skipping — ${hasActivePosition ? "active position exists" : "recent live order placed"}`);
+      if (hasActivePosition) {
+        const activePos = activePositions.find(p => p.status === "ACTIVE");
+        if (activePos && scanCycleCount % 20 === 0) {
+          const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+          const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+          if (tgToken && tgChatId) {
+            const profitLoss = activePos.pnl >= 0 ? `PROFIT Rs.${activePos.pnl.toFixed(0)}` : `LOSS Rs.${Math.abs(activePos.pnl).toFixed(0)}`;
+            const { istStr } = getTimeStrings();
+            globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Position Monitor*\n\n${activePos.type} ${activePos.strike} | ${profitLoss}\nEntry: Rs.${activePos.entryPremium} | Current: Rs.${activePos.currentPremium}\nKiss: ${activePos.kissPhase} | ATR SL: ${activePos.atrStopLoss}\nCycle #${scanCycleCount} | IST: ${istStr}`, parse_mode: "Markdown" }),
+            }).catch(() => {});
+          }
+        }
+        console.log(`[LAMY SCAN] Monitoring active position: ${activePos?.type} ${activePos?.strike} P&L: Rs.${activePos?.pnl.toFixed(0)}`);
         return;
+      }
+      if (hasRecentLiveOrder) {
+        console.log(`[LAMY SCAN] Skipping — recent live order placed, waiting for position tracking`);
+        return;
+      }
+
+      if (scanCycleCount % 10 === 0) {
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
+        if (tgToken && tgChatId) {
+          const { istStr } = getTimeStrings();
+          globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Scanning Market*\n\nCycle #${scanCycleCount} | IST: ${istStr}\nAnalyzing option chain, PCR, OI buildup, IV skew...\nLooking for zero-loss entry with min Rs.${MIN_PROFIT_TARGET} profit potential.\n${autoTradeMode ? "AUTO-TRADE ON — Will execute automatically" : "Manual approval mode"}`, parse_mode: "Markdown" }),
+          }).catch(() => {});
+        }
       }
 
       const proposal = await runAutoScan();
@@ -3123,7 +3185,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
-    const zeroLossReady = greenCandles >= 2 && netProfit >= 300 && confidence >= 55;
+    const zeroLossReady = greenCandles >= 2 && netProfit >= 500 && confidence >= 55;
     const rocketScore = Math.round(50 + Math.random() * 40);
     const fusionScore = Math.round(50 + Math.random() * 40);
     const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
@@ -3562,45 +3624,140 @@ Provide the full 10-section comprehensive analysis now.`;
       if (pos.pnl <= -LOSS_ALERT_THRESHOLD && !pos.lossAlerted) {
         pos.lossAlerted = true;
         console.log(`[ATR ALERT] Position ${pos.id}: Loss Rs.${Math.abs(pos.pnl)} exceeds Rs.${LOSS_ALERT_THRESHOLD} threshold!`);
-      }
-
-      if (atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
-        pos.exitPremium = pos.currentPremium;
-        pos.exitTime = new Date().toISOString();
-        pos.exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss})`;
-        pos.status = "ATR_STOPPED";
-        pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
-        console.log(`[ATR EXIT] Position ${pos.id} stopped at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
-
         const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
         const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
         if (tgToken && tgChatId) {
-          const msg = `🛑 ATR STOP LOSS\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nP&L: Rs.${pos.pnl}\nATR SL: ${pos.atrStopLoss}`;
           globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY ALERT* - Position ${pos.type} ${pos.strike} is in LOSS Rs.${Math.abs(pos.pnl).toFixed(0)}! Monitoring closely...`, parse_mode: "Markdown" }),
           }).catch(() => {});
         }
       }
 
-      if (kiss.shouldBook && pos.pnl > 0) {
+      let shouldExit = false;
+      let exitReason = "";
+      let exitStatus: ActivePosition["status"] = "EXITED";
+
+      if (pos.pnl >= MIN_PROFIT_TARGET) {
+        const recentPrices = pos.premiumHistory.slice(-5);
+        const isDropping = recentPrices.length >= 3 && recentPrices[recentPrices.length - 1] < recentPrices[recentPrices.length - 2] && recentPrices[recentPrices.length - 2] < recentPrices[recentPrices.length - 3];
+        const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * LOT_SIZE;
+        const droppedFromPeak = peakPnl > 0 ? ((peakPnl - pos.pnl) / peakPnl) * 100 : 0;
+        
+        if (isDropping || droppedFromPeak > 30) {
+          shouldExit = true;
+          exitReason = `MIN_PROFIT_BOOK (P&L: Rs.${pos.pnl.toFixed(0)}, Target Rs.${MIN_PROFIT_TARGET} MET, ${isDropping ? "price dropping" : `dropped ${droppedFromPeak.toFixed(0)}% from peak`})`;
+          exitStatus = "PROFIT_BOOKED";
+          console.log(`[LAMY PROFIT BOOK] Rs.${pos.pnl.toFixed(0)} >= Rs.${MIN_PROFIT_TARGET} and turning — BOOKING PROFIT!`);
+        }
+      }
+
+      const targetPnl = (pos.target - pos.entryPremium) * pos.lots * LOT_SIZE;
+      if (!shouldExit && targetPnl > 0 && pos.pnl >= targetPnl * 0.8) {
+        shouldExit = true;
+        exitReason = `TARGET_REACHED (P&L: Rs.${pos.pnl.toFixed(0)}, Target: Rs.${targetPnl.toFixed(0)})`;
+        exitStatus = "PROFIT_BOOKED";
+      }
+
+      if (!shouldExit && kiss.shouldBook && pos.pnl > 0) {
+        shouldExit = true;
+        exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
+        exitStatus = "KISS_PROFIT";
+      }
+
+      if (!shouldExit && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
+        shouldExit = true;
+        exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss})`;
+        exitStatus = "ATR_STOPPED";
+      }
+
+      if (shouldExit) {
         pos.exitPremium = pos.currentPremium;
         pos.exitTime = new Date().toISOString();
-        pos.exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
-        pos.status = "KISS_PROFIT";
+        pos.exitReason = exitReason;
+        pos.status = exitStatus;
         pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
-        console.log(`[KISS PROFIT] Position ${pos.id} booked at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
+        console.log(`[LAMY EXIT] Position ${pos.id} ${exitStatus} at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
+
+        if (upstoxAccessToken && pos.instrumentKey) {
+          try {
+            const sellPayload = {
+              quantity: pos.lots * LOT_SIZE,
+              product: "I",
+              validity: "DAY",
+              price: 0,
+              tag: `LAMY-EXIT-${Date.now()}`,
+              instrument_token: pos.instrumentKey,
+              order_type: "MARKET",
+              transaction_type: "SELL",
+              disclosed_quantity: 0,
+              trigger_price: 0,
+              is_amo: false,
+            };
+            console.log(`[LAMY SELL ORDER] Placing EXIT order: ${JSON.stringify(sellPayload)}`);
+            const sellRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${upstoxAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify(sellPayload),
+            });
+            const sellData = await sellRes.json();
+            console.log(`[LAMY SELL ORDER] Response: ${JSON.stringify(sellData)}`);
+            if (sellData.status === "success") {
+              console.log(`[LAMY SELL ORDER] EXIT executed: ${sellData.data?.order_id}`);
+            } else {
+              console.error(`[LAMY SELL ORDER] EXIT FAILED: ${sellData.message || "Unknown error"}`);
+            }
+          } catch (sellErr: any) {
+            console.error(`[LAMY SELL ORDER] EXIT ERROR: ${sellErr.message}`);
+          }
+        }
 
         const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
         const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
         if (tgToken && tgChatId) {
-          const msg = `💋 KISS PATTERN PROFIT!\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nP&L: Rs.${pos.pnl}\n${kiss.description}`;
+          const profitLoss = pos.pnl >= 0 ? `PROFIT Rs.${pos.pnl.toFixed(0)}` : `LOSS Rs.${Math.abs(pos.pnl).toFixed(0)}`;
+          const { istStr } = getTimeStrings();
+          const msg = [
+            `*LAMY - POSITION ${exitStatus}*`,
+            ``,
+            `${pos.type} ${pos.strike}`,
+            `Entry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}`,
+            `*${profitLoss}*`,
+            `Reason: ${exitReason}`,
+            ``,
+            `IST: ${istStr}`,
+            autoTradeMode ? `Scanning for next opportunity...` : `Auto-trade OFF. No new trades.`,
+          ].join("\n");
           globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+            body: JSON.stringify({ chat_id: tgChatId, text: msg, parse_mode: "Markdown" }),
           }).catch(() => {});
+        }
+
+        const activeRemaining = activePositions.filter(p => p.status === "ACTIVE");
+        if (activeRemaining.length === 0) {
+          stopPositionMonitoring();
+          if (autoTradeMode && autoScanActive) {
+            console.log(`[LAMY] Position closed — immediately scanning for next opportunity`);
+            setTimeout(async () => {
+              const nextProposal = await runAutoScan();
+              if (nextProposal) {
+                tradeProposals.push(nextProposal);
+                if (autoTradeMode && nextProposal.instrumentKey) {
+                  console.log(`[LAMY AUTO-TRADE] Next trade found: ${nextProposal.action} ${nextProposal.strike} — executing`);
+                  await executeProposalOnUpstox(nextProposal);
+                } else {
+                  await sendTelegramApprovalRequest(nextProposal);
+                }
+              }
+            }, 10000);
+          }
         }
       }
     }
@@ -3839,7 +3996,7 @@ Provide the full 10-section comprehensive analysis now.`;
     });
   });
 
-  app.post("/api/positions/exit", (req, res) => {
+  app.post("/api/positions/exit", async (req, res) => {
     const { positionId, reason, pin } = req.body;
     if (!autoTradeMode && pin !== currentPin) {
       return res.status(403).json({ error: "Invalid PIN" });
@@ -3860,18 +4017,50 @@ Provide the full 10-section comprehensive analysis now.`;
     const finalPnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
     pos.pnl = finalPnl;
 
+    if (upstoxAccessToken && pos.instrumentKey) {
+      try {
+        const sellPayload = {
+          quantity: pos.lots * LOT_SIZE,
+          product: "I",
+          validity: "DAY",
+          price: 0,
+          tag: `LAMY-MEXIT-${Date.now()}`,
+          instrument_token: pos.instrumentKey,
+          order_type: "MARKET",
+          transaction_type: "SELL",
+          disclosed_quantity: 0,
+          trigger_price: 0,
+          is_amo: false,
+        };
+        console.log(`[MANUAL EXIT SELL] Placing: ${JSON.stringify(sellPayload)}`);
+        const sellRes = await globalThis.fetch("https://api.upstox.com/v2/order/place", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${upstoxAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(sellPayload),
+        });
+        const sellData = await sellRes.json();
+        console.log(`[MANUAL EXIT SELL] Response: ${JSON.stringify(sellData)}`);
+      } catch (sellErr: any) {
+        console.error(`[MANUAL EXIT SELL] Error: ${sellErr.message}`);
+      }
+    }
+
     const activeRemaining = activePositions.filter(p => p.status === "ACTIVE");
     if (activeRemaining.length === 0) stopPositionMonitoring();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChatId) {
-      const emoji = finalPnl >= 0 ? "PROFIT" : "LOSS";
-      const msg = `POSITION ${pos.status}\n${emoji}: Rs.${finalPnl}\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\nReason: ${pos.exitReason}\nTime: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+      const profitLoss = finalPnl >= 0 ? `PROFIT Rs.${finalPnl}` : `LOSS Rs.${Math.abs(finalPnl)}`;
+      const msg = `*LAMY - MANUAL EXIT*\n\n${pos.type} ${pos.strike}\nEntry: Rs.${pos.entryPremium} | Exit: Rs.${pos.exitPremium}\n*${profitLoss}*\nReason: ${pos.exitReason}\nTime: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
       globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: tgChatId, text: msg }),
+        body: JSON.stringify({ chat_id: tgChatId, text: msg, parse_mode: "Markdown" }),
       }).catch(() => {});
     }
 
