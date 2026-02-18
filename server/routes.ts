@@ -1804,14 +1804,10 @@ Based on this data, give me:
       upstoxTokenLastChecked = 0;
       if (upstoxAccessToken) {
         try {
-          const fs = await import("fs");
-          const vaultPath = "./vault-tokens.json";
-          let vault: any = {};
-          try { vault = JSON.parse(fs.readFileSync(vaultPath, "utf-8")); } catch {}
-          vault.upstox_access_token = upstoxAccessToken;
-          vault.upstox_token_time = new Date().toISOString();
-          fs.writeFileSync(vaultPath, JSON.stringify(vault, null, 2));
-          console.log("[UPSTOX] Token saved to vault");
+          const currentVault = loadVaultFromFile();
+          currentVault.UPSTOX_ACCESS_TOKEN = upstoxAccessToken;
+          saveVaultToFile(currentVault);
+          console.log("[UPSTOX] Token saved to vault (.vault-data.json)");
         } catch (e: any) { console.error("[UPSTOX] Vault save error:", e.message); }
       }
       res.send(`<html><head><style>body{background:#050508;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;flex-direction:column;gap:16px}h2{color:#00F3FF}p{color:#94A3B8}</style></head><body><h2>M3R LAMY - Upstox Connected!</h2><p>Token refreshed successfully. You can close this window.</p><p>LIVE trading mode activated.</p></body></html>`);
