@@ -411,7 +411,7 @@ export default function SettingsScreen() {
 
           <View style={styles.statusCard}>
             <View style={styles.statusRow}>
-              <Ionicons name="logo-telegram" size={20} color="#0088CC" />
+              <Ionicons name="send" size={20} color="#0088CC" />
               <Text style={styles.statusLabel}>Telegram</Text>
               <View style={[styles.statusBadge, telegramStatus?.configured ? styles.statusOn : styles.statusOff]}>
                 <Text style={styles.statusBadgeText}>{telegramStatus?.configured ? "Connected" : "Not Set"}</Text>

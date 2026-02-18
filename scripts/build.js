@@ -496,6 +496,66 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+async function buildWebExport(domain) {
+  console.log("Building web export (for Chrome browser access)...");
+  
+  return new Promise((resolve, reject) => {
+    const env = {
+      ...process.env,
+      EXPO_PUBLIC_DOMAIN: domain,
+    };
+    
+    const webBuild = spawn("npx", ["expo", "export", "--platform", "web", "--output-dir", "dist"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env,
+      cwd: process.cwd(),
+    });
+    
+    let stdoutData = "";
+    let stderrData = "";
+    
+    if (webBuild.stdout) {
+      webBuild.stdout.on("data", (data) => {
+        const output = data.toString().trim();
+        if (output) {
+          stdoutData += output + "\n";
+          console.log(`[Web Build] ${output}`);
+        }
+      });
+    }
+    if (webBuild.stderr) {
+      webBuild.stderr.on("data", (data) => {
+        const output = data.toString().trim();
+        if (output) {
+          stderrData += output + "\n";
+          console.error(`[Web Build] ${output}`);
+        }
+      });
+    }
+    
+    webBuild.on("close", (code) => {
+      if (code === 0) {
+        console.log("Web export completed successfully");
+        resolve();
+      } else {
+        console.error(`Web export failed with code ${code}`);
+        console.error("stdout:", stdoutData);
+        console.error("stderr:", stderrData);
+        reject(new Error(`Web export failed with exit code ${code}`));
+      }
+    });
+    
+    webBuild.on("error", (err) => {
+      reject(new Error(`Failed to start web export: ${err.message}`));
+    });
+    
+    setTimeout(() => {
+      webBuild.kill();
+      reject(new Error("Web export timed out after 5 minutes"));
+    }, 300000);
+  });
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
@@ -504,6 +564,8 @@ async function main() {
   const domain = getDeploymentDomain();
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
+
+  await buildWebExport(domain);
 
   prepareDirectories(timestamp);
   clearMetroCache();
