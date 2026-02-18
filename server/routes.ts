@@ -1760,6 +1760,83 @@ Based on this data, give me:
     }
   });
 
+  app.get("/api/upstox/update-token", (req, res) => {
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M3R LAMY - Token Update</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.container{max-width:420px;width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(0,211,255,0.15);border-radius:16px;padding:32px;backdrop-filter:blur(10px)}
+h1{color:#00D3FF;font-size:20px;text-align:center;margin-bottom:8px}
+.subtitle{color:#94A3B8;font-size:12px;text-align:center;margin-bottom:24px}
+.field{margin-bottom:16px}
+label{display:block;color:#00D3FF;font-size:12px;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+input{width:100%;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none;font-family:monospace}
+input:focus{border-color:#00D3FF}
+input::placeholder{color:#475569}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,#00D3FF,#0088FF);border:none;border-radius:10px;color:#000;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;letter-spacing:0.5px}
+.btn:hover{opacity:0.9}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.status{margin-top:16px;padding:12px;border-radius:8px;font-size:13px;text-align:center;display:none}
+.status.success{display:block;background:rgba(57,255,20,0.1);border:1px solid rgba(57,255,20,0.3);color:#39FF14}
+.status.error{display:block;background:rgba(255,59,48,0.1);border:1px solid rgba(255,59,48,0.3);color:#FF3B30}
+.current{margin-top:16px;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.05)}
+.current-label{font-size:11px;color:#64748B;margin-bottom:4px}
+.current-value{font-size:13px;color:#94A3B8;font-family:monospace;word-break:break-all}
+.live-badge{display:inline-block;background:#39FF14;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px}
+.offline-badge{display:inline-block;background:#FF3B30;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px}
+.help{color:#64748B;font-size:11px;margin-top:6px;line-height:1.4}
+</style></head><body>
+<div class="container">
+<h1>M3R LAMY</h1>
+<p class="subtitle">Upstox Token Manager</p>
+<div id="statusBox"></div>
+<div class="field">
+<label>PIN (Security)</label>
+<input type="password" id="pin" placeholder="Enter your PIN" maxlength="6">
+</div>
+<div class="field">
+<label>Upstox Access Token</label>
+<input type="text" id="token" placeholder="Paste your Upstox access token here">
+<p class="help">Upstox App &rarr; Settings &rarr; API Keys &rarr; Copy Session Token</p>
+</div>
+<button class="btn" id="saveBtn" onclick="saveToken()">UPDATE TOKEN & GO LIVE</button>
+<div id="currentStatus" class="current" style="display:none">
+<div class="current-label">Current Status</div>
+<div class="current-value" id="currentValue"></div>
+</div>
+</div>
+<script>
+async function checkStatus(){
+try{const r=await fetch('/api/upstox/status');const d=await r.json();
+const el=document.getElementById('currentStatus');const v=document.getElementById('currentValue');
+el.style.display='block';
+v.innerHTML=d.tokenValid?'Connected <span class="live-badge">LIVE</span>':'Disconnected <span class="offline-badge">OFFLINE</span>';
+}catch(e){}}
+checkStatus();
+async function saveToken(){
+const pin=document.getElementById('pin').value;
+const token=document.getElementById('token').value.trim();
+const box=document.getElementById('statusBox');
+const btn=document.getElementById('saveBtn');
+if(!pin){box.className='status error';box.textContent='PIN required';return}
+if(!token){box.className='status error';box.textContent='Token required';return}
+btn.disabled=true;btn.textContent='Saving...';
+try{
+const r=await fetch('/api/vault/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,keyId:'UPSTOX_ACCESS_TOKEN',value:token})});
+const d=await r.json();
+if(d.success){box.className='status success';box.textContent='Token saved! Verifying connection...';
+setTimeout(async()=>{const s=await fetch('/api/upstox/status');const sd=await s.json();
+if(sd.tokenValid||sd.connected){box.textContent='LIVE Trading Mode Activated! Token verified.'}
+else{box.textContent='Token saved. Will verify on next API call.'}
+checkStatus();},2000);
+}else{box.className='status error';box.textContent=d.error||'Failed to save';}
+}catch(e){box.className='status error';box.textContent='Connection error';}
+btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
+}
+</script></body></html>`);
+  });
+
   const UPSTOX_REDIRECT_URI = "https://m3rinnovativefintechsolution.com/api/upstox/callback";
 
   app.get("/api/upstox/login", (req, res) => {
