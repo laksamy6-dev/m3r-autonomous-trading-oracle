@@ -173,6 +173,16 @@ export default function MarketScreen() {
           setLosers(sorted.filter((s: Stock) => s.changePercent < 0).sort((a: Stock, b: Stock) => a.changePercent - b.changePercent).slice(0, 5));
           if (data.indices?.length > 0) {
             setIndices(data.indices);
+            const nifty = data.indices.find((idx: IndexData) => idx.name === "NIFTY 50");
+            if (nifty && nifty.value > 0) {
+              setPriceData((prev) => ({
+                ...prev,
+                currentPrice: nifty.value,
+                dayOpen: nifty.value - nifty.change,
+                dayHigh: Math.max(prev.dayHigh, nifty.value),
+                dayLow: prev.dayLow > 0 ? Math.min(prev.dayLow, nifty.value) : nifty.value,
+              }));
+            }
           } else {
             setIndices(getIndices());
           }

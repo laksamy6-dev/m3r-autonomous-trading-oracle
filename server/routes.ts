@@ -1674,6 +1674,18 @@ Based on this data, give me:
     saveVaultToFile(currentVault);
 
     console.log(`[VAULT] Key ${keyId} updated by user (saved to disk)`);
+
+    if (keyId === "UPSTOX_ACCESS_TOKEN" && trimmedValue) {
+      checkUpstoxTokenHealth().then((health) => {
+        console.log(`[VAULT] Immediate token validation: ${health.valid ? "VALID" : "INVALID"} — ${health.message}`);
+        if (health.valid) {
+          sendTelegramMessage(`✅ *Upstox Token Updated*\nToken validated successfully. Ready for trading.`);
+        } else {
+          sendTelegramMessage(`❌ *Upstox Token Update Failed*\nToken is invalid: ${health.message}`);
+        }
+      }).catch(() => {});
+    }
+
     res.json({ success: true, keyId, hasValue: !!trimmedValue });
   });
 
@@ -2552,19 +2564,18 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     let bestPeInstrumentKey = "";
     let bestCeStrike = atmStrike;
     let bestPeStrike = atmStrike;
+    let totalCeOI = 0;
+    let totalPeOI = 0;
+    let maxCeOIStrike = 0;
+    let maxPeOIStrike = 0;
+    let maxCeOI = 0;
+    let maxPeOI = 0;
 
     if (isLive && chainData) {
       const atmOptions = chainData.filter((d: any) => {
         const sp = d.strike_price || d.strikePrice;
         return sp >= atmStrike - 150 && sp <= atmStrike + 150;
       });
-
-      let totalCeOI = 0;
-      let totalPeOI = 0;
-      let maxCeOIStrike = 0;
-      let maxPeOIStrike = 0;
-      let maxCeOI = 0;
-      let maxPeOI = 0;
 
       for (const opt of chainData) {
         const ceOI = opt.call_options?.market_data?.oi || 0;
@@ -2576,8 +2587,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         if (peOI > maxPeOI) { maxPeOI = peOI; maxPeOIStrike = sp; }
       }
 
-      const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
-      isBullish = pcr > 0.9;
+      {
+        const pcrLocal = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
+        isBullish = pcrLocal > 0.9;
+      }
 
       for (const opt of atmOptions) {
         const sp = opt.strike_price || opt.strikePrice;
@@ -2608,7 +2621,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         }
       }
 
-      console.log(`[LAMY SCAN] PCR: ${pcr.toFixed(2)}, Bias: ${isBullish ? "BULLISH" : "BEARISH"}, MaxCeOI: ${maxCeOIStrike}, MaxPeOI: ${maxPeOIStrike}`);
+      const pcrLog = totalPeOI > 0 && totalCeOI > 0 ? (totalPeOI / totalCeOI).toFixed(2) : "N/A";
+      console.log(`[LAMY SCAN] PCR: ${pcrLog}, Bias: ${isBullish ? "BULLISH" : "BEARISH"}, MaxCeOI: ${maxCeOIStrike}, MaxPeOI: ${maxPeOIStrike}`);
     }
 
     const action = isBullish ? "BUY_CE" : "BUY_PE";
@@ -2621,24 +2635,81 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return null;
     }
 
-    const confidence = Math.round(55 + Math.random() * 35);
-    const greenCandles = Math.floor(1 + Math.random() * 3);
-    const entropyVal = Math.random() * 0.6;
-    const entropyLevel = entropyVal > 0.4 ? "MODERATE" : "LOW";
-    const monteCarloWin = Math.round(50 + Math.random() * 35);
+    const liveLotSize = chainData?.[0]?.call_options?.lot_size || chainData?.[0]?.put_options?.lot_size || 75;
+
+    let totalCeVolume = 0, totalPeVolume = 0;
+    let ceOIBuildupCount = 0, peOIBuildupCount = 0;
+    let nearAtmCeIV = 0, nearAtmPeIV = 0, ivCount = 0;
+    for (const opt of chainData || []) {
+      const sp = opt.strike_price || opt.strikePrice;
+      const ceVol = opt.call_options?.market_data?.volume || 0;
+      const peVol = opt.put_options?.market_data?.volume || 0;
+      totalCeVolume += ceVol;
+      totalPeVolume += peVol;
+      const ceOI = opt.call_options?.market_data?.oi || 0;
+      const prevCeOI = opt.call_options?.market_data?.prev_oi || ceOI;
+      const peOI = opt.put_options?.market_data?.oi || 0;
+      const prevPeOI = opt.put_options?.market_data?.prev_oi || peOI;
+      if (ceOI > prevCeOI) ceOIBuildupCount++;
+      if (peOI > prevPeOI) peOIBuildupCount++;
+      if (Math.abs(sp - atmStrike) <= 100) {
+        nearAtmCeIV += opt.call_options?.option_greeks?.iv || 0;
+        nearAtmPeIV += opt.put_options?.option_greeks?.iv || 0;
+        ivCount++;
+      }
+    }
+    const avgCeIV = ivCount > 0 ? nearAtmCeIV / ivCount : 0;
+    const avgPeIV = ivCount > 0 ? nearAtmPeIV / ivCount : 0;
+    const ivSkew = avgPeIV > 0 ? (avgCeIV / avgPeIV) : 1;
+
+    const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
+    const volumeRatio = totalPeVolume > 0 ? totalCeVolume / totalPeVolume : 1;
+
+    let confidenceScore = 50;
+    if (isBullish) {
+      if (pcr > 1.2) confidenceScore += 12;
+      else if (pcr > 1.0) confidenceScore += 6;
+      if (maxPeOI > maxCeOI) confidenceScore += 8;
+      if (peOIBuildupCount > ceOIBuildupCount) confidenceScore += 5;
+      if (ivSkew < 0.95) confidenceScore += 5;
+      if (volumeRatio < 1) confidenceScore += 4;
+    } else {
+      if (pcr < 0.8) confidenceScore += 12;
+      else if (pcr < 1.0) confidenceScore += 6;
+      if (maxCeOI > maxPeOI) confidenceScore += 8;
+      if (ceOIBuildupCount > peOIBuildupCount) confidenceScore += 5;
+      if (ivSkew > 1.05) confidenceScore += 5;
+      if (volumeRatio > 1) confidenceScore += 4;
+    }
+    if (premium > 0 && premium < 300) confidenceScore += 3;
+    const confidence = Math.min(95, Math.max(30, confidenceScore));
+
+    const oiBuildupStrength = isBullish ? peOIBuildupCount : ceOIBuildupCount;
+    const greenCandles = Math.min(3, Math.max(0, Math.floor(oiBuildupStrength / 3)));
+
+    const entropyVal = Math.abs(ivSkew - 1.0);
+    const entropyLevel = entropyVal > 0.15 ? "HIGH" : entropyVal > 0.05 ? "MODERATE" : "LOW";
+
+    const pcrStrength = isBullish ? Math.min(100, Math.round(pcr * 60)) : Math.min(100, Math.round((2 - pcr) * 60));
+    const oiStrength = Math.min(100, Math.round((oiBuildupStrength / Math.max(1, ceOIBuildupCount + peOIBuildupCount)) * 100));
+    const monteCarloWin = Math.min(90, Math.max(25, Math.round((pcrStrength * 0.5 + oiStrength * 0.3 + (100 - entropyVal * 200) * 0.2))));
+
     const brokerage = 200;
     const targetPremium = Math.round(premium * 1.3);
     const slPremium = Math.round(premium * 0.8);
-    const lotSize = 65;
+    const lotSize = liveLotSize;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
 
-    const zeroLossReady = greenCandles >= 2 && entropyVal < 0.5 && netProfit >= 300 && confidence >= 60;
+    const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 300 && confidence >= 60;
 
-    if (confidence < 55) return null;
+    if (confidence < 55) {
+      console.log(`[LAMY SCAN] Confidence too low: ${confidence}% — skipping (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
+      return null;
+    }
 
-    const rocketScore = Math.round(50 + Math.random() * 40);
-    const fusionScore = Math.round(50 + Math.random() * 40);
+    const fusionScore = Math.min(95, Math.round(confidence * 0.4 + monteCarloWin * 0.3 + pcrStrength * 0.3));
+    const rocketScore = Math.min(95, Math.round(confidence * 0.5 + oiStrength * 0.5));
     const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
     const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
 
@@ -2659,9 +2730,11 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       reasoning: [
         `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal — Spot: ${spot}, ATM: ${atmStrike}`,
         `LIVE premium: Rs.${premium} at ${strike}${action === "BUY_CE" ? "CE" : "PE"}`,
-        `Monte Carlo: ${monteCarloWin}% win probability across 10,000 paths`,
-        `Green candles: ${greenCandles}/2 | Entropy: ${entropyLevel}`,
-        `Rocket: ${thrustLevel} (${rocketScore}%) | Brain: ${wisdomLevel} (${fusionScore}%)`,
+        `PCR: ${pcr.toFixed(2)} | IV Skew: ${ivSkew.toFixed(2)} | Vol Ratio: ${volumeRatio.toFixed(2)}`,
+        `OI Buildup — CE: ${ceOIBuildupCount} strikes | PE: ${peOIBuildupCount} strikes`,
+        `Max CE OI: ${maxCeOIStrike} (resistance) | Max PE OI: ${maxPeOIStrike} (support)`,
+        `Lot Size: ${lotSize} (LIVE) | Expiry: ${nearestExpiry}`,
+        `Confidence: ${confidence}% (OI+PCR+IV based)`,
         zeroLossReady ? "Zero-loss criteria MET" : "Zero-loss NOT MET — proceed with caution",
         `Instrument: ${instrumentKey}`,
       ],
