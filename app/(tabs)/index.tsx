@@ -142,6 +142,23 @@ export default function MarketScreen() {
 
   const [dataSource, setDataSource] = useState<"upstox" | "offline">("offline");
 
+  interface AutonomyCheck { id: string; label: string; ok: boolean; detail: string; }
+  interface AutonomyStatus {
+    checks: AutonomyCheck[];
+    allGreen: boolean;
+    readyToTrade: boolean;
+    autoTradeMode: boolean;
+    autoScanActive: boolean;
+    scanCycleCount: number;
+    marketOpen: boolean;
+    istTime: string;
+    uaeTime: string;
+    authUrl: string;
+    pendingCount: number;
+    executedCount: number;
+  }
+  const [autonomy, setAutonomy] = useState<AutonomyStatus | null>(null);
+
   const loadData = useCallback(async () => {
     try {
       const url = `${getApiUrl()}api/market/live-stocks`;
@@ -216,6 +233,23 @@ export default function MarketScreen() {
       }
     } catch (e) {}
   }, []);
+
+  const fetchAutonomy = useCallback(async () => {
+    try {
+      const url = `${getApiUrl()}api/lamy/autonomy-status`;
+      const res = await nativeFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setAutonomy(data);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchAutonomy();
+    const interval = setInterval(fetchAutonomy, 10000);
+    return () => clearInterval(interval);
+  }, [fetchAutonomy]);
 
   useEffect(() => {
     fetchProposals();
@@ -442,6 +476,54 @@ export default function MarketScreen() {
             <Text style={[styles.telegramBtnText, { color: Colors.dark.gold }]}>Send Signal</Text>
           </Pressable>
         </View>
+
+        {autonomy && (
+          <View style={styles.autonomySection}>
+            <View style={styles.autonomyHeader}>
+              <View style={[styles.autonomyDot, { backgroundColor: autonomy.readyToTrade ? NEON_GREEN : autonomy.allGreen ? Colors.dark.gold : Colors.dark.red }]} />
+              <Text style={styles.autonomyTitle}>LAMY AUTONOMY</Text>
+              <View style={[styles.autonomyBadge, { backgroundColor: autonomy.readyToTrade ? NEON_GREEN + "20" : Colors.dark.red + "20" }]}>
+                <Text style={[styles.autonomyBadgeText, { color: autonomy.readyToTrade ? NEON_GREEN : Colors.dark.red }]}>
+                  {autonomy.readyToTrade ? "READY" : "BLOCKED"}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.autonomyChecks}>
+              {autonomy.checks.map((check) => (
+                <View key={check.id} style={styles.autonomyCheckRow}>
+                  <Ionicons
+                    name={check.ok ? "checkmark-circle" : "close-circle"}
+                    size={14}
+                    color={check.ok ? NEON_GREEN : Colors.dark.red}
+                  />
+                  <Text style={styles.autonomyCheckLabel}>{check.label}</Text>
+                  <Text style={[styles.autonomyCheckDetail, { color: check.ok ? Colors.dark.textMuted : Colors.dark.red }]}>
+                    {check.detail}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {autonomy.authUrl ? (
+              <Pressable
+                onPress={async () => {
+                  try {
+                    const { Linking } = require("react-native");
+                    await Linking.openURL(autonomy.authUrl);
+                  } catch {}
+                }}
+                style={({ pressed }) => [styles.autonomyAuthBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="log-in" size={14} color="#000" />
+                <Text style={styles.autonomyAuthBtnText}>Connect Upstox</Text>
+              </Pressable>
+            ) : null}
+            {autonomy.executedCount > 0 && (
+              <View style={styles.autonomyStats}>
+                <Text style={styles.autonomyStatText}>Trades executed today: {autonomy.executedCount}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.autoTradeSection}>
           <View style={styles.autoTradeHeader}>
@@ -953,6 +1035,89 @@ const styles = StyleSheet.create({
   miniChangeText: {
     fontSize: 12,
     fontFamily: "DMSans_600SemiBold",
+  },
+  autonomySection: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: "#0D1117",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#1E2A3A",
+  },
+  autonomyHeader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    marginBottom: 12,
+  },
+  autonomyDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  autonomyTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700" as const,
+    letterSpacing: 1.5,
+    flex: 1,
+  },
+  autonomyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  autonomyBadgeText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    letterSpacing: 1,
+  },
+  autonomyChecks: {
+    gap: 6,
+  },
+  autonomyCheckRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+  },
+  autonomyCheckLabel: {
+    color: "#A0AEC0",
+    fontSize: 12,
+    flex: 1,
+  },
+  autonomyCheckDetail: {
+    fontSize: 11,
+    fontWeight: "500" as const,
+    maxWidth: 140,
+    textAlign: "right" as const,
+  },
+  autonomyAuthBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 6,
+    backgroundColor: "#00D4FF",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  autonomyAuthBtnText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  autonomyStats: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1E2A3A",
+  },
+  autonomyStatText: {
+    color: "#39FF14",
+    fontSize: 12,
+    fontWeight: "600" as const,
   },
   autoTradeSection: {
     marginHorizontal: 20,
