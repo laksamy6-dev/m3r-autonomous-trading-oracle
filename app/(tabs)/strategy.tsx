@@ -350,19 +350,25 @@ function StrategyScreenInner() {
   }, []);
 
   const runEngine = useCallback(async () => {
-    const { chain, isLive } = await fetchLiveOptionChain();
-    setIsLiveData(isLive);
-    const result = runNeuralEngine(chain);
-    setOutput(result);
+    try {
+      const { chain, isLive } = await fetchLiveOptionChain();
+      setIsLiveData(isLive);
+      const result = runNeuralEngine(chain);
+      if (!result || !result.decision) return;
+      setOutput(result);
 
-    const newLines = generateThinkingLines(result);
-    const time = fmtTime();
-    const entries = newLines.map((text) => ({ time, text }));
-
-    setThinking((prev) => {
-      const updated = [...entries, ...prev];
-      return updated.slice(0, 15);
-    });
+      try {
+        const newLines = generateThinkingLines(result);
+        const time = fmtTime();
+        const entries = newLines.map((text) => ({ time, text }));
+        setThinking((prev) => {
+          const updated = [...entries, ...prev];
+          return updated.slice(0, 15);
+        });
+      } catch {}
+    } catch (e) {
+      console.error("[Strategy] Engine error:", e);
+    }
   }, []);
 
   useEffect(() => {
