@@ -64,8 +64,6 @@ const AMBER = "#F5A623";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
-const CORRECT_PIN = "1234";
-const AUTH_PIN_KEY = "lamy_auth_pin";
 
 interface SettingsState {
   telegramNotifications: boolean;
@@ -137,8 +135,14 @@ export default function SettingsScreen() {
       if (stored) {
         setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       }
-      const storedPin = await AsyncStorage.getItem(AUTH_PIN_KEY);
-      if (storedPin) setSavedPin(storedPin);
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/auth/pin`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pin) setSavedPin(data.pin);
+        }
+      } catch {}
     } catch {}
   }
 
@@ -304,7 +308,14 @@ export default function SettingsScreen() {
       return;
     }
     setSavedPin(newPin);
-    await AsyncStorage.setItem(AUTH_PIN_KEY, newPin);
+    try {
+      const baseUrl = getApiUrl();
+      await globalThis.fetch(`${baseUrl}api/auth/change-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPin: savedPin, newPin }),
+      });
+    } catch {}
     setChangePinModal(false);
     setNewPin("");
     setConfirmPin("");
