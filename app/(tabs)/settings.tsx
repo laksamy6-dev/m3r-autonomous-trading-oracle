@@ -65,6 +65,7 @@ const AMBER = "#F5A623";
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
 const CORRECT_PIN = "1234";
+const AUTH_PIN_KEY = "lamy_auth_pin";
 
 interface SettingsState {
   telegramNotifications: boolean;
@@ -136,7 +137,7 @@ export default function SettingsScreen() {
       if (stored) {
         setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       }
-      const storedPin = await AsyncStorage.getItem("lamy_pin");
+      const storedPin = await AsyncStorage.getItem(AUTH_PIN_KEY);
       if (storedPin) setSavedPin(storedPin);
     } catch {}
   }
@@ -303,7 +304,7 @@ export default function SettingsScreen() {
       return;
     }
     setSavedPin(newPin);
-    await AsyncStorage.setItem("lamy_pin", newPin);
+    await AsyncStorage.setItem(AUTH_PIN_KEY, newPin);
     setChangePinModal(false);
     setNewPin("");
     setConfirmPin("");
@@ -416,7 +417,7 @@ export default function SettingsScreen() {
             <Text style={styles.pinButtonText}>Unlock</Text>
           </Pressable>
 
-          <Text style={styles.pinHint}>Default PIN: 1234</Text>
+          <Text style={styles.pinHint}>Enter your Owner PIN</Text>
         </View>
       </View>
     );
