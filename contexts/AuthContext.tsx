@@ -55,7 +55,7 @@ async function getDeviceDetails() {
   };
 }
 
-async function sendLoginEvent(method: "pin" | "visitor" | "failed", language: string) {
+async function sendLoginEvent(method: "pin" | "visitor" | "failed" | "replit", language: string) {
   try {
     const deviceInfo = await getDeviceDetails();
     const baseUrl = getApiUrl();
@@ -71,6 +71,13 @@ async function sendLoginEvent(method: "pin" | "visitor" | "failed", language: st
   } catch {}
 }
 
+interface ReplitUser {
+  userId: string;
+  userName: string;
+  roles: string;
+  profileImage: string | null;
+}
+
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -83,9 +90,11 @@ interface AuthContextValue {
   dismissWelcome: () => void;
   login: (pin: string) => Promise<boolean>;
   loginAsVisitor: () => void;
+  loginWithReplit: () => Promise<boolean>;
   logout: () => void;
   changePin: (oldPin: string, newPin: string) => Promise<boolean>;
   setupPin: (pin: string) => Promise<void>;
+  replitUser: ReplitUser | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -98,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [selectedLanguage, setSelectedLanguage] = useState<"en" | "ta">("en");
   const [showWelcome, setShowWelcome] = useState(false);
   const [serverPin, setServerPin] = useState<string | null>(null);
+  const [replitUser, setReplitUser] = useState<ReplitUser | null>(null);
 
   useEffect(() => {
     checkPin();
@@ -176,6 +186,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sendLoginEvent("visitor", selectedLanguage);
   }
 
+  async function loginWithReplit(): Promise<boolean> {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/auth/replit`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated) {
+          setReplitUser({
+            userId: data.userId,
+            userName: data.userName,
+            roles: data.roles,
+            profileImage: data.profileImage,
+          });
+          setIsVisitor(true);
+          setShowWelcome(true);
+          setIsAuthenticated(true);
+          sendLoginEvent("replit", selectedLanguage);
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   function dismissWelcome() {
     setShowWelcome(false);
   }
@@ -184,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     setIsVisitor(false);
     setShowWelcome(false);
+    setReplitUser(null);
   }
 
   async function changePin(oldPin: string, newPin: string): Promise<boolean> {
@@ -236,11 +273,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dismissWelcome,
       login,
       loginAsVisitor,
+      loginWithReplit,
       logout,
       changePin,
       setupPin,
+      replitUser,
     }),
-    [isAuthenticated, isLoading, hasPin, isVisitor, isOwner, selectedLanguage, showWelcome, serverPin]
+    [isAuthenticated, isLoading, hasPin, isVisitor, isOwner, selectedLanguage, showWelcome, serverPin, replitUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
