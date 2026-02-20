@@ -1,12 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform, Dimensions, PixelRatio } from "react-native";
 import { getApiUrl } from "@/lib/query-client";
 import * as Device from "expo-device";
 import * as Battery from "expo-battery";
 import * as Network from "expo-network";
 
-const AUTH_PIN_KEY = "lamy_auth_pin";
 const DEFAULT_PIN = "1234";
 
 async function getDeviceDetails() {
@@ -99,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isVisitor, setIsVisitor] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<"en" | "ta">("en");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [serverPin, setServerPin] = useState<string | null>(null);
 
   useEffect(() => {
     checkPin();
@@ -106,14 +105,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function checkPin() {
     try {
-      const stored = await AsyncStorage.getItem(AUTH_PIN_KEY);
-      if (stored) {
-        setHasPin(true);
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/auth/pin`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pin) {
+          setServerPin(data.pin);
+          setHasPin(true);
+        } else {
+          await globalThis.fetch(`${baseUrl}api/auth/pin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: DEFAULT_PIN }),
+          });
+          setServerPin(DEFAULT_PIN);
+          setHasPin(true);
+        }
       } else {
-        await AsyncStorage.setItem(AUTH_PIN_KEY, DEFAULT_PIN);
+        setServerPin(DEFAULT_PIN);
         setHasPin(true);
       }
     } catch {
+      setServerPin(DEFAULT_PIN);
       setHasPin(true);
     } finally {
       setIsLoading(false);
@@ -122,9 +135,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(pin: string): Promise<boolean> {
     try {
-      const stored = await AsyncStorage.getItem(AUTH_PIN_KEY);
-      const correctPin = stored || DEFAULT_PIN;
+      const correctPin = serverPin || DEFAULT_PIN;
       if (pin === correctPin) {
+        setIsVisitor(false);
+        setShowWelcome(true);
+        setIsAuthenticated(true);
+        sendLoginEvent("pin", selectedLanguage);
+        return true;
+      }
+      let freshPin = correctPin;
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/auth/pin`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pin) {
+            freshPin = data.pin;
+            setServerPin(freshPin);
+          }
+        }
+      } catch {}
+      if (pin === freshPin) {
         setIsVisitor(false);
         setShowWelcome(true);
         setIsAuthenticated(true);
@@ -157,11 +188,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function changePin(oldPin: string, newPin: string): Promise<boolean> {
     try {
-      const stored = await AsyncStorage.getItem(AUTH_PIN_KEY);
-      const correctPin = stored || DEFAULT_PIN;
-      if (oldPin === correctPin) {
-        await AsyncStorage.setItem(AUTH_PIN_KEY, newPin);
-        return true;
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/auth/change-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPin, newPin }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setServerPin(newPin);
+          return true;
+        }
       }
       return false;
     } catch {
@@ -170,7 +208,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function setupPin(pin: string): Promise<void> {
-    await AsyncStorage.setItem(AUTH_PIN_KEY, pin);
+    try {
+      const baseUrl = getApiUrl();
+      await globalThis.fetch(`${baseUrl}api/auth/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      setServerPin(pin);
+    } catch {}
     setHasPin(true);
     setIsAuthenticated(true);
   }
@@ -194,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePin,
       setupPin,
     }),
-    [isAuthenticated, isLoading, hasPin, isVisitor, isOwner, selectedLanguage, showWelcome]
+    [isAuthenticated, isLoading, hasPin, isVisitor, isOwner, selectedLanguage, showWelcome, serverPin]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

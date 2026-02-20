@@ -1553,6 +1553,85 @@ Based on this data, give me:
   });
 
 
+  async function ensurePinTable(): Promise<boolean> {
+    if (!dbPool) return false;
+    try {
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key VARCHAR(100) PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  let pinTableReady = false;
+
+  app.get("/api/auth/pin", async (_req, res) => {
+    try {
+      if (!dbPool) return res.json({ pin: null });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.json({ pin: null });
+      const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+      if (result.rows.length > 0) {
+        res.json({ pin: result.rows[0].value });
+      } else {
+        res.json({ pin: null });
+      }
+    } catch {
+      res.json({ pin: null });
+    }
+  });
+
+  app.post("/api/auth/pin", async (req, res) => {
+    try {
+      const { pin } = req.body;
+      if (!pin || typeof pin !== "string" || pin.length < 4) {
+        return res.status(400).json({ error: "Invalid PIN" });
+      }
+      if (!dbPool) return res.status(500).json({ error: "Database unavailable" });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.status(500).json({ error: "Database setup failed" });
+      await dbPool.query(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES ('auth_pin', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [pin]
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/auth/change-pin", async (req, res) => {
+    try {
+      const { oldPin, newPin } = req.body;
+      if (!newPin || typeof newPin !== "string" || newPin.length < 4) {
+        return res.status(400).json({ error: "Invalid new PIN" });
+      }
+      if (!dbPool) return res.status(500).json({ error: "Database unavailable" });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.status(500).json({ error: "Database setup failed" });
+      const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+      const currentPin = result.rows.length > 0 ? result.rows[0].value : "1234";
+      if (oldPin !== currentPin) {
+        return res.json({ success: false, error: "Incorrect current PIN" });
+      }
+      await dbPool.query(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES ('auth_pin', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [newPin]
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/login-event", async (req, res) => {
     try {
       const { method, platform, screenWidth, screenHeight, language, deviceModel, osVersion, pixelRatio, networkType, batteryLevel, isCharging, appVersion, sessionId } = req.body;
