@@ -1,6 +1,6 @@
 import VisitorGate from "@/components/VisitorGate";
-const sf = (v: any, d: number = 1): string => (typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '0');
 import React, { useState, useEffect, useCallback, useRef } from "react";
+const sf = (v: any, d: number = 1): string => (typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '0');
 import {
   StyleSheet,
   Text,
@@ -261,6 +261,7 @@ function StrategyScreenInner() {
   const [showBrainModal, setShowBrainModal] = useState(false);
   const trainingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const thinkingCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trainingSessionRef = useRef<TrainingSession | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -298,55 +299,57 @@ function StrategyScreenInner() {
   const startTraining = useCallback(async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const session = createTrainingSession();
+    trainingSessionRef.current = session;
     setTraining(session);
     setIsTraining(true);
 
     trainingRef.current = setInterval(async () => {
-      setTraining((prev) => {
-        if (!prev || prev.status === "COMPLETED") {
-          if (trainingRef.current) clearInterval(trainingRef.current);
-          return prev;
+      const prev = trainingSessionRef.current;
+      if (!prev || prev.status === "COMPLETED") {
+        if (trainingRef.current) clearInterval(trainingRef.current);
+        return;
+      }
+      try {
+        const result = await advanceTraining(prev);
+        trainingSessionRef.current = result.session;
+        setTraining(result.session);
+        setBrain(result.brain);
+        if (result.event) {
+          setEvolutionLog((prevLog) => [result.event!, ...prevLog].slice(0, 20));
         }
-        (async () => {
-          const result = await advanceTraining(prev);
-          setTraining(result.session);
-          setBrain(result.brain);
-          if (result.event) {
-            setEvolutionLog((prevLog) => [result.event!, ...prevLog].slice(0, 20));
-          }
-          if (result.trainingComplete) {
-            setIsTraining(false);
-            if (trainingRef.current) clearInterval(trainingRef.current);
-            try {
-              const baseUrl = getApiUrl();
-              await fetch(`${baseUrl}api/lamy/training/notify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ complete: true, brain: result.brain }),
-              });
-            } catch {}
-            Alert.alert(
-              "LAMY READY",
-              `Training complete! IQ: ${sf(result.brain.iq)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. LAMY is ready for live battle tomorrow!`
-            );
-          }
-          if (result.phaseCompleted && !result.trainingComplete) {
-            try {
-              const baseUrl = getApiUrl();
-              await fetch(`${baseUrl}api/lamy/training/notify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  phase: result.session.phase,
-                  progress: result.session.progress,
-                  brain: result.brain,
-                }),
-              });
-            } catch {}
-          }
-        })();
-        return prev;
-      });
+        if (result.trainingComplete) {
+          setIsTraining(false);
+          if (trainingRef.current) clearInterval(trainingRef.current);
+          try {
+            const baseUrl = getApiUrl();
+            await fetch(`${baseUrl}api/lamy/training/notify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ complete: true, brain: result.brain }),
+            });
+          } catch {}
+          Alert.alert(
+            "LAMY READY",
+            `Training complete! IQ: ${sf(result.brain.iq)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. LAMY is ready for live battle tomorrow!`
+          );
+        }
+        if (result.phaseCompleted && !result.trainingComplete) {
+          try {
+            const baseUrl = getApiUrl();
+            await fetch(`${baseUrl}api/lamy/training/notify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phase: result.session.phase,
+                progress: result.session.progress,
+                brain: result.brain,
+              }),
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("Training tick error:", err);
+      }
     }, 800);
   }, []);
 
