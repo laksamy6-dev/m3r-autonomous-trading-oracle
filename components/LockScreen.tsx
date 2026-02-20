@@ -8,6 +8,8 @@ import {
   Animated,
   Dimensions,
   Image,
+  ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,10 +28,11 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
 
 export default function LockScreen() {
   const insets = useSafeAreaInsets();
-  const { login, loginAsVisitor } = useAuth();
+  const { login, loginAsVisitor, loginWithReplit } = useAuth();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [replitLoading, setReplitLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
@@ -65,6 +68,19 @@ export default function LockScreen() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!showSplash && Platform.OS === "web") {
+      tryAutoReplitLogin();
+    }
+  }, [showSplash]);
+
+  async function tryAutoReplitLogin() {
+    try {
+      const success = await loginWithReplit();
+      if (success) return;
+    } catch {}
+  }
 
   function shake() {
     Animated.sequence([
@@ -103,6 +119,27 @@ export default function LockScreen() {
           setPin("");
           setChecking(false);
         }, 600);
+      }
+    }
+  }
+
+  async function handleReplitLogin() {
+    if (Platform.OS === "web") {
+      setReplitLoading(true);
+      try {
+        const alreadyAuthed = await loginWithReplit();
+        if (alreadyAuthed) return;
+        if (typeof window !== "undefined") {
+          window.addEventListener("focus", async () => {
+            const success = await loginWithReplit();
+            if (!success) {
+              setReplitLoading(false);
+            }
+          }, { once: true });
+          window.open("/__repl/auth", "_self");
+        }
+      } catch {
+        setReplitLoading(false);
       }
     }
   }
@@ -207,13 +244,32 @@ export default function LockScreen() {
         ))}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.visitorBtn, pressed && styles.visitorBtnPressed]}
-        onPress={loginAsVisitor}
-      >
-        <Ionicons name="person-outline" size={18} color={CYAN} />
-        <Text style={styles.visitorBtnText}>Enter as Visitor</Text>
-      </Pressable>
+      <View style={styles.bottomButtons}>
+        <Pressable
+          style={({ pressed }) => [styles.visitorBtn, pressed && styles.visitorBtnPressed]}
+          onPress={loginAsVisitor}
+        >
+          <Ionicons name="person-outline" size={18} color={CYAN} />
+          <Text style={styles.visitorBtnText}>Enter as Visitor</Text>
+        </Pressable>
+
+        {Platform.OS === "web" && (
+          <Pressable
+            style={({ pressed }) => [styles.replitBtn, pressed && styles.replitBtnPressed]}
+            onPress={handleReplitLogin}
+            disabled={replitLoading}
+          >
+            {replitLoading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="logo-github" size={18} color="#FFF" />
+                <Text style={styles.replitBtnText}>Login with Replit</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+      </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 16 }]}>
         <Text style={styles.footerText}>Default PIN: 1234</Text>
@@ -416,12 +472,16 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     color: C.text,
   },
+  bottomButtons: {
+    alignItems: "center",
+    gap: 12,
+    marginTop: 20,
+  },
   visitorBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: 20,
     paddingVertical: 14,
     paddingHorizontal: 28,
     borderRadius: 30,
@@ -436,6 +496,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "DMSans_600SemiBold",
     color: CYAN,
+  },
+  replitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
+    backgroundColor: "#F26207",
+    minWidth: 220,
+  },
+  replitBtnPressed: {
+    backgroundColor: "#D45506",
+  },
+  replitBtnText: {
+    fontSize: 15,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#FFF",
   },
   footer: {
     marginTop: "auto",
