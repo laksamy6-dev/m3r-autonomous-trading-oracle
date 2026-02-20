@@ -1,6 +1,4 @@
-import VisitorGate from "@/components/VisitorGate";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-const sf = (v: any, d: number = 1): string => (typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '0');
 import {
   StyleSheet,
   Text,
@@ -59,6 +57,11 @@ import { generateOptionChain } from "@/lib/options";
 import { fetchLiveOptionChain } from "@/lib/live-market";
 import Colors from "@/constants/colors";
 import BrandHeader from "@/components/BrandHeader";
+import VisitorGate from "@/components/VisitorGate";
+
+function sf(v: any, d: number = 1): string {
+  return typeof v === "number" && isFinite(v) ? v.toFixed(d) : "0";
+}
 
 const C = Colors.dark;
 const CYAN = "#00D4FF";

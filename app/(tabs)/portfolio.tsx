@@ -18,6 +18,7 @@ import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { getApiUrl } from "@/lib/query-client";
 import {
   getFundAccount,
   depositFunds,
@@ -110,6 +111,44 @@ export default function PortfolioScreen() {
 
   const chainRef = useRef(generateOptionChain());
 
+  const checkUpstoxLive = useCallback(async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const statusRes = await globalThis.fetch(`${baseUrl}api/upstox/status`);
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (statusData.configured && statusData.connected && statusData.tokenValid) {
+          setIsLiveData(true);
+          try {
+            const fundRes = await globalThis.fetch(`${baseUrl}api/upstox/fund-balance`, {
+              headers: { Accept: "application/json" },
+            });
+            if (fundRes.ok) {
+              const fundData = await fundRes.json();
+              if (fundData.available_margin != null) {
+                setFundAccount((prev) => prev ? {
+                  ...prev,
+                  availableBalance: fundData.available_margin,
+                  usedMargin: fundData.used_margin || 0,
+                  realizedPnl: fundData.realized_pnl || 0,
+                } : {
+                  totalDeposited: 0,
+                  totalWithdrawn: 0,
+                  availableBalance: fundData.available_margin,
+                  usedMargin: fundData.used_margin || 0,
+                  realizedPnl: fundData.realized_pnl || 0,
+                  totalBrokerage: 0,
+                });
+              }
+            }
+          } catch {}
+          return;
+        }
+      }
+    } catch {}
+    setIsLiveData(false);
+  }, []);
+
   const loadAll = useCallback(async () => {
     const [fa, pos, ord, hist, st] = await Promise.all([
       getFundAccount(),
@@ -123,7 +162,8 @@ export default function PortfolioScreen() {
     setOrders(ord);
     setTradeHistory(hist);
     setStats(st);
-  }, []);
+    await checkUpstoxLive();
+  }, [checkUpstoxLive]);
 
   useFocusEffect(
     useCallback(() => {
