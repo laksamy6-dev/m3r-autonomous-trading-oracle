@@ -6,26 +6,48 @@ const { pipeline } = require("stream/promises");
 
 let metroProcess = null;
 
+function forceKillMetro() {
+  if (metroProcess) {
+    const proc = metroProcess;
+    metroProcess = null;
+    try {
+      if (proc.stdout) proc.stdout.removeAllListeners();
+      if (proc.stderr) proc.stderr.removeAllListeners();
+      proc.removeAllListeners();
+      proc.kill("SIGTERM");
+      setTimeout(() => {
+        try { proc.kill("SIGKILL"); } catch (e) {}
+      }, 2000);
+    } catch (e) {}
+  }
+}
+
 function exitWithError(message) {
   console.error(message);
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  forceKillMetro();
   process.exit(1);
 }
 
 function setupSignalHandlers() {
   const cleanup = () => {
-    if (metroProcess) {
-      console.log("Cleaning up Metro process...");
-      metroProcess.kill();
-    }
+    console.log("Cleaning up Metro process...");
+    forceKillMetro();
     process.exit(0);
   };
 
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
   process.on("SIGHUP", cleanup);
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught exception:", err.message);
+    forceKillMetro();
+    process.exit(1);
+  });
+  process.on("unhandledRejection", (err) => {
+    console.error("Unhandled rejection:", err);
+    forceKillMetro();
+    process.exit(1);
+  });
 }
 
 function stripProtocol(domain) {
@@ -122,6 +144,15 @@ async function startMetro(expoPublicDomain) {
     stdio: ["ignore", "pipe", "pipe"],
     detached: false,
     env,
+  });
+
+  metroProcess.on("error", (err) => {
+    console.error(`Metro process error: ${err.message}`);
+  });
+
+  metroProcess.on("exit", (code, signal) => {
+    console.log(`Metro process exited (code: ${code}, signal: ${signal})`);
+    metroProcess = null;
   });
 
   if (metroProcess.stdout) {
@@ -610,16 +641,19 @@ async function main() {
 
   console.log("Build complete! Deploy to:", baseUrl);
 
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  forceKillMetro();
+  console.log("BUILD_COMPLETE");
   process.exit(0);
 }
 
+setTimeout(() => {
+  console.error("Build safety timeout reached (10 minutes). Forcing exit.");
+  forceKillMetro();
+  process.exit(1);
+}, 600000);
+
 main().catch((error) => {
   console.error("Build failed:", error.message);
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  forceKillMetro();
   process.exit(1);
 });
