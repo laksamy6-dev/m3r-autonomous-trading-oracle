@@ -2572,7 +2572,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     return `TP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   }
 
-  async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any; nearestExpiry?: string }> {
+  async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any; nearestExpiry?: string; liveLotSize?: number }> {
     if (!upstoxAccessToken) return { spot: 0, isLive: false };
     try {
       let nearestExpiry = "";
@@ -2597,7 +2597,12 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (data.status === "success" && data.data?.length > 0) {
         const spotArr = data.data.filter((d: any) => d.underlying_spot_price > 0);
         const spot = spotArr.length > 0 ? spotArr[0].underlying_spot_price : 0;
-        return { spot, isLive: true, chainData: data.data, nearestExpiry };
+        const liveLotSize = data.data[0]?.call_options?.lot_size || data.data[0]?.put_options?.lot_size || 0;
+        if (liveLotSize > 0) {
+          cachedLiveLotSize = liveLotSize;
+          console.log(`[LIVE DATA] Lot size from Upstox: ${liveLotSize}`);
+        }
+        return { spot, isLive: true, chainData: data.data, nearestExpiry, liveLotSize: liveLotSize || cachedLiveLotSize };
       }
     } catch {}
     return { spot: 0, isLive: false };
@@ -2618,6 +2623,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     let isLive = false;
     let chainData: any = null;
     let nearestExpiry = "";
+    let scanLotSize = 0;
 
     const liveData = await fetchLiveSpotAndChain();
     if (liveData.isLive && liveData.spot > 0) {
@@ -2625,7 +2631,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       isLive = true;
       chainData = liveData.chainData;
       nearestExpiry = liveData.nearestExpiry || "";
-      console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}, Expiry: ${nearestExpiry}`);
+      scanLotSize = liveData.liveLotSize || cachedLiveLotSize;
+      console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}, Expiry: ${nearestExpiry}, LotSize: ${scanLotSize}`);
     } else {
       console.log(`[LAMY SCAN] Upstox OFFLINE — Cannot scan without live data`);
       return null;
@@ -2711,7 +2718,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return null;
     }
 
-    const liveLotSize = chainData?.[0]?.call_options?.lot_size || chainData?.[0]?.put_options?.lot_size || 65;
+    const liveLotSize = scanLotSize || chainData?.[0]?.call_options?.lot_size || chainData?.[0]?.put_options?.lot_size || cachedLiveLotSize;
 
     let totalCeVolume = 0, totalPeVolume = 0;
     let ceOIBuildupCount = 0, peOIBuildupCount = 0;
@@ -2934,7 +2941,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return { success: false, error: "Already have an active position or recent order" };
     }
 
-    const lotSize = proposal.lotSize || 65;
+    const lotSize = proposal.lotSize || cachedLiveLotSize || 65;
     const quantity = lotSize;
 
     const upstoxPayload = {
@@ -3240,7 +3247,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 65;
+    const lotSize = getLotSize();
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
     const zeroLossReady = greenCandles >= 2 && netProfit >= 500 && confidence >= 55;
@@ -3253,7 +3260,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       id: generateProposalId(),
       action, confidence, strike, premium,
       target: targetPremium, stopLoss: slPremium,
-      lotSize: 65, potentialProfit, brokerage, netProfit,
+      lotSize, potentialProfit, brokerage, netProfit,
       reasoning: [
         `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal at ${strike}`,
         `Monte Carlo: ${monteCarloWin}% win across 10K paths`,
@@ -3349,17 +3356,19 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const ceLTP = atmOption.call_options?.market_data?.ltp || 0;
     const peLTP = atmOption.put_options?.market_data?.ltp || 0;
 
+    const readyLotSize = liveData.liveLotSize || getLotSize();
     res.json({
       message: "LIVE order test data ready - NOT placing order (dry run)",
       spot,
       atmStrike,
       nearestExpiry,
+      lotSize: readyLotSize,
       ceInstrumentKey: ceKey,
       peInstrumentKey: peKey,
       ceLTP,
       peLTP,
       sampleOrderPayload: {
-        quantity: 65,
+        quantity: readyLotSize,
         product: "I",
         validity: "DAY",
         price: 0,
@@ -3401,6 +3410,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     if (!instrumentKey) return res.status(404).json({ error: "No instrument key found" });
 
+    const execLotSize = liveData.liveLotSize || getLotSize();
     const proposal: TradeProposal = {
       id: generateProposalId(),
       action: action || "BUY_CE",
@@ -3409,10 +3419,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       premium: Math.round(ltp),
       target: Math.round(ltp * 1.3),
       stopLoss: Math.round(ltp * 0.8),
-      lotSize: 65,
-      potentialProfit: Math.round((ltp * 0.3) * 65),
+      lotSize: execLotSize,
+      potentialProfit: Math.round((ltp * 0.3) * execLotSize),
       brokerage: 200,
-      netProfit: Math.round((ltp * 0.3) * 65) - 200,
+      netProfit: Math.round((ltp * 0.3) * execLotSize) - 200,
       reasoning: [`IMMEDIATE execution: ${action} at ATM ${atmStrike}`, `LIVE premium: Rs.${ltp}`, `Instrument: ${instrumentKey}`],
       engineVersion: "v8.0 IMMEDIATE",
       rocketThrust: "HYPERDRIVE",
@@ -3577,6 +3587,7 @@ Provide the full 10-section comprehensive analysis now.`;
   let currentPin = "1234";
   const savedAutoTrade = savedVault.AUTO_TRADE_MODE === "true";
   let autoTradeMode = savedAutoTrade;
+  let cachedLiveLotSize = 0;
   if (savedAutoTrade) {
     console.log("[AUTO-TRADE] Mode restored from vault: ENABLED");
   }
@@ -3611,7 +3622,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
   const LOSS_ALERT_THRESHOLD = 300;
   const MIN_PROFIT_TARGET = 500;
-  const LOT_SIZE = 65;
+  function getLotSize(): number { return cachedLiveLotSize || 65; }
 
   function calculatePositionATR(history: number[]): number {
     if (history.length < 3) return 0;
@@ -3663,7 +3674,7 @@ Provide the full 10-section comprehensive analysis now.`;
         console.error(`[LIVE POSITION] Failed to fetch price for ${pos.id}:`, e);
         continue;
       }
-      pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
+      pos.pnl = parseFloat(((pos.currentPremium - pos.entryPremium) * pos.lots * getLotSize()).toFixed(2));
       pos.pnlPercent = parseFloat((((pos.currentPremium - pos.entryPremium) / pos.entryPremium) * 100).toFixed(2));
 
       pos.premiumHistory.push(pos.currentPremium);
@@ -3700,7 +3711,7 @@ Provide the full 10-section comprehensive analysis now.`;
       if (pos.pnl >= MIN_PROFIT_TARGET) {
         const recentPrices = pos.premiumHistory.slice(-5);
         const isDropping = recentPrices.length >= 3 && recentPrices[recentPrices.length - 1] < recentPrices[recentPrices.length - 2] && recentPrices[recentPrices.length - 2] < recentPrices[recentPrices.length - 3];
-        const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * LOT_SIZE;
+        const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * getLotSize();
         const droppedFromPeak = peakPnl > 0 ? ((peakPnl - pos.pnl) / peakPnl) * 100 : 0;
         
         if (isDropping || droppedFromPeak > 30) {
@@ -3711,7 +3722,7 @@ Provide the full 10-section comprehensive analysis now.`;
         }
       }
 
-      const targetPnl = (pos.target - pos.entryPremium) * pos.lots * LOT_SIZE;
+      const targetPnl = (pos.target - pos.entryPremium) * pos.lots * getLotSize();
       if (!shouldExit && targetPnl > 0 && pos.pnl >= targetPnl * 0.8) {
         shouldExit = true;
         exitReason = `TARGET_REACHED (P&L: Rs.${pos.pnl.toFixed(0)}, Target: Rs.${targetPnl.toFixed(0)})`;
@@ -3735,13 +3746,13 @@ Provide the full 10-section comprehensive analysis now.`;
         pos.exitTime = new Date().toISOString();
         pos.exitReason = exitReason;
         pos.status = exitStatus;
-        pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * LOT_SIZE).toFixed(2));
+        pos.pnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * getLotSize()).toFixed(2));
         console.log(`[LAMY EXIT] Position ${pos.id} ${exitStatus} at Rs.${pos.currentPremium}, P&L: Rs.${pos.pnl}`);
 
         if (upstoxAccessToken && pos.instrumentKey) {
           try {
             const sellPayload = {
-              quantity: pos.lots * LOT_SIZE,
+              quantity: pos.lots * getLotSize(),
               product: "I",
               validity: "DAY",
               price: 0,
@@ -3978,9 +3989,8 @@ Provide the full 10-section comprehensive analysis now.`;
     let resolvedInstrumentKey = reqInstrumentKey || "";
 
     try {
-      const lotSize = 65;
-      const quantity = Number(lots || 1) * lotSize;
-
+      let lotSize = getLotSize();
+      let quantity = Number(lots || 1) * lotSize;
       let instrumentKey = reqInstrumentKey;
       if (!instrumentKey) {
         const chainRes = await globalThis.fetch(
@@ -3992,6 +4002,8 @@ Provide the full 10-section comprehensive analysis now.`;
           const match = chainData.data.find((item: any) => item.strike_price === Number(strike));
           if (match) {
             instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+            const liveLot = match.call_options?.market_data?.lot_size || match.put_options?.market_data?.lot_size;
+            if (liveLot && liveLot > 0) { lotSize = liveLot; cachedLiveLotSize = liveLot; quantity = Number(lots || 1) * lotSize; }
           }
         }
         if (!instrumentKey) {
@@ -4112,14 +4124,14 @@ Provide the full 10-section comprehensive analysis now.`;
       : reason === "KISS_PATTERN_PROFIT" ? "KISS_PROFIT"
       : "EXITED";
 
-    const lotSize = LOT_SIZE;
+    const lotSize = getLotSize();
     const finalPnl = parseFloat(((pos.exitPremium - pos.entryPremium) * pos.lots * lotSize).toFixed(2));
     pos.pnl = finalPnl;
 
     if (upstoxAccessToken && pos.instrumentKey) {
       try {
         const sellPayload = {
-          quantity: pos.lots * LOT_SIZE,
+          quantity: pos.lots * getLotSize(),
           product: "I",
           validity: "DAY",
           price: 0,
@@ -4221,8 +4233,8 @@ Provide the full 10-section comprehensive analysis now.`;
     const orderAction = (action || "BUY") as "BUY" | "SELL";
 
     try {
-      const lotSize = 65;
-      const quantity = Number(lots) * lotSize;
+      let lotSize = getLotSize();
+      let quantity = Number(lots) * lotSize;
 
       let instrumentKey = reqInstrumentKey;
       if (!instrumentKey) {
@@ -4235,6 +4247,8 @@ Provide the full 10-section comprehensive analysis now.`;
           const match = chainData.data.find((item: any) => item.strike_price === Number(strike));
           if (match) {
             instrumentKey = type === "CE" ? match.call_options?.instrument_key : match.put_options?.instrument_key;
+            const liveLot = match.call_options?.market_data?.lot_size || match.put_options?.market_data?.lot_size;
+            if (liveLot && liveLot > 0) { lotSize = liveLot; cachedLiveLotSize = liveLot; quantity = Number(lots) * lotSize; }
           }
         }
         if (!instrumentKey) {
