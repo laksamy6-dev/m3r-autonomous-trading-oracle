@@ -123,6 +123,7 @@ export default function SettingsScreen() {
   const [quickToken, setQuickToken] = useState("");
   const [quickTokenSaving, setQuickTokenSaving] = useState(false);
   const [quickTokenResult, setQuickTokenResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -160,9 +161,13 @@ export default function SettingsScreen() {
         globalThis.fetch(`${baseUrl}api/telegram/status`),
         globalThis.fetch(`${baseUrl}api/upstox/status`),
       ]);
-      setTelegramStatus(await tgRes.json());
-      setUpstoxStatus(await upRes.json());
-    } catch {}
+      if (tgRes.ok) setTelegramStatus(await tgRes.json());
+      if (upRes.ok) setUpstoxStatus(await upRes.json());
+      setNetworkError(false);
+    } catch {
+      setNetworkError(true);
+      setTimeout(() => checkStatuses(), 5000);
+    }
   }
 
   async function fetchLoginEvents() {
@@ -178,7 +183,7 @@ export default function SettingsScreen() {
     }
   }
 
-  async function fetchVaultKeys() {
+  async function fetchVaultKeys(retries = 2) {
     setVaultLoading(true);
     try {
       const baseUrl = getApiUrl();
@@ -186,8 +191,16 @@ export default function SettingsScreen() {
       if (res.ok) {
         const data = await res.json();
         setVaultKeys(data.keys || []);
+        setNetworkError(false);
+      } else if (retries > 0) {
+        setTimeout(() => fetchVaultKeys(retries - 1), 2000);
       }
-    } catch {} finally {
+    } catch {
+      setNetworkError(true);
+      if (retries > 0) {
+        setTimeout(() => fetchVaultKeys(retries - 1), 3000);
+      }
+    } finally {
       setVaultLoading(false);
     }
   }
@@ -227,7 +240,8 @@ export default function SettingsScreen() {
         setQuickTokenResult({ success: false, message: "Failed to save token. Try again." });
       }
     } catch {
-      setQuickTokenResult({ success: false, message: "Network error. Check connection." });
+      setNetworkError(true);
+      setQuickTokenResult({ success: false, message: "Network error. Tap the retry banner above, then try again." });
     } finally {
       setQuickTokenSaving(false);
     }
@@ -462,6 +476,19 @@ export default function SettingsScreen() {
             <Ionicons name="lock-open" size={18} color={CYAN} />
           </Pressable>
         </View>
+
+        {networkError && (
+          <Pressable
+            onPress={() => { setNetworkError(false); checkStatuses(); fetchVaultKeys(); }}
+            style={{ backgroundColor: RED_ALERT + "20", borderRadius: 8, padding: 10, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+          >
+            <Ionicons name="warning" size={16} color={RED_ALERT} />
+            <Text style={{ fontSize: 12, fontFamily: "DMSans_600SemiBold", color: RED_ALERT, flex: 1 }}>
+              Network error. Tap to retry.
+            </Text>
+            <Ionicons name="refresh" size={16} color={RED_ALERT} />
+          </Pressable>
+        )}
 
         <View style={[styles.section, { borderWidth: 1, borderColor: upstoxStatus?.connected ? NEON_GREEN + "40" : Colors.dark.gold + "60", borderRadius: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
