@@ -46,6 +46,80 @@ import { initTelegramEngine, triggerMarketAnalysis, triggerBrainReport, triggerT
 
 const VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
 
+const vaultDbPool = process.env.DATABASE_URL
+  ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 3 })
+  : null;
+
+async function initVaultDb() {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query(`
+      CREATE TABLE IF NOT EXISTS vault_data (
+        key_id TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("[VAULT DB] vault_data table ready");
+  } catch (e: any) {
+    console.error("[VAULT DB] Init failed:", e.message);
+  }
+}
+
+async function loadVaultFromDb(): Promise<Record<string, string>> {
+  if (!vaultDbPool) return {};
+  try {
+    const result = await vaultDbPool.query("SELECT key_id, value FROM vault_data");
+    const data: Record<string, string> = {};
+    for (const row of result.rows) {
+      data[row.key_id] = row.value;
+    }
+    if (Object.keys(data).length > 0) {
+      console.log("[VAULT DB] Loaded", Object.keys(data).length, "keys from database");
+    }
+    return data;
+  } catch (e: any) {
+    console.error("[VAULT DB] Load failed:", e.message);
+    return {};
+  }
+}
+
+async function saveVaultKeyToDb(keyId: string, value: string) {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query(
+      `INSERT INTO vault_data (key_id, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key_id) DO UPDATE SET value = $2, updated_at = NOW()`,
+      [keyId, value]
+    );
+  } catch (e: any) {
+    console.error("[VAULT DB] Save key failed:", e.message);
+  }
+}
+
+async function deleteVaultKeyFromDb(keyId: string) {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query("DELETE FROM vault_data WHERE key_id = $1", [keyId]);
+  } catch (e: any) {
+    console.error("[VAULT DB] Delete key failed:", e.message);
+  }
+}
+
+async function syncVaultToDb(data: Record<string, string>) {
+  if (!vaultDbPool) return;
+  try {
+    for (const [key, val] of Object.entries(data)) {
+      if (val) {
+        await saveVaultKeyToDb(key, val);
+      }
+    }
+    console.log("[VAULT DB] Synced", Object.keys(data).length, "keys to database");
+  } catch (e: any) {
+    console.error("[VAULT DB] Sync failed:", e.message);
+  }
+}
+
 function loadVaultFromFile(): Record<string, string> {
   try {
     if (fs.existsSync(VAULT_FILE_PATH)) {
@@ -101,6 +175,30 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
     console.log("[VAULT] Auto-synced environment secrets to vault file");
   }
 }
+
+function applyVaultToRuntime(data: Record<string, string>) {
+  if (data.UPSTOX_API_KEY) upstoxApiKey = data.UPSTOX_API_KEY;
+  if (data.UPSTOX_SECRET_KEY) upstoxApiSecret = data.UPSTOX_SECRET_KEY;
+  if (data.UPSTOX_ACCESS_TOKEN) upstoxAccessToken = data.UPSTOX_ACCESS_TOKEN;
+  if (data.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = data.TELEGRAM_BOT_TOKEN;
+  if (data.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = data.TELEGRAM_CHAT_ID;
+  if (data.GEMINI_API_KEY) process.env.GEMINI_API_KEY = data.GEMINI_API_KEY;
+}
+
+(async () => {
+  await initVaultDb();
+  const dbVault = await loadVaultFromDb();
+  if (Object.keys(dbVault).length > 0) {
+    applyVaultToRuntime(dbVault);
+    const mergedVault = { ...savedVault, ...dbVault };
+    saveVaultToFile(mergedVault);
+    console.log("[VAULT] DB vault merged with file vault — runtime updated");
+  }
+  const currentVault = loadVaultFromFile();
+  if (Object.keys(currentVault).length > 0) {
+    await syncVaultToDb(currentVault);
+  }
+})();
 
 interface TradeProposal {
   id: string;
@@ -1985,12 +2083,14 @@ Based on this data, give me:
     const currentVault = loadVaultFromFile();
     if (trimmedValue) {
       currentVault[keyId] = trimmedValue;
+      saveVaultKeyToDb(keyId, trimmedValue);
     } else {
       delete currentVault[keyId];
+      deleteVaultKeyFromDb(keyId);
     }
     saveVaultToFile(currentVault);
 
-    console.log(`[VAULT] Key ${keyId} updated by user (saved to disk)`);
+    console.log(`[VAULT] Key ${keyId} updated by user (saved to disk + database)`);
 
     if (keyId === "UPSTOX_ACCESS_TOKEN" && trimmedValue) {
       checkUpstoxTokenHealth().then((health) => {
@@ -2045,8 +2145,9 @@ Based on this data, give me:
     const currentVault = loadVaultFromFile();
     delete currentVault[keyId];
     saveVaultToFile(currentVault);
+    deleteVaultKeyFromDb(keyId);
 
-    console.log(`[VAULT] Key ${keyId} deleted by user (removed from disk)`);
+    console.log(`[VAULT] Key ${keyId} deleted by user (removed from disk + database)`);
     res.json({ success: true, keyId, deleted: true });
   });
 
