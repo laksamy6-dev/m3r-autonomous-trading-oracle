@@ -3,205 +3,391 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList,
-  Pressable,
-  Alert,
+  ScrollView,
   Platform,
   RefreshControl,
-  TextInput,
+  Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import Colors from "@/constants/colors";
-import { WatchlistItem, Stock } from "@/lib/types";
-import { getWatchlist, addToWatchlist, removeFromWatchlist } from "@/lib/storage";
-import { getStockBySymbol, searchStocks } from "@/lib/stocks";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import BrandHeader from "@/components/BrandHeader";
+import { getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface WatchlistStockData extends WatchlistItem {
-  stock: Stock | undefined;
+interface LoginEvent {
+  id: string;
+  method: "pin" | "visitor" | "failed";
+  timestamp: string;
+  ip: string;
+  userAgent: string;
+  platform: string;
+  screenWidth: number;
+  screenHeight: number;
+  language: string;
+  city: string;
+  region: string;
+  country: string;
+  timezone: string;
+  lat: number;
+  lon: number;
+  isp: string;
+  deviceModel: string;
+  osVersion: string;
+  pixelRatio: number;
+  networkType: string;
+  batteryLevel: number;
+  isCharging: boolean;
+  appVersion: string;
+  sessionId: string;
 }
 
-export default function WatchlistScreen() {
+interface LoginStats {
+  totalLogins: number;
+  ownerLogins: number;
+  visitorLogins: number;
+  failedLogins: number;
+  uniqueIPs: number;
+  uniqueDevices: number;
+  countries: string[];
+}
+
+const CYAN = "#00F3FF";
+const NEON_GREEN = "#39FF14";
+const RED = "#FF3B30";
+const AMBER = "#F59E0B";
+const BG = "#050508";
+const CARD_BG = "rgba(10,20,30,0.85)";
+const CARD_BORDER = "rgba(0,243,255,0.15)";
+
+const PERMISSIONS_LIST = [
+  { key: "camera", label: "Camera", icon: "camera" as const },
+  { key: "microphone", label: "Microphone", icon: "mic" as const },
+  { key: "fileAccess", label: "File Access", icon: "folder-open" as const },
+  { key: "browsingHistory", label: "Browsing History", icon: "globe" as const },
+  { key: "deviceInfo", label: "Device Info", icon: "phone-portrait" as const },
+  { key: "location", label: "Location", icon: "location" as const },
+  { key: "network", label: "Network", icon: "wifi" as const },
+  { key: "battery", label: "Battery", icon: "battery-half" as const },
+];
+
+type FilterType = "all" | "pin" | "visitor" | "failed";
+
+function formatTimestamp(ts: string): string {
+  try {
+    const d = new Date(ts);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    let relative = "";
+    if (diffMins < 1) relative = "Just now";
+    else if (diffMins < 60) relative = `${diffMins}m ago`;
+    else if (diffHours < 24) relative = `${diffHours}h ago`;
+    else if (diffDays < 7) relative = `${diffDays}d ago`;
+    else relative = d.toLocaleDateString();
+
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const date = d.toLocaleDateString([], { month: "short", day: "numeric" });
+    return `${relative}  |  ${date}, ${time}`;
+  } catch {
+    return ts;
+  }
+}
+
+function getMethodBadge(method: string) {
+  switch (method) {
+    case "pin":
+      return { label: "PIN", color: NEON_GREEN, bg: NEON_GREEN + "20" };
+    case "visitor":
+      return { label: "VISITOR", color: AMBER, bg: AMBER + "20" };
+    case "failed":
+      return { label: "FAILED", color: RED, bg: RED + "20" };
+    default:
+      return { label: method.toUpperCase(), color: CYAN, bg: CYAN + "20" };
+  }
+}
+
+export default function SecurityTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const [watchlist, setWatchlist] = useState<WatchlistStockData[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Stock[]>([]);
-
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webBottomInset = Platform.OS === "web" ? 34 : 0;
+  const { isVisitor } = useAuth();
 
-  const loadWatchlist = useCallback(async () => {
-    const items = await getWatchlist();
-    const withStocks = items.map((item) => ({
-      ...item,
-      stock: getStockBySymbol(item.symbol),
-    }));
-    setWatchlist(withStocks);
+  const [events, setEvents] = useState<LoginEvent[]>([]);
+  const [stats, setStats] = useState<LoginStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+
+  const loadData = useCallback(async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await globalThis.fetch(`${baseUrl}api/login-events`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data.events || []);
+        setStats(data.stats || null);
+      }
+    } catch {}
+
+    try {
+      const consent = await AsyncStorage.getItem("m3r_privacy_consent_accepted");
+      if (consent) {
+        const parsed = JSON.parse(consent);
+        setPermissions(typeof parsed === "object" && parsed !== null ? parsed : {});
+      }
+    } catch {}
+
+    setLoading(false);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadWatchlist();
-      const interval = setInterval(loadWatchlist, 10000);
-      return () => clearInterval(interval);
-    }, [loadWatchlist])
+      loadData();
+    }, [loadData])
   );
-
-  const handleRemove = async (symbol: string) => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert("Remove from Watchlist", `Remove ${symbol}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          await removeFromWatchlist(symbol);
-          loadWatchlist();
-        },
-      },
-    ]);
-  };
-
-  const handleAdd = async (symbol: string) => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await addToWatchlist(symbol);
-    setShowAdd(false);
-    setSearchQuery("");
-    setSearchResults([]);
-    loadWatchlist();
-  };
-
-  const handleSearch = (text: string) => {
-    setSearchQuery(text);
-    if (text.trim().length > 0) {
-      const results = searchStocks(text).filter(
-        (s) => !watchlist.some((w) => w.symbol === s.symbol)
-      );
-      setSearchResults(results.slice(0, 5));
-    } else {
-      setSearchResults([]);
-    }
-  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadWatchlist();
+    await loadData();
     setRefreshing(false);
-  }, [loadWatchlist]);
+  }, [loadData]);
 
-  const renderItem = ({ item }: { item: WatchlistStockData }) => {
-    const stock = item.stock;
-    if (!stock) return null;
-    const isPositive = stock.change >= 0;
+  const filteredEvents = events.filter((e) => {
+    if (filter === "all") return true;
+    return e.method === filter;
+  });
 
+  if (isVisitor) {
     return (
-      <Pressable
-        style={({ pressed }) => [styles.stockCard, pressed && { opacity: 0.8 }]}
-        onPress={() => router.push({ pathname: "/stock/[symbol]", params: { symbol: stock.symbol } })}
-        onLongPress={() => handleRemove(stock.symbol)}
-      >
-        <View style={styles.stockLeft}>
-          <View style={[styles.sectorDot, { backgroundColor: isPositive ? Colors.dark.green : Colors.dark.red }]} />
-          <View style={styles.stockTextInfo}>
-            <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-            <Text style={styles.stockName} numberOfLines={1}>{stock.name}</Text>
-          </View>
+      <View style={styles.container}>
+        <View style={{ paddingTop: insets.top + webTopInset }}>
+          <BrandHeader />
         </View>
-        <View style={styles.stockRight}>
-          <Text style={styles.stockPrice}>
-            {stock.price.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+        <View style={styles.accessDenied}>
+          <View style={styles.accessDeniedIcon}>
+            <Ionicons name="shield" size={48} color={RED} />
+          </View>
+          <Text style={styles.accessDeniedTitle}>Access Denied</Text>
+          <Text style={styles.accessDeniedSub}>
+            Security Tracker is available only for the owner. Login with your PIN to access this page.
           </Text>
-          <View style={[styles.changePill, { backgroundColor: isPositive ? Colors.dark.greenBg : Colors.dark.redBg }]}>
-            <Ionicons
-              name={isPositive ? "caret-up" : "caret-down"}
-              size={10}
-              color={isPositive ? Colors.dark.green : Colors.dark.red}
-            />
-            <Text style={[styles.changeText, { color: isPositive ? Colors.dark.green : Colors.dark.red }]}>
-              {Math.abs(stock.changePercent).toFixed(2)}%
-            </Text>
-          </View>
         </View>
-      </Pressable>
+      </View>
     );
-  };
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={{ paddingTop: insets.top + webTopInset }}>
+          <BrandHeader />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={CYAN} />
+          <Text style={styles.loadingText}>Loading Security Data...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={{ paddingTop: insets.top + webTopInset }}>
         <BrandHeader />
       </View>
-      <View style={[styles.header, { paddingTop: 8 }]}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Watchlist</Text>
-          <Pressable
-            style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              setShowAdd(!showAdd);
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Ionicons name={showAdd ? "close" : "add"} size={24} color={Colors.dark.text} />
-          </Pressable>
-        </View>
-        <Text style={styles.headerSubtitle}>{watchlist.length} stocks tracked</Text>
 
-        {showAdd && (
-          <View style={styles.addContainer}>
-            <View style={styles.searchRow}>
-              <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search stocks to add..."
-                placeholderTextColor={Colors.dark.textMuted}
-                value={searchQuery}
-                onChangeText={handleSearch}
-                autoFocus
-              />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom + webBottomInset + 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={CYAN} />
+        }
+      >
+        <View style={styles.headerSection}>
+          <View style={styles.headerRow}>
+            <Ionicons name="shield-checkmark" size={22} color={CYAN} />
+            <Text style={styles.headerTitle}>Security Tracker</Text>
+          </View>
+          <Text style={styles.headerSub}>Monitor all login activity and permissions</Text>
+        </View>
+
+        {stats && (
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.totalLogins}</Text>
+              <Text style={styles.statLabel}>Total Logins</Text>
             </View>
-            {searchResults.map((stock) => (
-              <Pressable
-                key={stock.symbol}
-                style={({ pressed }) => [styles.addItem, pressed && { backgroundColor: Colors.dark.surfaceElevated }]}
-                onPress={() => handleAdd(stock.symbol)}
-              >
-                <View>
-                  <Text style={styles.addItemSymbol}>{stock.symbol}</Text>
-                  <Text style={styles.addItemName}>{stock.name}</Text>
-                </View>
-                <Ionicons name="add-circle" size={24} color={Colors.dark.green} />
-              </Pressable>
-            ))}
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: NEON_GREEN }]}>{stats.ownerLogins}</Text>
+              <Text style={styles.statLabel}>Owner</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: AMBER }]}>{stats.visitorLogins}</Text>
+              <Text style={styles.statLabel}>Visitor</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: RED }]}>{stats.failedLogins}</Text>
+              <Text style={styles.statLabel}>Failed</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: CYAN }]}>{stats.uniqueIPs}</Text>
+              <Text style={styles.statLabel}>Unique IPs</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: CYAN }]}>{stats.uniqueDevices}</Text>
+              <Text style={styles.statLabel}>Devices</Text>
+            </View>
           </View>
         )}
-      </View>
 
-      <FlatList
-        data={watchlist}
-        keyExtractor={(item) => item.symbol}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        contentInsetAdjustmentBehavior="automatic"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.accent} />
-        }
-        ListEmptyComponent={
+        <View style={styles.filterRow}>
+          {(["all", "pin", "visitor", "failed"] as FilterType[]).map((f) => {
+            const active = filter === f;
+            const labelMap: Record<FilterType, string> = { all: "ALL", pin: "Owner", visitor: "Visitor", failed: "Failed" };
+            const colorMap: Record<FilterType, string> = { all: CYAN, pin: NEON_GREEN, visitor: AMBER, failed: RED };
+            return (
+              <Pressable
+                key={f}
+                onPress={() => setFilter(f)}
+                style={[
+                  styles.filterBtn,
+                  active && { backgroundColor: colorMap[f] + "25", borderColor: colorMap[f] },
+                ]}
+              >
+                <Text style={[styles.filterBtnText, active && { color: colorMap[f] }]}>
+                  {labelMap[f]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Ionicons name="list" size={16} color={CYAN} />
+          <Text style={styles.sectionTitle}>Login Events ({filteredEvents.length})</Text>
+        </View>
+
+        {filteredEvents.length === 0 ? (
           <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="star-outline" size={40} color={Colors.dark.textMuted} />
-            </View>
-            <Text style={styles.emptyTitle}>No stocks in watchlist</Text>
-            <Text style={styles.emptySubtitle}>
-              Tap the + button above to start tracking your favorite stocks
-            </Text>
+            <Ionicons name="shield-outline" size={36} color="#333" />
+            <Text style={styles.emptyText}>No events found</Text>
           </View>
-        }
-        scrollEnabled={watchlist.length > 0}
-      />
+        ) : (
+          filteredEvents.map((event) => {
+            const badge = getMethodBadge(event.method);
+            return (
+              <View key={event.id} style={styles.eventCard}>
+                <View style={styles.eventHeader}>
+                  <View style={[styles.methodBadge, { backgroundColor: badge.bg, borderColor: badge.color + "50" }]}>
+                    <Text style={[styles.methodBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                  </View>
+                  <Text style={styles.eventTime}>{formatTimestamp(event.timestamp)}</Text>
+                </View>
+
+                <View style={styles.eventRow}>
+                  <Ionicons name="globe-outline" size={13} color="#888" />
+                  <Text style={styles.eventLabel}>IP:</Text>
+                  <Text style={styles.eventValue}>{event.ip || "Unknown"}</Text>
+                </View>
+
+                {(event.city || event.country) && (
+                  <View style={styles.eventRow}>
+                    <Ionicons name="location-outline" size={13} color="#888" />
+                    <Text style={styles.eventLabel}>Location:</Text>
+                    <Text style={styles.eventValue}>
+                      {[event.city, event.region, event.country].filter(Boolean).join(", ")}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.eventRow}>
+                  <Ionicons name="phone-portrait-outline" size={13} color="#888" />
+                  <Text style={styles.eventLabel}>Device:</Text>
+                  <Text style={styles.eventValue}>
+                    {event.deviceModel || "Unknown"} | {event.osVersion || event.platform}
+                  </Text>
+                </View>
+
+                <View style={styles.eventRow}>
+                  <Ionicons name="resize-outline" size={13} color="#888" />
+                  <Text style={styles.eventLabel}>Screen:</Text>
+                  <Text style={styles.eventValue}>
+                    {event.screenWidth}x{event.screenHeight} @{event.pixelRatio}x
+                  </Text>
+                </View>
+
+                <View style={styles.eventRow}>
+                  <Ionicons name="wifi-outline" size={13} color="#888" />
+                  <Text style={styles.eventLabel}>Network:</Text>
+                  <Text style={styles.eventValue}>{event.networkType || "Unknown"}</Text>
+                </View>
+
+                <View style={styles.eventRow}>
+                  <Ionicons
+                    name={event.isCharging ? "battery-charging" : "battery-half"}
+                    size={13}
+                    color={event.isCharging ? NEON_GREEN : "#888"}
+                  />
+                  <Text style={styles.eventLabel}>Battery:</Text>
+                  <Text style={styles.eventValue}>
+                    {event.batteryLevel >= 0 ? `${event.batteryLevel}%` : "N/A"}
+                    {event.isCharging ? " (Charging)" : ""}
+                  </Text>
+                </View>
+
+                {event.userAgent && (
+                  <View style={styles.eventRow}>
+                    <Ionicons name="browsers-outline" size={13} color="#888" />
+                    <Text style={styles.eventLabel}>UA:</Text>
+                    <Text style={styles.eventValueSmall} numberOfLines={1}>
+                      {event.userAgent.length > 60 ? event.userAgent.substring(0, 60) + "..." : event.userAgent}
+                    </Text>
+                  </View>
+                )}
+
+                {event.isp && (
+                  <View style={styles.eventRow}>
+                    <Ionicons name="server-outline" size={13} color="#888" />
+                    <Text style={styles.eventLabel}>ISP:</Text>
+                    <Text style={styles.eventValue}>{event.isp}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+
+        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+          <Ionicons name="key" size={16} color={CYAN} />
+          <Text style={styles.sectionTitle}>Permission Status</Text>
+        </View>
+
+        <View style={styles.permGrid}>
+          {PERMISSIONS_LIST.map((perm) => {
+            const granted = permissions[perm.key] === true || Object.keys(permissions).length > 0;
+            return (
+              <View key={perm.key} style={styles.permCard}>
+                <View style={styles.permIconRow}>
+                  <Ionicons name={perm.icon} size={18} color={granted ? NEON_GREEN : RED} />
+                  <Ionicons
+                    name={granted ? "checkmark-circle" : "close-circle"}
+                    size={14}
+                    color={granted ? NEON_GREEN : RED}
+                  />
+                </View>
+                <Text style={styles.permLabel}>{perm.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -209,163 +395,223 @@ export default function WatchlistScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: BG,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: Colors.dark.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+  scrollView: {
+    flex: 1,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontFamily: "DMSans_700Bold",
-    color: Colors.dark.text,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: 4,
-  },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.surfaceElevated,
-    alignItems: "center",
+  loadingContainer: {
+    flex: 1,
     justifyContent: "center",
-  },
-  addContainer: {
-    marginTop: 12,
-  },
-  searchRow: {
-    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.inputBg,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    height: 44,
-    color: Colors.dark.text,
-    fontFamily: "DMSans_400Regular",
-    fontSize: 15,
-  },
-  addItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
-  },
-  addItemSymbol: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.text,
-  },
-  addItemName: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  stockCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: Colors.dark.card,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-  },
-  stockLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
     gap: 12,
   },
-  sectorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  loadingText: {
+    fontSize: 14,
+    fontFamily: "DMSans_500Medium",
+    color: CYAN,
   },
-  stockTextInfo: {
+  accessDenied: {
     flex: 1,
-  },
-  stockSymbol: {
-    fontSize: 15,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.text,
-  },
-  stockName: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  stockRight: {
-    alignItems: "flex-end",
-  },
-  stockPrice: {
-    fontSize: 15,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.text,
-  },
-  changePill: {
-    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 4,
+    paddingHorizontal: 40,
   },
-  changeText: {
-    fontSize: 12,
-    fontFamily: "DMSans_600SemiBold",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingTop: 60,
-  },
-  emptyIconWrap: {
+  accessDeniedIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.dark.surfaceElevated,
+    backgroundColor: RED + "15",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: "DMSans_600SemiBold",
-    color: Colors.dark.text,
+  accessDeniedTitle: {
+    fontSize: 22,
+    fontFamily: "DMSans_700Bold",
+    color: RED,
+    marginBottom: 8,
   },
-  emptySubtitle: {
+  accessDeniedSub: {
     fontSize: 14,
     fontFamily: "DMSans_400Regular",
-    color: Colors.dark.textSecondary,
+    color: "#888",
     textAlign: "center",
-    marginTop: 8,
-    paddingHorizontal: 40,
     lineHeight: 20,
+  },
+  headerSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
+  },
+  headerSub: {
+    fontSize: 13,
+    fontFamily: "DMSans_400Regular",
+    color: "#888",
+    marginTop: 4,
+    marginLeft: 30,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  statCard: {
+    width: "31%" as any,
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    padding: 12,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 22,
+    fontFamily: "DMSans_700Bold",
+    color: "#fff",
+  },
+  statLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans_500Medium",
+    color: "#888",
+    marginTop: 4,
+    textTransform: "uppercase" as const,
+  },
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  filterBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  filterBtnText: {
+    fontSize: 12,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#888",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#fff",
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "DMSans_400Regular",
+    color: "#555",
+  },
+  eventCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    padding: 14,
+  },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  methodBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  methodBadgeText: {
+    fontSize: 11,
+    fontFamily: "DMSans_700Bold",
+    letterSpacing: 0.5,
+  },
+  eventTime: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: "#666",
+  },
+  eventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 5,
+  },
+  eventLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    color: "#666",
+    width: 55,
+  },
+  eventValue: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: "#ccc",
+    flex: 1,
+  },
+  eventValueSmall: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
+    color: "#999",
+    flex: 1,
+  },
+  permGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 20,
+  },
+  permCard: {
+    width: "22.5%" as any,
+    backgroundColor: CARD_BG,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    padding: 10,
+    alignItems: "center",
+  },
+  permIconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 6,
+  },
+  permLabel: {
+    fontSize: 9,
+    fontFamily: "DMSans_500Medium",
+    color: "#aaa",
+    textAlign: "center",
   },
 });

@@ -980,21 +980,21 @@ function evaluateProfitRunner(
     const pnlPercent = ((currentPrem - activePosition.entryPremium) / activePosition.entryPremium) * 100;
     const unrealizedPnl = (currentPrem - activePosition.entryPremium) * activePosition.quantity;
 
-    const shouldPartialBook = pnlPercent >= 30 && activePosition.partialBookedQty === 0;
+    const shouldPartialBook = pnlPercent >= 50 && activePosition.partialBookedQty === 0;
 
-    if (pnlPercent >= 30 && !activePosition.breakEvenStop) {
+    if (pnlPercent >= 40 && !activePosition.breakEvenStop) {
       activePosition.trailingStopLoss = activePosition.entryPremium;
       activePosition.breakEvenStop = true;
     }
 
     if (pnlPercent >= 50) {
-      activePosition.trailingStopLoss = activePosition.entryPremium * 1.2;
+      activePosition.trailingStopLoss = activePosition.entryPremium * 1.1;
     }
     if (pnlPercent >= 80) {
-      activePosition.trailingStopLoss = maxPremiumReached * 0.85;
+      activePosition.trailingStopLoss = maxPremiumReached * 0.88;
     }
     if (pnlPercent >= 100) {
-      activePosition.trailingStopLoss = maxPremiumReached * 0.9;
+      activePosition.trailingStopLoss = maxPremiumReached * 0.92;
     }
 
     const shouldExitFull = currentPrem <= activePosition.trailingStopLoss;
@@ -2298,18 +2298,18 @@ function computeZeroLossStrategy(
   entropy: EntropyAnalysis,
   cognitive: CognitiveAlphaState
 ): ZeroLossStrategy {
-  const BROKERAGE = 200;
-  const MIN_PROFIT = 500;
+  const BROKERAGE = 100;
+  const MIN_PROFIT = 300;
   const MIN_TARGET = BROKERAGE + MIN_PROFIT;
-  const GREEN_CANDLES_NEEDED = 2;
-  const LOSS_ALERT_THRESHOLD = 300;
+  const GREEN_CANDLES_NEEDED = 3;
+  const LOSS_ALERT_THRESHOLD = 800;
 
   const greenCandles = detectGreenCandles(chain.spotPrice);
   const entryConfirmed = greenCandles >= GREEN_CANDLES_NEEDED;
   const reasoning: string[] = [];
 
   const atrValue = calculateATR(recentCandles);
-  const atrMultiplier = 1.5;
+  const atrMultiplier = 2.5;
   const atrStopLoss = Math.round(atrValue * atrMultiplier * 100) / 100;
 
   const premium = decision.premium;
@@ -2355,7 +2355,7 @@ function computeZeroLossStrategy(
   let safetyStatus: ZeroLossStrategy["safetyStatus"];
   if (entropy.isTrapZone) {
     safetyStatus = "DANGER_ZONE";
-  } else if (entryConfirmed && canBookProfit && decision.confidence > 50) {
+  } else if (entryConfirmed && canBookProfit && decision.confidence > 60 && (monteCarlo.ceWinProb > 55 || monteCarlo.peWinProb > 55)) {
     safetyStatus = "SAFE_ENTRY";
   } else if (estimatedPnl > MIN_TARGET) {
     safetyStatus = "PROFIT_ZONE";
@@ -3655,7 +3655,7 @@ export function enterPosition(
     spotAtEntry: spotPrice,
     partialBookedQty: 0,
     partialBookedPnl: 0,
-    trailingStopLoss: premium * 0.75,
+    trailingStopLoss: premium * 0.60,
     breakEvenStop: false,
     status: "RUNNING",
   };

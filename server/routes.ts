@@ -3843,9 +3843,9 @@ Provide the full 10-section comprehensive analysis now.`;
   const activePositions: ActivePosition[] = [];
   let positionSimInterval: ReturnType<typeof setInterval> | null = null;
 
-  const LOSS_ALERT_THRESHOLD = 500;
-  const MIN_PROFIT_TARGET = 500;
-  const MIN_HOLD_SECONDS = 180;
+  const LOSS_ALERT_THRESHOLD = 1000;
+  const MIN_PROFIT_TARGET = 300;
+  const MIN_HOLD_SECONDS = 300;
   function getLotSize(): number { return cachedLiveLotSize || 65; }
 
   function calculatePositionATR(history: number[]): number {
@@ -3908,8 +3908,8 @@ Provide the full 10-section comprehensive analysis now.`;
 
       const atr = calculatePositionATR(pos.premiumHistory);
       if (atr > 0 && pos.premiumHistory.length >= 10) {
-        const dynamicSL = parseFloat((pos.entryPremium - atr * 2.5).toFixed(2));
-        const hardFloor = pos.entryPremium * 0.55;
+        const dynamicSL = parseFloat((pos.entryPremium - atr * 3.5).toFixed(2));
+        const hardFloor = pos.entryPremium * 0.40;
         pos.atrStopLoss = Math.max(dynamicSL, hardFloor);
       }
 
@@ -3943,7 +3943,7 @@ Provide the full 10-section comprehensive analysis now.`;
         const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * getLotSize();
         const droppedFromPeak = peakPnl > 0 ? ((peakPnl - pos.pnl) / peakPnl) * 100 : 0;
 
-        if (isDropping || droppedFromPeak > 40) {
+        if (isDropping || droppedFromPeak > 55) {
           shouldExit = true;
           exitReason = `MIN_PROFIT_BOOK (P&L: Rs.${pos.pnl.toFixed(0)}, Target Rs.${MIN_PROFIT_TARGET} MET, ${isDropping ? "price dropping" : `dropped ${droppedFromPeak.toFixed(0)}% from peak`})`;
           exitStatus = "PROFIT_BOOKED";
@@ -3958,13 +3958,13 @@ Provide the full 10-section comprehensive analysis now.`;
         exitStatus = "PROFIT_BOOKED";
       }
 
-      if (!shouldExit && kiss.shouldBook && pos.pnl > MIN_PROFIT_TARGET * 0.5 && !isInHoldPeriod) {
+      if (!shouldExit && kiss.shouldBook && pos.pnl > MIN_PROFIT_TARGET * 0.8 && !isInHoldPeriod) {
         shouldExit = true;
         exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
         exitStatus = "KISS_PROFIT";
       }
 
-      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
+      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD * 1.5) {
         shouldExit = true;
         exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
         exitStatus = "ATR_STOPPED";

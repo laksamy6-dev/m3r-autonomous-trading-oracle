@@ -39,8 +39,8 @@ function NativeTabLayout() {
         <Label>Portfolio</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="watchlist">
-        <Icon sf={{ default: "star", selected: "star.fill" }} md="star" />
-        <Label>Watchlist</Label>
+        <Icon sf={{ default: "shield.checkmark", selected: "shield.checkmark.fill" }} md="verified_user" />
+        <Label>Tracker</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
@@ -146,9 +146,9 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="watchlist"
         options={{
-          title: "Watchlist",
+          title: "Tracker",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star" size={size - 2} color={color} />
+            <Ionicons name="shield-checkmark" size={size - 2} color={color} />
           ),
         }}
       />
