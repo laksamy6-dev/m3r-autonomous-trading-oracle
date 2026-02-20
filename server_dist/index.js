@@ -5291,6 +5291,48 @@ ${lamyContext}`;
       hasApiKey: !!(process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY)
     });
   });
+  async function ensureLamyChatTable() {
+    if (!dbPool) return false;
+    try {
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS lamy_chat_messages (
+          id SERIAL PRIMARY KEY,
+          role VARCHAR(20) NOT NULL,
+          content TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      return true;
+    } catch (err) {
+      console.error("[LAMY CHAT] Table creation error:", err);
+      return false;
+    }
+  }
+  let lamyChatTableReady = false;
+  app2.get("/api/lamy/chat-history", async (_req, res) => {
+    try {
+      if (!dbPool) return res.json({ messages: [] });
+      if (!lamyChatTableReady) {
+        lamyChatTableReady = await ensureLamyChatTable();
+      }
+      if (!lamyChatTableReady) return res.json({ messages: [] });
+      const result = await dbPool.query(
+        "SELECT id, role, content, created_at FROM lamy_chat_messages ORDER BY created_at ASC"
+      );
+      res.json({
+        messages: result.rows.map((m) => ({
+          id: m.id.toString(),
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          date: new Date(m.created_at).toLocaleDateString("en-IN")
+        }))
+      });
+    } catch (err) {
+      console.error("[LAMY CHAT] History load error:", err);
+      res.json({ messages: [] });
+    }
+  });
   app2.post("/api/m3r/chat", async (req, res) => {
     try {
       const { message } = req.body;
@@ -5307,6 +5349,24 @@ ${lamyContext}`;
       lamyCurrentThought = "Understanding and analyzing Sir's request...";
       addNeuralEvent("interaction", `Sir said: "${message.slice(0, 80)}${message.length > 80 ? "..." : ""}"`, "chat");
       addNeuralEvent("processing", "Activating neural pathways for response generation", "brain");
+      if (m3rChatHistory.length === 0 && dbPool) {
+        try {
+          if (!lamyChatTableReady) lamyChatTableReady = await ensureLamyChatTable();
+          if (lamyChatTableReady) {
+            const dbResult = await dbPool.query(
+              "SELECT role, content FROM lamy_chat_messages ORDER BY created_at DESC LIMIT 20"
+            );
+            const recent = dbResult.rows.reverse();
+            for (const m of recent) {
+              m3rChatHistory.push({
+                role: m.role === "user" ? "user" : "model",
+                parts: [{ text: m.content }]
+              });
+            }
+          }
+        } catch {
+        }
+      }
       const brainContext = `
 [MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
       const slangContext = getSlangContext();
@@ -5348,6 +5408,19 @@ ${lamyContext}`;
       lamyCurrentThought = "Reflecting on conversation with Sir...";
       res.write("data: [DONE]\n\n");
       res.end();
+      if (dbPool) {
+        try {
+          if (!lamyChatTableReady) lamyChatTableReady = await ensureLamyChatTable();
+          if (lamyChatTableReady) {
+            await dbPool.query(
+              "INSERT INTO lamy_chat_messages (role, content) VALUES ($1, $2), ($3, $4)",
+              ["user", message, "assistant", fullText]
+            );
+          }
+        } catch (dbErr) {
+          console.error("[LAMY CHAT] DB save error:", dbErr.message);
+        }
+      }
       const chatMemSummary = `Sir asked: ${message.slice(0, 150)}. LAMY responded about: ${fullText.slice(0, 150)}`;
       saveMemory(chatMemSummary, "conversation", 7, ["chat", "auto_saved"]).catch(() => {
       });

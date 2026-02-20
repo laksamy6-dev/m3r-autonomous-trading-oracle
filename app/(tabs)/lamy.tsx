@@ -205,6 +205,28 @@ export default function LAMYPersonalScreen() {
   }, [fetchNeuralFeed]);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/lamy/chat-history`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp,
+            })));
+            setActiveTab("chat");
+            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 200);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === "mind") {
       setTimeout(() => feedScrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
