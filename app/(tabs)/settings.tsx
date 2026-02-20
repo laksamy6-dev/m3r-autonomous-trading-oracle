@@ -105,7 +105,7 @@ export default function SettingsScreen() {
   const [changePinModal, setChangePinModal] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [savedPin, setSavedPin] = useState(CORRECT_PIN);
+  const [savedPin, setSavedPin] = useState("1234");
   const [autoTradePinModal, setAutoTradePinModal] = useState(false);
   const [autoTradePin, setAutoTradePin] = useState("");
   const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
