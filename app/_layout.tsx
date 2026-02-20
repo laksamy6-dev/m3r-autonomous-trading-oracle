@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LockScreen from "@/components/LockScreen";
 import WelcomeScreen from "@/components/WelcomeScreen";
+import PrivacyConsent, { usePrivacyConsent } from "@/components/PrivacyConsent";
 import {
   useFonts,
   DMSans_400Regular,
@@ -35,13 +36,18 @@ function RootLayoutNav() {
 
 function AuthGate() {
   const { isAuthenticated, isLoading, showWelcome } = useAuth();
+  const { hasConsented, acceptConsent } = usePrivacyConsent();
 
-  if (isLoading) {
+  if (isLoading || hasConsented === null) {
     return (
       <View style={gateStyles.loading}>
         <ActivityIndicator size="large" color="#00D4FF" />
       </View>
     );
+  }
+
+  if (!hasConsented) {
+    return <PrivacyConsent onAccept={acceptConsent} />;
   }
 
   if (!isAuthenticated) {
