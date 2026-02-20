@@ -2290,6 +2290,29 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       res.json({ configured, connected: false, tokenValid: false, mode: "OFFLINE" });
     }
   });
+  app2.get("/api/upstox/fund-balance", async (_req, res) => {
+    if (!upstoxAccessToken) return res.json({ available_margin: 0, used_margin: 0, realized_pnl: 0, error: "Not connected" });
+    try {
+      const fundRes = await globalThis.fetch("https://api.upstox.com/v2/user/get-funds-and-margin?segment=SEC", {
+        headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" }
+      });
+      const fundData = await fundRes.json();
+      if (fundData.status === "success" && fundData.data) {
+        const equity = fundData.data.equity || fundData.data;
+        res.json({
+          available_margin: equity.available_margin || equity.net || 0,
+          used_margin: equity.used_margin || 0,
+          realized_pnl: equity.realized_profit || 0,
+          payin_amount: equity.payin_amount || 0,
+          raw: equity
+        });
+      } else {
+        res.json({ available_margin: 0, used_margin: 0, realized_pnl: 0, error: fundData.message || "Failed" });
+      }
+    } catch (e) {
+      res.json({ available_margin: 0, used_margin: 0, realized_pnl: 0, error: e.message });
+    }
+  });
   app2.post("/api/upstox/refresh-token", (_req, res) => {
     const newToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
     const vault = loadVaultFromFile();
@@ -3350,14 +3373,20 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const oiStrength = Math.min(100, Math.round(oiBuildupStrength / Math.max(1, ceOIBuildupCount + peOIBuildupCount) * 100));
     const monteCarloWin = Math.min(90, Math.max(25, Math.round(pcrStrength * 0.5 + oiStrength * 0.3 + (100 - entropyVal * 200) * 0.2)));
     const brokerage = 200;
-    const targetPremium = Math.round(premium * 1.3);
-    const slPremium = Math.round(premium * 0.8);
+    const targetPremium = Math.round(premium * 1.6);
+    const slPremium = Math.round(premium * 0.65);
     const lotSize = liveLotSize;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
-    const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 500 && confidence >= 60;
-    if (confidence < 55) {
-      console.log(`[LAMY SCAN] Confidence too low: ${confidence}% \u2014 skipping (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
+    const potentialLoss = (premium - slPremium) * lotSize;
+    const riskReward = potentialLoss > 0 ? potentialProfit / potentialLoss : 0;
+    const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 500 && confidence >= 65 && riskReward >= 1.5;
+    if (confidence < 65) {
+      console.log(`[LAMY SCAN] Confidence too low: ${confidence}% \u2014 skipping (need 65%+) (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
+      return null;
+    }
+    if (!zeroLossReady) {
+      console.log(`[LAMY SCAN] Zero-loss criteria NOT met \u2014 skipping (RR: ${riskReward.toFixed(2)}, Net: Rs.${netProfit}, Candles: ${greenCandles}, Entropy: ${entropyLevel})`);
       return null;
     }
     const fusionScore = Math.min(95, Math.round(confidence * 0.4 + monteCarloWin * 0.3 + pcrStrength * 0.3));
@@ -3553,10 +3582,11 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
           premiumHistory: [proposal.premium],
           peakPremium: proposal.premium,
           lowestPremium: proposal.premium,
-          atrStopLoss: proposal.premium * 0.85,
+          atrStopLoss: proposal.premium * 0.6,
           kissPhase: "NONE",
           lossAlerted: false,
-          instrumentKey: proposal.instrumentKey || ""
+          instrumentKey: proposal.instrumentKey || "",
+          entryTimestamp: Date.now()
         };
         activePositions.push(newPosition);
         startPositionMonitoring();
@@ -4145,8 +4175,9 @@ Provide the full 10-section comprehensive analysis now.`;
   }
   const activePositions = [];
   let positionSimInterval = null;
-  const LOSS_ALERT_THRESHOLD = 300;
+  const LOSS_ALERT_THRESHOLD = 500;
   const MIN_PROFIT_TARGET = 500;
+  const MIN_HOLD_SECONDS = 180;
   function getLotSize() {
     return cachedLiveLotSize || 65;
   }
@@ -4202,21 +4233,25 @@ Provide the full 10-section comprehensive analysis now.`;
       if (pos.currentPremium > pos.peakPremium) pos.peakPremium = pos.currentPremium;
       if (pos.currentPremium < pos.lowestPremium) pos.lowestPremium = pos.currentPremium;
       const atr = calculatePositionATR(pos.premiumHistory);
-      if (atr > 0) {
-        pos.atrStopLoss = parseFloat((pos.entryPremium - atr * 1.5).toFixed(2));
+      if (atr > 0 && pos.premiumHistory.length >= 10) {
+        const dynamicSL = parseFloat((pos.entryPremium - atr * 2.5).toFixed(2));
+        const hardFloor = pos.entryPremium * 0.55;
+        pos.atrStopLoss = Math.max(dynamicSL, hardFloor);
       }
       const kiss = detectPositionKissPattern(pos);
       pos.kissPhase = kiss.phase;
+      const holdSeconds = pos.entryTimestamp ? (Date.now() - pos.entryTimestamp) / 1e3 : 9999;
+      const isInHoldPeriod = holdSeconds < MIN_HOLD_SECONDS;
       if (pos.pnl <= -LOSS_ALERT_THRESHOLD && !pos.lossAlerted) {
         pos.lossAlerted = true;
-        console.log(`[ATR ALERT] Position ${pos.id}: Loss Rs.${Math.abs(pos.pnl)} exceeds Rs.${LOSS_ALERT_THRESHOLD} threshold!`);
+        console.log(`[ATR ALERT] Position ${pos.id}: Loss Rs.${Math.abs(pos.pnl)} exceeds Rs.${LOSS_ALERT_THRESHOLD} threshold! Hold: ${holdSeconds.toFixed(0)}s`);
         const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.bot_token;
         const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.chat_id;
         if (tgToken && tgChatId) {
           globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY ALERT* - Position ${pos.type} ${pos.strike} is in LOSS Rs.${Math.abs(pos.pnl).toFixed(0)}! Monitoring closely...`, parse_mode: "Markdown" })
+            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY ALERT* - Position ${pos.type} ${pos.strike} is in LOSS Rs.${Math.abs(pos.pnl).toFixed(0)}! Hold: ${holdSeconds.toFixed(0)}s. Monitoring closely...`, parse_mode: "Markdown" })
           }).catch(() => {
           });
         }
@@ -4224,12 +4259,12 @@ Provide the full 10-section comprehensive analysis now.`;
       let shouldExit = false;
       let exitReason = "";
       let exitStatus = "EXITED";
-      if (pos.pnl >= MIN_PROFIT_TARGET) {
+      if (pos.pnl >= MIN_PROFIT_TARGET && !isInHoldPeriod) {
         const recentPrices = pos.premiumHistory.slice(-5);
         const isDropping = recentPrices.length >= 3 && recentPrices[recentPrices.length - 1] < recentPrices[recentPrices.length - 2] && recentPrices[recentPrices.length - 2] < recentPrices[recentPrices.length - 3];
         const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * getLotSize();
         const droppedFromPeak = peakPnl > 0 ? (peakPnl - pos.pnl) / peakPnl * 100 : 0;
-        if (isDropping || droppedFromPeak > 30) {
+        if (isDropping || droppedFromPeak > 40) {
           shouldExit = true;
           exitReason = `MIN_PROFIT_BOOK (P&L: Rs.${pos.pnl.toFixed(0)}, Target Rs.${MIN_PROFIT_TARGET} MET, ${isDropping ? "price dropping" : `dropped ${droppedFromPeak.toFixed(0)}% from peak`})`;
           exitStatus = "PROFIT_BOOKED";
@@ -4237,19 +4272,24 @@ Provide the full 10-section comprehensive analysis now.`;
         }
       }
       const targetPnl = (pos.target - pos.entryPremium) * pos.lots * getLotSize();
-      if (!shouldExit && targetPnl > 0 && pos.pnl >= targetPnl * 0.8) {
+      if (!shouldExit && targetPnl > 0 && pos.pnl >= targetPnl && !isInHoldPeriod) {
         shouldExit = true;
         exitReason = `TARGET_REACHED (P&L: Rs.${pos.pnl.toFixed(0)}, Target: Rs.${targetPnl.toFixed(0)})`;
         exitStatus = "PROFIT_BOOKED";
       }
-      if (!shouldExit && kiss.shouldBook && pos.pnl > 0) {
+      if (!shouldExit && kiss.shouldBook && pos.pnl > MIN_PROFIT_TARGET * 0.5 && !isInHoldPeriod) {
         shouldExit = true;
         exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
         exitStatus = "KISS_PROFIT";
       }
-      if (!shouldExit && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
+      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
         shouldExit = true;
-        exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss})`;
+        exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
+        exitStatus = "ATR_STOPPED";
+      }
+      if (!shouldExit && !isInHoldPeriod && pos.currentPremium <= pos.stopLoss) {
+        shouldExit = true;
+        exitReason = `HARD_STOP_LOSS (Premium: ${pos.currentPremium} <= SL: ${pos.stopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
         exitStatus = "ATR_STOPPED";
       }
       if (shouldExit) {
@@ -4565,10 +4605,11 @@ LAMY is now hunting for trades!`,
       premiumHistory: [entryPrem],
       peakPremium: entryPrem,
       lowestPremium: entryPrem,
-      atrStopLoss: entryPrem * 0.85,
+      atrStopLoss: entryPrem * 0.6,
       kissPhase: "NONE",
       lossAlerted: false,
-      instrumentKey: resolvedInstrumentKey
+      instrumentKey: resolvedInstrumentKey,
+      entryTimestamp: Date.now()
     };
     activePositions.push(position);
     startPositionMonitoring();
