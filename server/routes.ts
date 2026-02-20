@@ -134,9 +134,17 @@ interface TradeProposal {
   expiry?: string;
   upstoxOrderId?: string;
   upstoxOrderStatus?: string;
+  underlying?: string;
+  underlyingName?: string;
+  spotPrice?: number;
+  scanMode?: "NIFTY" | "STOCK" | "BOTH";
 }
 
 const tradeProposals: TradeProposal[] = [];
+let scanMode: "NIFTY" | "STOCK" | "BOTH" = "BOTH";
+let lastNiftySignalTime = 0;
+let consecutiveNiftySkips = 0;
+const NIFTY_SKIP_THRESHOLD = 3;
 let autoScanActive = false;
 let autoScanInterval: ReturnType<typeof setInterval> | null = null;
 let scanCycleCount = 0;
@@ -2591,6 +2599,29 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     "NESTLEIND": "NSE_EQ|INE239A01024",
   };
 
+  const STOCK_FO_KEY_MAP: Record<string, { foKey: string; lotSize: number; strikeGap: number }> = {
+    "RELIANCE": { foKey: "NSE_FO|RELIANCE", lotSize: 250, strikeGap: 20 },
+    "TCS": { foKey: "NSE_FO|TCS", lotSize: 175, strikeGap: 50 },
+    "HDFCBANK": { foKey: "NSE_FO|HDFCBANK", lotSize: 550, strikeGap: 20 },
+    "INFY": { foKey: "NSE_FO|INFY", lotSize: 300, strikeGap: 25 },
+    "ICICIBANK": { foKey: "NSE_FO|ICICIBANK", lotSize: 700, strikeGap: 15 },
+    "BHARTIARTL": { foKey: "NSE_FO|BHARTIARTL", lotSize: 475, strikeGap: 20 },
+    "SBIN": { foKey: "NSE_FO|SBIN", lotSize: 750, strikeGap: 10 },
+    "ITC": { foKey: "NSE_FO|ITC", lotSize: 1600, strikeGap: 5 },
+    "TATAMOTORS": { foKey: "NSE_FO|TATAMOTORS", lotSize: 575, strikeGap: 10 },
+    "HCLTECH": { foKey: "NSE_FO|HCLTECH", lotSize: 350, strikeGap: 25 },
+    "AXISBANK": { foKey: "NSE_FO|AXISBANK", lotSize: 625, strikeGap: 15 },
+    "SUNPHARMA": { foKey: "NSE_FO|SUNPHARMA", lotSize: 350, strikeGap: 25 },
+    "BAJFINANCE": { foKey: "NSE_FO|BAJFINANCE", lotSize: 125, strikeGap: 100 },
+    "MARUTI": { foKey: "NSE_FO|MARUTI", lotSize: 100, strikeGap: 100 },
+    "TATASTEEL": { foKey: "NSE_FO|TATASTEEL", lotSize: 5500, strikeGap: 2 },
+    "ADANIENT": { foKey: "NSE_FO|ADANIENT", lotSize: 250, strikeGap: 25 },
+    "POWERGRID": { foKey: "NSE_FO|POWERGRID", lotSize: 2700, strikeGap: 5 },
+    "WIPRO": { foKey: "NSE_FO|WIPRO", lotSize: 1500, strikeGap: 5 },
+    "LTIM": { foKey: "NSE_FO|LTIM", lotSize: 150, strikeGap: 50 },
+    "NESTLEIND": { foKey: "NSE_FO|NESTLEIND", lotSize: 200, strikeGap: 25 },
+  };
+
   const INDEX_KEY_MAP: Record<string, string> = {
     "NIFTY 50": "NSE_INDEX|Nifty 50",
     "SENSEX": "BSE_INDEX|SENSEX",
@@ -2822,6 +2853,291 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     return { spot: 0, isLive: false };
   }
 
+  async function scanStockMomentum(): Promise<Array<{
+    symbol: string;
+    name: string;
+    price: number;
+    changePercent: number;
+    momentumScore: number;
+    direction: "BULLISH" | "BEARISH";
+    high: number;
+    low: number;
+    volume: number;
+  }>> {
+    if (!upstoxAccessToken) return [];
+    try {
+      const stockKeys = Object.values(STOCK_ISIN_MAP).map(k => encodeURIComponent(k)).join(",");
+      const stocksRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const stocksData = await stocksRes.json();
+      if (stocksData?.status !== "success" || !stocksData?.data) return [];
+
+      const SYMBOL_ALIAS: Record<string, string> = { "TMPV": "TATAMOTORS" };
+      const results: any[] = [];
+      const addedSymbols = new Set<string>();
+
+      for (const dataKey of Object.keys(stocksData.data)) {
+        const quote = stocksData.data[dataKey];
+        const rawSymbol = dataKey.replace("NSE_EQ:", "");
+        const displaySymbol = SYMBOL_ALIAS[rawSymbol] || rawSymbol;
+        if (addedSymbols.has(displaySymbol) || !STOCK_META[displaySymbol] || !STOCK_FO_KEY_MAP[displaySymbol]) continue;
+        addedSymbols.add(displaySymbol);
+
+        const meta = STOCK_META[displaySymbol];
+        const lastPrice = quote.last_price || 0;
+        const netChange = quote.net_change || 0;
+        const prevClose = lastPrice - netChange;
+        const changePercent = prevClose > 0 ? (netChange / prevClose) * 100 : 0;
+        const absChange = Math.abs(changePercent);
+        const volume = quote.volume || 0;
+        const high = quote.ohlc?.high || lastPrice;
+        const low = quote.ohlc?.low || lastPrice;
+
+        const rangePercent = low > 0 ? ((high - low) / low) * 100 : 0;
+        const near52High = meta.weekHigh52 > 0 ? ((lastPrice / meta.weekHigh52) * 100) : 50;
+        const near52Low = meta.weekLow52 > 0 ? ((lastPrice / meta.weekLow52) * 100 - 100) : 50;
+
+        let momentumScore = 0;
+        momentumScore += Math.min(30, absChange * 10);
+        momentumScore += Math.min(20, rangePercent * 5);
+        if (near52High > 95) momentumScore += 15;
+        if (near52Low < 10) momentumScore += 10;
+        if (volume > 1000000) momentumScore += 10;
+        else if (volume > 500000) momentumScore += 5;
+        if (absChange > 2) momentumScore += 15;
+        else if (absChange > 1) momentumScore += 8;
+
+        const direction: "BULLISH" | "BEARISH" = changePercent >= 0 ? "BULLISH" : "BEARISH";
+
+        results.push({
+          symbol: displaySymbol,
+          name: meta.name,
+          price: lastPrice,
+          changePercent: Math.round(changePercent * 100) / 100,
+          momentumScore: Math.round(momentumScore),
+          direction,
+          high,
+          low,
+          volume,
+        });
+      }
+
+      results.sort((a, b) => b.momentumScore - a.momentumScore);
+      return results.slice(0, 5);
+    } catch (e) {
+      console.error("[STOCK SCANNER] Error scanning stocks:", e);
+      return [];
+    }
+  }
+
+  async function runStockOptionScan(stock: { symbol: string; name: string; price: number; changePercent: number; momentumScore: number; direction: "BULLISH" | "BEARISH" }): Promise<TradeProposal | null> {
+    const foInfo = STOCK_FO_KEY_MAP[stock.symbol];
+    if (!foInfo || !upstoxAccessToken) return null;
+
+    const { istStr, uaeStr } = getTimeStrings();
+
+    try {
+      let nearestExpiry = "";
+      try {
+        const contractRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent(foInfo.foKey)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const contractData = await contractRes.json();
+        if (contractData.status === "success" && contractData.data) {
+          const expiries = [...new Set(contractData.data.map((c: any) => c.expiry as string))].sort() as string[];
+          const today = new Date().toISOString().split("T")[0];
+          nearestExpiry = expiries.find((e) => e >= today) || expiries[0] || "";
+        }
+      } catch {}
+
+      const ocRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ""}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const data = await ocRes.json();
+      if (data.status !== "success" || !data.data?.length) {
+        console.log(`[STOCK SCAN] No option chain data for ${stock.symbol}`);
+        return null;
+      }
+
+      const chainData = data.data;
+      const spot = stock.price;
+      const atmStrike = Math.round(spot / foInfo.strikeGap) * foInfo.strikeGap;
+      const isBullish = stock.direction === "BULLISH";
+
+      let bestPremium = 0;
+      let bestInstrumentKey = "";
+      let bestStrike = atmStrike;
+      let totalCeOI = 0, totalPeOI = 0;
+      let maxCeOI = 0, maxPeOI = 0, maxCeOIStrike = 0, maxPeOIStrike = 0;
+      let ceOIBuildupCount = 0, peOIBuildupCount = 0;
+      let nearAtmCeIV = 0, nearAtmPeIV = 0, ivCount = 0;
+
+      for (const opt of chainData) {
+        const sp = opt.strike_price || opt.strikePrice;
+        const ceOI = opt.call_options?.market_data?.oi || 0;
+        const peOI = opt.put_options?.market_data?.oi || 0;
+        totalCeOI += ceOI;
+        totalPeOI += peOI;
+        if (ceOI > maxCeOI) { maxCeOI = ceOI; maxCeOIStrike = sp; }
+        if (peOI > maxPeOI) { maxPeOI = peOI; maxPeOIStrike = sp; }
+
+        const prevCeOI = opt.call_options?.market_data?.prev_oi || ceOI;
+        const prevPeOI = opt.put_options?.market_data?.prev_oi || peOI;
+        if (ceOI > prevCeOI) ceOIBuildupCount++;
+        if (peOI > prevPeOI) peOIBuildupCount++;
+
+        if (Math.abs(sp - atmStrike) <= foInfo.strikeGap * 3) {
+          nearAtmCeIV += opt.call_options?.option_greeks?.iv || 0;
+          nearAtmPeIV += opt.put_options?.option_greeks?.iv || 0;
+          ivCount++;
+        }
+
+        if (sp === atmStrike) {
+          if (isBullish) {
+            const ce = opt.call_options?.market_data?.ltp || 0;
+            const ceKey = opt.call_options?.instrument_key || "";
+            if (ce > 0) { bestPremium = ce; bestInstrumentKey = ceKey; bestStrike = sp; }
+          } else {
+            const pe = opt.put_options?.market_data?.ltp || 0;
+            const peKey = opt.put_options?.instrument_key || "";
+            if (pe > 0) { bestPremium = pe; bestInstrumentKey = peKey; bestStrike = sp; }
+          }
+        }
+        if (!bestInstrumentKey && Math.abs(sp - atmStrike) === foInfo.strikeGap) {
+          if (isBullish) {
+            const ce = opt.call_options?.market_data?.ltp || 0;
+            const ceKey = opt.call_options?.instrument_key || "";
+            if (ce > 0) { bestPremium = ce; bestInstrumentKey = ceKey; bestStrike = sp; }
+          } else {
+            const pe = opt.put_options?.market_data?.ltp || 0;
+            const peKey = opt.put_options?.instrument_key || "";
+            if (pe > 0) { bestPremium = pe; bestInstrumentKey = peKey; bestStrike = sp; }
+          }
+        }
+      }
+
+      if (!bestInstrumentKey || bestPremium <= 0) {
+        console.log(`[STOCK SCAN] No valid option found for ${stock.symbol} at ATM ${atmStrike}`);
+        return null;
+      }
+
+      const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
+      const avgCeIV = ivCount > 0 ? nearAtmCeIV / ivCount : 0;
+      const avgPeIV = ivCount > 0 ? nearAtmPeIV / ivCount : 0;
+      const ivSkew = avgPeIV > 0 ? (avgCeIV / avgPeIV) : 1;
+
+      let confidenceScore = 50;
+      confidenceScore += Math.min(15, stock.momentumScore * 0.3);
+      if (Math.abs(stock.changePercent) > 1.5) confidenceScore += 8;
+      if (isBullish) {
+        if (pcr > 1.2) confidenceScore += 10;
+        else if (pcr > 1.0) confidenceScore += 5;
+        if (maxPeOI > maxCeOI) confidenceScore += 6;
+        if (peOIBuildupCount > ceOIBuildupCount) confidenceScore += 4;
+      } else {
+        if (pcr < 0.8) confidenceScore += 10;
+        else if (pcr < 1.0) confidenceScore += 5;
+        if (maxCeOI > maxPeOI) confidenceScore += 6;
+        if (ceOIBuildupCount > peOIBuildupCount) confidenceScore += 4;
+      }
+
+      const confidence = Math.min(95, Math.max(30, confidenceScore));
+
+      if (confidence < 60) {
+        console.log(`[STOCK SCAN] ${stock.symbol} confidence too low: ${confidence}% — skipping`);
+        return null;
+      }
+
+      const action = isBullish ? "BUY_CE" : "BUY_PE";
+      const premium = Math.round(bestPremium);
+      const lotSize = foInfo.lotSize;
+      const brokerage = 200;
+      const targetPremium = Math.round(premium * 1.5);
+      const slPremium = Math.round(premium * 0.70);
+      const potentialProfit = (targetPremium - premium) * lotSize;
+      const netProfit = potentialProfit - brokerage;
+      const potentialLoss = (premium - slPremium) * lotSize;
+      const riskReward = potentialLoss > 0 ? potentialProfit / potentialLoss : 0;
+
+      const oiBuildupStrength = isBullish ? peOIBuildupCount : ceOIBuildupCount;
+      const greenCandles = Math.min(3, Math.max(0, Math.floor(oiBuildupStrength / 3)));
+      const entropyVal = Math.abs(ivSkew - 1.0);
+      const entropyLevel = entropyVal > 0.15 ? "HIGH" : entropyVal > 0.05 ? "MODERATE" : "LOW";
+      const monteCarloWin = Math.min(90, Math.max(25, Math.round(confidence * 0.6 + (100 - entropyVal * 200) * 0.4)));
+      const fusionScore = Math.min(95, Math.round(confidence * 0.4 + monteCarloWin * 0.3 + stock.momentumScore * 0.3));
+
+      const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 300 && confidence >= 65 && riskReward >= 1.3;
+
+      if (!zeroLossReady && netProfit < 300) {
+        console.log(`[STOCK SCAN] ${stock.symbol} net profit too low: Rs.${netProfit} — skipping`);
+        return null;
+      }
+
+      const rocketScore = Math.min(95, Math.round(confidence * 0.5 + stock.momentumScore * 0.5));
+      const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
+      const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
+
+      console.log(`[STOCK SCAN] ${stock.symbol} SIGNAL: ${action} ${bestStrike} @ Rs.${premium} | Conf: ${confidence}% | Net: Rs.${netProfit} | Momentum: ${stock.momentumScore}`);
+
+      const expiresAt = new Date(Date.now() + 5 * 60000);
+
+      return {
+        id: generateProposalId(),
+        action,
+        confidence,
+        strike: bestStrike,
+        premium,
+        target: targetPremium,
+        stopLoss: slPremium,
+        lotSize,
+        potentialProfit,
+        brokerage,
+        netProfit,
+        reasoning: [
+          `STOCK OPTIONS: ${stock.name} (${stock.symbol}) — ${stock.direction} momentum`,
+          `Stock Price: Rs.${stock.price} | Change: ${stock.changePercent > 0 ? "+" : ""}${stock.changePercent}% | Momentum: ${stock.momentumScore}/100`,
+          `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal — ATM Strike: ${atmStrike}, Selected: ${bestStrike}`,
+          `LIVE premium: Rs.${premium} at ${bestStrike}${action === "BUY_CE" ? "CE" : "PE"}`,
+          `PCR: ${pcr.toFixed(2)} | IV Skew: ${ivSkew.toFixed(2)}`,
+          `OI Buildup — CE: ${ceOIBuildupCount} strikes | PE: ${peOIBuildupCount} strikes`,
+          `Max CE OI: ${maxCeOIStrike} (resistance) | Max PE OI: ${maxPeOIStrike} (support)`,
+          `Lot Size: ${lotSize} | Expiry: ${nearestExpiry}`,
+          `Confidence: ${confidence}% | Risk:Reward = 1:${riskReward.toFixed(1)}`,
+          zeroLossReady ? "Zero-loss criteria MET" : "Zero-loss NOT MET — proceed with caution",
+          `Instrument: ${bestInstrumentKey}`,
+        ],
+        engineVersion: "v8.0 NeuroQuantum SuperBrain",
+        rocketThrust: thrustLevel,
+        neuroWisdom: wisdomLevel,
+        fusionScore,
+        entropyLevel,
+        greenCandles,
+        zeroLossReady,
+        monteCarloWinProb: monteCarloWin,
+        status: "PENDING",
+        createdAt: new Date().toISOString(),
+        respondedAt: null,
+        expiresAt: expiresAt.toISOString(),
+        istTime: istStr,
+        uaeTime: uaeStr,
+        scanCycle: scanCycleCount,
+        instrumentKey: bestInstrumentKey,
+        expiry: nearestExpiry,
+        underlying: stock.symbol,
+        underlyingName: stock.name,
+        spotPrice: stock.price,
+        scanMode: "STOCK",
+      };
+    } catch (e) {
+      console.error(`[STOCK SCAN] Error scanning ${stock.symbol} options:`, e);
+      return null;
+    }
+  }
+
   async function runAutoScan(): Promise<TradeProposal | null> {
     const { istStr, uaeStr, ist, currentMins, dayOfWeek } = getTimeStrings();
     if (dayOfWeek === 0 || dayOfWeek === 6) return null;
@@ -3003,12 +3319,41 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 500 && confidence >= 65 && riskReward >= 1.5;
 
     if (confidence < 65) {
-      console.log(`[LAMY SCAN] Confidence too low: ${confidence}% — skipping (need 65%+) (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
+      console.log(`[LAMY SCAN] Nifty confidence too low: ${confidence}% — checking stocks instead`);
+      consecutiveNiftySkips++;
+      if (consecutiveNiftySkips >= NIFTY_SKIP_THRESHOLD) {
+        console.log(`[LAMY SCAN] ${consecutiveNiftySkips} weak Nifty scans — switching to STOCK SCAN`);
+        const topStocks = await scanStockMomentum();
+        if (topStocks.length > 0) {
+          console.log(`[STOCK SCANNER] Top movers: ${topStocks.map(s => `${s.symbol}(${s.changePercent > 0 ? "+" : ""}${s.changePercent}%)`).join(", ")}`);
+          for (const stock of topStocks) {
+            const stockProposal = await runStockOptionScan(stock);
+            if (stockProposal) {
+              consecutiveNiftySkips = 0;
+              return stockProposal;
+            }
+          }
+        }
+        console.log(`[STOCK SCANNER] No stock options signals found either`);
+      }
       return null;
     }
 
     if (!zeroLossReady) {
-      console.log(`[LAMY SCAN] Zero-loss criteria NOT met — skipping (RR: ${riskReward.toFixed(2)}, Net: Rs.${netProfit}, Candles: ${greenCandles}, Entropy: ${entropyLevel})`);
+      console.log(`[LAMY SCAN] Nifty zero-loss NOT met — checking stocks (RR: ${riskReward.toFixed(2)}, Net: Rs.${netProfit}, Candles: ${greenCandles})`);
+      consecutiveNiftySkips++;
+      if (consecutiveNiftySkips >= NIFTY_SKIP_THRESHOLD) {
+        const topStocks = await scanStockMomentum();
+        if (topStocks.length > 0) {
+          for (const stock of topStocks) {
+            const stockProposal = await runStockOptionScan(stock);
+            if (stockProposal) {
+              consecutiveNiftySkips = 0;
+              return stockProposal;
+            }
+          }
+        }
+      }
       return null;
     }
 
@@ -3018,6 +3363,9 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
 
     const expiresAt = new Date(Date.now() + 5 * 60000);
+
+    consecutiveNiftySkips = 0;
+    lastNiftySignalTime = Date.now();
 
     return {
       id: generateProposalId(),
@@ -3059,6 +3407,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       scanCycle: scanCycleCount,
       instrumentKey,
       expiry: nearestExpiry,
+      underlying: "NIFTY50",
+      underlyingName: "Nifty 50",
+      spotPrice: spot,
+      scanMode: "NIFTY",
     };
   }
 
@@ -3226,6 +3578,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
           lossAlerted: false,
           instrumentKey: proposal.instrumentKey || "",
           entryTimestamp: Date.now(),
+          underlying: proposal.underlying,
+          underlyingName: proposal.underlyingName,
         };
         activePositions.push(newPosition);
         startPositionMonitoring();
@@ -3358,7 +3712,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
             globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Position Monitor*\n\n${activePos.type} ${activePos.strike} | ${profitLoss}\nEntry: Rs.${activePos.entryPremium} | Current: Rs.${activePos.currentPremium}\nKiss: ${activePos.kissPhase} | ATR SL: ${activePos.atrStopLoss}\nCycle #${scanCycleCount} | IST: ${istStr}`, parse_mode: "Markdown" }),
+              body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Position Monitor*\n\n${activePos.underlying || "NIFTY50"} ${activePos.type} ${activePos.strike} | ${profitLoss}\nEntry: Rs.${activePos.entryPremium} | Current: Rs.${activePos.currentPremium}\nKiss: ${activePos.kissPhase} | ATR SL: ${activePos.atrStopLoss}\nCycle #${scanCycleCount} | IST: ${istStr}`, parse_mode: "Markdown" }),
             }).catch(() => {});
           }
         }
@@ -3378,7 +3732,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
           globalThis.fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Scanning Market*\n\nCycle #${scanCycleCount} | IST: ${istStr}\nAnalyzing option chain, PCR, OI buildup, IV skew...\nLooking for zero-loss entry with min Rs.${MIN_PROFIT_TARGET} profit potential.\n${autoTradeMode ? "AUTO-TRADE ON — Will execute automatically" : "Manual approval mode"}`, parse_mode: "Markdown" }),
+            body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Scanning Market*\n\nCycle #${scanCycleCount} | IST: ${istStr}\nAnalyzing option chain, PCR, OI buildup, IV skew...\nLooking for zero-loss entry with min Rs.${MIN_PROFIT_TARGET} profit potential.\nMode: ${scanMode} | Nifty skips: ${consecutiveNiftySkips}/${NIFTY_SKIP_THRESHOLD}\n${autoTradeMode ? "AUTO-TRADE ON — Will execute automatically" : "Manual approval mode"}`, parse_mode: "Markdown" }),
           }).catch(() => {});
         }
       }
@@ -3550,12 +3904,40 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       totalProposals: tradeProposals.length,
       pending, approved, liveExecuted, liveRejected, rejected, expired,
       upstoxConnected: !!upstoxAccessToken,
+      scanMode,
+      consecutiveNiftySkips,
+      niftySkipThreshold: NIFTY_SKIP_THRESHOLD,
       recentProposals: tradeProposals.slice(-5).reverse().map(p => ({
         id: p.id, action: p.action, strike: p.strike, premium: p.premium,
         status: p.status, upstoxOrderId: p.upstoxOrderId, instrumentKey: p.instrumentKey,
-        createdAt: p.createdAt,
+        createdAt: p.createdAt, underlying: p.underlying, underlyingName: p.underlyingName,
       })),
     });
+  });
+
+  app.get("/api/auto-trade/stock-scan", async (_req, res) => {
+    try {
+      const topStocks = await scanStockMomentum();
+      res.json({
+        stocks: topStocks,
+        scanMode,
+        consecutiveNiftySkips,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e) {
+      res.status(500).json({ error: "Stock scan failed" });
+    }
+  });
+
+  app.post("/api/auto-trade/scan-mode", (req, res) => {
+    const { mode } = req.body;
+    if (mode === "NIFTY" || mode === "STOCK" || mode === "BOTH") {
+      scanMode = mode;
+      console.log(`[LAMY] Scan mode changed to: ${mode}`);
+      res.json({ scanMode: mode, message: `Scan mode set to ${mode}` });
+    } else {
+      res.status(400).json({ error: "Invalid mode. Use NIFTY, STOCK, or BOTH" });
+    }
   });
 
   app.post("/api/auto-trade/test-live-order", async (req, res) => {
@@ -3838,6 +4220,8 @@ Provide the full 10-section comprehensive analysis now.`;
     lossAlerted: boolean;
     instrumentKey: string;
     entryTimestamp?: number;
+    underlying?: string;
+    underlyingName?: string;
   }
 
   const activePositions: ActivePosition[] = [];
