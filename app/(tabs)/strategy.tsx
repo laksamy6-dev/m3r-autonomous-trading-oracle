@@ -1,4 +1,5 @@
 import VisitorGate from "@/components/VisitorGate";
+const sf = (v: any, d: number = 1): string => (typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '0');
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
@@ -155,8 +156,8 @@ function generateThinkingLines(output: NeuralEngineOutput): string[] {
     `Physics engine: KE=${ph.kineticEnergy}, Force=${ph.force}, predicted ${ph.predictedDirection} ${ph.predictedMove} pts`,
     `14-layer neural score: ${d.neuralScore}% -- signal ${d.signalStrength}`,
     `Call wall at ${fmtIN(inst.callWall)} | Put wall at ${fmtIN(inst.putWall)}`,
-    `VIX at ${gl.vixLevel.toFixed(1)} -- Fear & Greed Index: ${gl.fearGreedIndex}`,
-    `Dollar Index ${gl.dollarIndex.toFixed(1)} | Crude Oil $${gl.crudeOil.toFixed(1)}`,
+    `VIX at ${sf(gl.vixLevel)} -- Fear & Greed Index: ${gl.fearGreedIndex}`,
+    `Dollar Index ${sf(gl.dollarIndex)} | Crude Oil $${sf(gl.crudeOil)}`,
     `Monte Carlo median ${fmtIN(mc.medianPrice)} | VaR(95%) ${fmtIN(mc.valueAtRisk95)} pts`,
     `Risk ${d.riskScore}/100 | Reward ${d.rewardScore}/100 | Timing ${d.timingScore}/100`,
     `Hurst Exponent ${output.hpiData.hurstExponent} -- ${output.hpiData.trendType}. ${output.hpiData.interpretation}`,
@@ -326,7 +327,7 @@ function StrategyScreenInner() {
             } catch {}
             Alert.alert(
               "LAMY READY",
-              `Training complete! IQ: ${result.brain.iq.toFixed(1)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. LAMY is ready for live battle tomorrow!`
+              `Training complete! IQ: ${sf(result.brain.iq)} | Level ${result.brain.level} ${result.brain.title} | ${result.brain.patternLibrarySize} patterns learned. LAMY is ready for live battle tomorrow!`
             );
           }
           if (result.phaseCompleted && !result.trainingComplete) {
@@ -507,7 +508,7 @@ function StrategyScreenInner() {
             </View>
             <View style={styles.brainStatsRow}>
               <View style={styles.brainStat}>
-                <Text style={styles.brainStatValue}>{brain.iq.toFixed(1)}</Text>
+                <Text style={styles.brainStatValue}>{sf(brain.iq)}</Text>
                 <Text style={styles.brainStatLabel}>IQ</Text>
               </View>
               <View style={styles.brainStat}>
@@ -515,7 +516,7 @@ function StrategyScreenInner() {
                 <Text style={styles.brainStatLabel}>EVOLUTION</Text>
               </View>
               <View style={styles.brainStat}>
-                <Text style={[styles.brainStatValue, { color: NEON_GREEN }]}>{brain.consciousness.toFixed(0)}%</Text>
+                <Text style={[styles.brainStatValue, { color: NEON_GREEN }]}>{sf(brain.consciousness, 0)}%</Text>
                 <Text style={styles.brainStatLabel}>CONSCIOUS</Text>
               </View>
               <View style={styles.brainStat}>
@@ -530,8 +531,8 @@ function StrategyScreenInner() {
             </View>
             <View style={styles.brainMetaRow}>
               <Text style={styles.brainMetaText}>Patterns: {brain.patternLibrarySize}</Text>
-              <Text style={styles.brainMetaText}>Accuracy: {brain.accuracyScore.toFixed(1)}%</Text>
-              <Text style={styles.brainMetaText}>Synapses: {(brain.synapticConnections / 1000).toFixed(1)}K</Text>
+              <Text style={styles.brainMetaText}>Accuracy: {sf(brain.accuracyScore)}%</Text>
+              <Text style={styles.brainMetaText}>Synapses: {sf((brain.synapticConnections || 0) / 1000)}K</Text>
             </View>
             {!isTraining && (!training || training.status !== "COMPLETED") && (
               <Pressable
@@ -559,7 +560,7 @@ function StrategyScreenInner() {
                 <ActivityIndicator size="small" color={CYAN} />
                 <Text style={styles.brainCardTitle}>TRAINING IN PROGRESS</Text>
               </View>
-              <Text style={[styles.brainMetaText, { color: CYAN }]}>{training.progress.toFixed(0)}%</Text>
+              <Text style={[styles.brainMetaText, { color: CYAN }]}>{sf(training.progress, 0)}%</Text>
             </View>
             <View style={styles.progressBarOuter}>
               <View style={[styles.progressBarInner, { width: `${training.progress}%` as any }]} />
@@ -574,7 +575,7 @@ function StrategyScreenInner() {
                 />
                 <Text style={styles.phaseName} numberOfLines={1}>{phase.name}</Text>
                 <Text style={[styles.phaseProgress, { color: phase.status === "COMPLETED" ? NEON_GREEN : CYAN }]}>
-                  {phase.progress.toFixed(0)}%
+                  {sf(phase.progress, 0)}%
                 </Text>
               </View>
             ))}
@@ -640,7 +641,7 @@ function StrategyScreenInner() {
                   <Text style={styles.patternName} numberOfLines={1}>{p.name}</Text>
                 </View>
                 <Text style={[styles.patternAcc, { color: p.accuracy > 75 ? NEON_GREEN : C.gold }]}>
-                  {p.accuracy.toFixed(0)}%
+                  {sf(p.accuracy, 0)}%
                 </Text>
               </View>
             ))}
@@ -662,11 +663,11 @@ function StrategyScreenInner() {
                   <View style={styles.brainDetailSection}>
                     <Text style={styles.brainDetailLabel}>CORE METRICS</Text>
                     {[
-                      ["IQ", brain.iq.toFixed(1)],
+                      ["IQ", sf(brain.iq)],
                       ["Generation", brain.generation.toString()],
-                      ["Consciousness", `${brain.consciousness.toFixed(1)}%`],
+                      ["Consciousness", `${sf(brain.consciousness)}%`],
                       ["Level", `${brain.level} - ${brain.title}`],
-                      ["Wisdom", `${brain.wisdomScore.toFixed(1)}%`],
+                      ["Wisdom", `${sf(brain.wisdomScore)}%`],
                       ["Awareness", brain.selfAwarenessLevel],
                       ["Mood", brain.currentMood],
                       ["Age", brainAge],
@@ -680,11 +681,11 @@ function StrategyScreenInner() {
                   <View style={styles.brainDetailSection}>
                     <Text style={styles.brainDetailLabel}>ACCURACY</Text>
                     {[
-                      ["Overall Accuracy", `${brain.accuracyScore.toFixed(1)}%`],
-                      ["Prediction Hit Rate", `${brain.predictionHitRate.toFixed(1)}%`],
-                      ["Trap Detection", `${brain.trapDetectionRate.toFixed(1)}%`],
-                      ["Rocket Scalp Win", `${brain.rocketScalpWinRate.toFixed(1)}%`],
-                      ["Neuro Fusion", `${brain.neuroFusionAccuracy.toFixed(1)}%`],
+                      ["Overall Accuracy", `${sf(brain.accuracyScore)}%`],
+                      ["Prediction Hit Rate", `${sf(brain.predictionHitRate)}%`],
+                      ["Trap Detection", `${sf(brain.trapDetectionRate)}%`],
+                      ["Rocket Scalp Win", `${sf(brain.rocketScalpWinRate)}%`],
+                      ["Neuro Fusion", `${sf(brain.neuroFusionAccuracy)}%`],
                     ].map(([k, v]) => (
                       <View key={k} style={styles.brainDetailRow}>
                         <Text style={styles.brainDetailKey}>{k}</Text>
@@ -695,18 +696,18 @@ function StrategyScreenInner() {
                   <View style={styles.brainDetailSection}>
                     <Text style={styles.brainDetailLabel}>NEURAL</Text>
                     {[
-                      ["Synaptic Connections", `${(brain.synapticConnections / 1000).toFixed(1)}K`],
-                      ["Neural Plasticity", `${brain.neuralPlasticity.toFixed(1)}%`],
-                      ["Learning Rate", brain.learningRate.toFixed(4)],
-                      ["Creativity Index", `${brain.creativityIndex.toFixed(1)}%`],
-                      ["Quantum Coherence", `${brain.quantumCoherence.toFixed(1)}%`],
-                      ["Brain Temperature", `${brain.brainTemperature.toFixed(1)}C`],
-                      ["Cognitive Load", `${brain.cognitiveLoad.toFixed(0)}%`],
-                      ["Memory Used", `${brain.memoryUtilization.toFixed(0)}%`],
-                      ["Dream Cycles", brain.dreamLearningCycles.toString()],
-                      ["Mutation Rate", brain.adaptiveMutationRate.toFixed(4)],
-                      ["Strategies Evolved", brain.strategiesEvolved.toString()],
-                      ["Thinking Cycles", brain.totalThinkingCycles.toLocaleString()],
+                      ["Synaptic Connections", `${sf((brain.synapticConnections || 0) / 1000)}K`],
+                      ["Neural Plasticity", `${sf(brain.neuralPlasticity)}%`],
+                      ["Learning Rate", sf(brain.learningRate, 4)],
+                      ["Creativity Index", `${sf(brain.creativityIndex)}%`],
+                      ["Quantum Coherence", `${sf(brain.quantumCoherence)}%`],
+                      ["Brain Temperature", `${sf(brain.brainTemperature)}C`],
+                      ["Cognitive Load", `${sf(brain.cognitiveLoad, 0)}%`],
+                      ["Memory Used", `${sf(brain.memoryUtilization, 0)}%`],
+                      ["Dream Cycles", (brain.dreamLearningCycles || 0).toString()],
+                      ["Mutation Rate", sf(brain.adaptiveMutationRate, 4)],
+                      ["Strategies Evolved", (brain.strategiesEvolved || 0).toString()],
+                      ["Thinking Cycles", (brain.totalThinkingCycles || 0).toLocaleString()],
                     ].map(([k, v]) => (
                       <View key={k} style={styles.brainDetailRow}>
                         <Text style={styles.brainDetailKey}>{k}</Text>
@@ -754,7 +755,7 @@ function StrategyScreenInner() {
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.headerMeta}>TICK #{output.engineTick}</Text>
-            <Text style={styles.headerMetaCyan}>{(output.totalCalcTimeMs * 1000).toFixed(0)}us</Text>
+            <Text style={styles.headerMetaCyan}>{sf((output.totalCalcTimeMs || 0) * 1000, 0)}us</Text>
           </View>
         </View>
         <Text style={styles.engineVersion}>{output.engineVersion}</Text>
@@ -905,7 +906,7 @@ function StrategyScreenInner() {
             </View>
             <View style={styles.decisionItem}>
               <Text style={styles.decisionItemLabel}>R:R Ratio</Text>
-              <Text style={styles.decisionItemVal}>1:{zl.riskRewardRatio.toFixed(1)}</Text>
+              <Text style={styles.decisionItemVal}>1:{sf(zl.riskRewardRatio)}</Text>
             </View>
           </View>
 
@@ -1057,7 +1058,7 @@ function StrategyScreenInner() {
                 <View style={styles.layerBarBg}>
                   <View style={[styles.layerBarFill, { width: `${val * 100}%`, backgroundColor: color }]} />
                 </View>
-                <Text style={[styles.layerVal, { color }]}>{(val * 100).toFixed(0)}%</Text>
+                <Text style={[styles.layerVal, { color }]}>{sf((val || 0) * 100, 0)}%</Text>
               </View>
             );
           })}
@@ -1143,7 +1144,7 @@ function StrategyScreenInner() {
                 <View key={m.name} style={styles.marketRow}>
                   <Text style={styles.marketName}>{m.name}</Text>
                   <Text style={[styles.marketChange, { color: m.change >= 0 ? C.green : C.red }]}>
-                    {m.change >= 0 ? "+" : ""}{m.change.toFixed(2)}%
+                    {(m.change || 0) >= 0 ? "+" : ""}{sf(m.change, 2)}%
                   </Text>
                   <View style={[styles.marketStatusBadge, { backgroundColor: m.status === "OPEN" ? C.greenBg : m.status === "PRE_MARKET" ? C.goldBg : "rgba(100,116,139,0.12)" }]}>
                     <Text style={[styles.marketStatusText, { color: m.status === "OPEN" ? C.green : m.status === "PRE_MARKET" ? C.gold : C.textMuted }]}>
@@ -1165,15 +1166,15 @@ function StrategyScreenInner() {
           <View style={styles.globalIndicators}>
             <View style={styles.globalIndItem}>
               <Text style={styles.globalIndLabel}>DXY</Text>
-              <Text style={styles.globalIndVal}>{gl.dollarIndex.toFixed(1)}</Text>
+              <Text style={styles.globalIndVal}>{sf(gl.dollarIndex)}</Text>
             </View>
             <View style={styles.globalIndItem}>
               <Text style={styles.globalIndLabel}>Crude</Text>
-              <Text style={styles.globalIndVal}>${gl.crudeOil.toFixed(1)}</Text>
+              <Text style={styles.globalIndVal}>${sf(gl.crudeOil)}</Text>
             </View>
             <View style={styles.globalIndItem}>
               <Text style={styles.globalIndLabel}>VIX</Text>
-              <Text style={[styles.globalIndVal, { color: gl.vixLevel > 25 ? C.red : C.textSecondary }]}>{gl.vixLevel.toFixed(1)}</Text>
+              <Text style={[styles.globalIndVal, { color: (gl.vixLevel || 0) > 25 ? C.red : C.textSecondary }]}>{sf(gl.vixLevel)}</Text>
             </View>
             <View style={styles.globalIndItem}>
               <Text style={styles.globalIndLabel}>F&G</Text>

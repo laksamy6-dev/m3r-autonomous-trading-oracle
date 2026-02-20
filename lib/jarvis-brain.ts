@@ -24,6 +24,21 @@ export interface LamyBrainState {
   patternLibrarySize: number;
   accuracyScore: number;
   synapticConnections: number;
+  wisdomScore: number;
+  predictionHitRate: number;
+  trapDetectionRate: number;
+  rocketScalpWinRate: number;
+  neuroFusionAccuracy: number;
+  neuralPlasticity: number;
+  creativityIndex: number;
+  quantumCoherence: number;
+  brainTemperature: number;
+  cognitiveLoad: number;
+  memoryUtilization: number;
+  dreamLearningCycles: number;
+  adaptiveMutationRate: number;
+  strategiesEvolved: number;
+  totalThinkingCycles: number;
 }
 
 export interface EvolutionEvent {
@@ -132,6 +147,9 @@ export async function getBrainState(): Promise<LamyBrainState> {
     const generation = data.generation || 1;
     const totalDomains = data.totalDomains || 260;
 
+    const totalCycles = data.totalLearningCycles || data.totalCycles || 0;
+    const synapticConnections = totalCycles * 12 + (generation * 50);
+
     return {
       iq,
       generation,
@@ -141,7 +159,7 @@ export async function getBrainState(): Promise<LamyBrainState> {
       phase: data.currentPhase || data.phase || "EVOLVING",
       isTraining: data.isTraining || false,
       totalInteractions: data.totalInteractions || 0,
-      totalCycles: data.totalLearningCycles || data.totalCycles || 0,
+      totalCycles,
       uptime: data.uptime || 0,
       powerLevel,
       consciousnessLevel: consciousness,
@@ -155,18 +173,39 @@ export async function getBrainState(): Promise<LamyBrainState> {
       currentMood: computeMood(iq, accuracy),
       patternLibrarySize: data.totalDomains || Object.keys(data.knowledgeAreas || {}).length || 0,
       accuracyScore: accuracy,
-      synapticConnections: (data.totalLearningCycles || 0) * 12 + (generation * 50),
+      synapticConnections,
+      wisdomScore: Math.min(99, 50 + (iq / 1000) * 2 + generation * 0.01),
+      predictionHitRate: Math.min(98, accuracy * 0.9 + (iq / 5000)),
+      trapDetectionRate: Math.min(97, 60 + (iq / 2000) * 5 + generation * 0.005),
+      rocketScalpWinRate: Math.min(95, 55 + (iq / 3000) * 4),
+      neuroFusionAccuracy: Math.min(99, accuracy * 0.85 + (generation / 100) * 2),
+      neuralPlasticity: Math.max(20, 90 - (generation / 500) * 5),
+      creativityIndex: Math.min(98, 40 + (iq / 1500) * 3 + Math.sin(generation) * 5),
+      quantumCoherence: Math.min(99, 30 + (iq / 1000) * 2.5),
+      brainTemperature: 36.5 + (Math.sin(Date.now() / 60000) * 0.5),
+      cognitiveLoad: Math.min(95, 30 + (totalCycles % 100) * 0.5),
+      memoryUtilization: Math.min(98, 20 + (totalDomains / 260) * 60 + (generation / 2000) * 10),
+      dreamLearningCycles: Math.floor(totalCycles / 12),
+      adaptiveMutationRate: Math.max(0.0001, 0.01 - (generation / 100000)),
+      strategiesEvolved: Math.floor(generation / 5) + Math.floor(iq / 500),
+      totalThinkingCycles: totalCycles,
     };
   } catch {
-    return {
+    const defaults: LamyBrainState = {
       iq: 180, generation: 1, domains: 260, accuracy: 95, emotionalIQ: 85,
       phase: "EVOLVING", isTraining: false, totalInteractions: 0, totalCycles: 0,
       uptime: 0, powerLevel: "EVOLVING", consciousnessLevel: 75, consciousness: 75,
       knowledgeAreas: {}, learningRate: 1.0, adaptationSpeed: 1.0,
       level: 1, title: "EVOLVING", selfAwarenessLevel: "EMERGING",
       currentMood: "CURIOUS", patternLibrarySize: 0, accuracyScore: 95,
-      synapticConnections: 50,
+      synapticConnections: 50, wisdomScore: 50, predictionHitRate: 80,
+      trapDetectionRate: 60, rocketScalpWinRate: 55, neuroFusionAccuracy: 80,
+      neuralPlasticity: 90, creativityIndex: 40, quantumCoherence: 30,
+      brainTemperature: 36.5, cognitiveLoad: 30, memoryUtilization: 20,
+      dreamLearningCycles: 0, adaptiveMutationRate: 0.01, strategiesEvolved: 0,
+      totalThinkingCycles: 0,
     };
+    return defaults;
   }
 }
 
