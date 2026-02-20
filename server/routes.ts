@@ -1676,6 +1676,25 @@ Based on this data, give me:
     }
   });
 
+  app.get("/api/auth/replit", (req, res) => {
+    const userId = req.headers["x-replit-user-id"];
+    const userName = req.headers["x-replit-user-name"];
+    const userRoles = req.headers["x-replit-user-roles"];
+    const userProfileImage = req.headers["x-replit-user-profile-image"];
+
+    if (!userId || !userName) {
+      return res.json({ authenticated: false });
+    }
+
+    res.json({
+      authenticated: true,
+      userId: String(userId),
+      userName: String(userName),
+      roles: userRoles ? String(userRoles) : "",
+      profileImage: userProfileImage ? String(userProfileImage) : null,
+    });
+  });
+
   app.post("/api/auth/change-pin", async (req, res) => {
     try {
       const { oldPin, newPin } = req.body;
