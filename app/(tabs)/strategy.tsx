@@ -459,9 +459,9 @@ function StrategyScreenInner() {
   const qnt = output.quantumData;
   const cons = output.consciousness;
 
-  const usMarkets = gl.markets.filter((m) => m.region === "US");
-  const euroMarkets = gl.markets.filter((m) => m.region === "EUROPE");
-  const asiaMarkets = gl.markets.filter((m) => m.region === "ASIA");
+  const usMarkets = (gl.markets || []).filter((m) => m.region === "US");
+  const euroMarkets = (gl.markets || []).filter((m) => m.region === "EUROPE");
+  const asiaMarkets = (gl.markets || []).filter((m) => m.region === "ASIA");
 
   const mcRange = mc.percentile95 - mc.percentile5;
   const mcP25Pct = mcRange > 0 ? ((mc.percentile25 - mc.percentile5) / mcRange) * 100 : 25;
@@ -573,7 +573,7 @@ function StrategyScreenInner() {
               <View style={[styles.progressBarInner, { width: `${training.progress}%` as any }]} />
             </View>
             <Text style={styles.trainingPhase}>{training.phase}</Text>
-            {training.phases.filter(p => p.status === "RUNNING" || p.status === "COMPLETED").slice(-3).map((phase, i) => (
+            {(training.phases || []).filter(p => p.status === "RUNNING" || p.status === "COMPLETED").slice(-3).map((phase, i) => (
               <View key={`phase-${i}`} style={styles.phaseRow}>
                 <Ionicons
                   name={phase.status === "COMPLETED" ? "checkmark-circle" : "sync"}
@@ -722,26 +722,26 @@ function StrategyScreenInner() {
                       </View>
                     ))}
                   </View>
-                  {brain.strengths.length > 0 && (
+                  {(brain.strengths || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>STRENGTHS</Text>
-                      {brain.strengths.map((s, i) => (
+                      {(brain.strengths || []).map((s, i) => (
                         <Text key={`s-${i}`} style={[styles.brainDetailValue, { color: NEON_GREEN, marginBottom: 4 }]}>{s}</Text>
                       ))}
                     </View>
                   )}
-                  {brain.weaknesses.length > 0 && (
+                  {(brain.weaknesses || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>WEAKNESSES</Text>
-                      {brain.weaknesses.map((w, i) => (
+                      {(brain.weaknesses || []).map((w, i) => (
                         <Text key={`w-${i}`} style={[styles.brainDetailValue, { color: C.gold, marginBottom: 4 }]}>{w}</Text>
                       ))}
                     </View>
                   )}
-                  {brain.discoveries.length > 0 && (
+                  {(brain.discoveries || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>DISCOVERIES</Text>
-                      {brain.discoveries.slice(0, 5).map((d, i) => (
+                      {(brain.discoveries || []).slice(0, 5).map((d, i) => (
                         <Text key={`d-${i}`} style={[styles.brainDetailValue, { color: "#8B5CF6", marginBottom: 6, fontSize: 12 }]}>{d}</Text>
                       ))}
                     </View>
@@ -929,7 +929,7 @@ function StrategyScreenInner() {
             <Text style={styles.zlEntryText}>{zl.exitLogic}</Text>
           </View>
 
-          {zl.reasoning.slice(0, 3).map((r, i) => (
+          {(zl.reasoning || []).slice(0, 3).map((r, i) => (
             <Text key={i} style={styles.reasoningText}>{r}</Text>
           ))}
         </View>
@@ -1147,7 +1147,7 @@ function StrategyScreenInner() {
                   {group.impact >= 0 ? "+" : ""}{group.impact}%
                 </Text>
               </View>
-              {group.markets.map((m) => (
+              {(group.markets || []).map((m) => (
                 <View key={m.name} style={styles.marketRow}>
                   <Text style={styles.marketName}>{m.name}</Text>
                   <Text style={[styles.marketChange, { color: m.change >= 0 ? C.green : C.red }]}>
@@ -1489,7 +1489,7 @@ function StrategyScreenInner() {
           <View style={styles.formulaDivider} />
 
           <Text style={styles.lessonsTitle}>RECENT LESSONS</Text>
-          {expReplay.recentLessons.map((lesson, i) => (
+          {(expReplay.recentLessons || []).map((lesson, i) => (
             <View key={`lesson-${i}`} style={styles.lessonItem}>
               <Ionicons name="chevron-forward" size={10} color={NEON_GREEN} />
               <Text style={styles.lessonText} numberOfLines={2}>{lesson}</Text>
@@ -1555,7 +1555,7 @@ function StrategyScreenInner() {
           </View>
 
           <Text style={[styles.fusionConfidence, { marginTop: 8 }]}>System Diagnostics</Text>
-          {cons.selfDiagnostics.map((diag, i) => (
+          {(cons.selfDiagnostics || []).map((diag, i) => (
             <View key={`diag-${i}`} style={styles.layerRow}>
               <Text style={styles.layerName}>{diag.system}</Text>
               <View style={styles.layerBarBg}>
@@ -1585,7 +1585,7 @@ function StrategyScreenInner() {
             <Text style={styles.zlEntryText}>{qnt.interpretation}</Text>
           </View>
 
-          {qnt.strategies.slice(0, 5).map((st, i) => (
+          {(qnt.strategies || []).slice(0, 5).map((st, i) => (
             <View key={`q-${i}`} style={styles.layerRow}>
               <Text style={[styles.layerName, { fontSize: 10 }]}>{st.name.replace(/_/g, " ")}</Text>
               <View style={styles.layerBarBg}>
@@ -1941,10 +1941,10 @@ function StrategyScreenInner() {
             </View>
           </View>
           
-          {output.neuroFusion.weaknessDetected.length > 0 && (
+          {(output.neuroFusion.weaknessDetected || []).length > 0 && (
             <View style={{ marginTop: 8 }}>
               <Text style={styles.lessonsTitle}>WEAKNESSES DETECTED</Text>
-              {output.neuroFusion.weaknessDetected.map((w, i) => (
+              {(output.neuroFusion.weaknessDetected || []).map((w, i) => (
                 <View key={`w-${i}`} style={styles.lessonItem}>
                   <Ionicons name="warning" size={10} color={C.gold} />
                   <Text style={[styles.lessonText, { color: C.gold }]}>{w}</Text>
@@ -1953,10 +1953,10 @@ function StrategyScreenInner() {
             </View>
           )}
           
-          {output.neuroFusion.strengthsIdentified.length > 0 && (
+          {(output.neuroFusion.strengthsIdentified || []).length > 0 && (
             <View style={{ marginTop: 6 }}>
               <Text style={styles.lessonsTitle}>STRENGTHS IDENTIFIED</Text>
-              {output.neuroFusion.strengthsIdentified.map((s, i) => (
+              {(output.neuroFusion.strengthsIdentified || []).map((s, i) => (
                 <View key={`s-${i}`} style={styles.lessonItem}>
                   <Ionicons name="checkmark-circle" size={10} color={NEON_GREEN} />
                   <Text style={[styles.lessonText, { color: NEON_GREEN }]}>{s}</Text>
@@ -1969,14 +1969,14 @@ function StrategyScreenInner() {
         </View>
 
         {/* 8. SELF-CORRECTION FEED */}
-        {output.correctionHistory.length > 0 && (
+        {(output.correctionHistory || []).length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="refresh-circle" size={16} color={C.gold} />
               <Text style={styles.cardTitle}>SELF-CORRECTION LOG</Text>
-              <Text style={styles.correctionCount}>{output.correctionHistory.length}</Text>
+              <Text style={styles.correctionCount}>{(output.correctionHistory || []).length}</Text>
             </View>
-            {output.correctionHistory.slice(-5).reverse().map((evt, i) => (
+            {(output.correctionHistory || []).slice(-5).reverse().map((evt, i) => (
               <CorrectionItem key={`c-${i}`} event={evt} />
             ))}
           </View>
