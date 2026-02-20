@@ -2064,7 +2064,7 @@ btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
       const data = await ocRes.json();
       if (data.status === "success" && data.data) {
         const expiries = [...new Set(data.data.map((c: any) => c.expiry))].sort();
-        const lotSize = data.data[0]?.lot_size || 75;
+        const lotSize = data.data[0]?.lot_size || 65;
         res.json({ source: "upstox", expiries, lotSize });
       } else {
         res.json({ source: "error", expiries: [], error: "Upstox API error: " + (data.message || "Unknown") });
@@ -2110,7 +2110,7 @@ btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
             peInstrumentKey: pe.instrument_key || "",
             ceTradingSymbol: ce.trading_symbol || "",
             peTradingSymbol: pe.trading_symbol || "",
-            lotSize: ce.lot_size || pe.lot_size || 75,
+            lotSize: ce.lot_size || pe.lot_size || 65,
             cePrice: ceM.ltp || 0,
             ceOI: ceM.oi || 0,
             ceOIChange: (ceM.oi || 0) - (ceM.prev_oi || ceM.oi || 0),
@@ -2171,7 +2171,7 @@ btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
       const maxCeOIStrike = options.reduce((max: any, o: any) => o.ceOI > (max?.ceOI || 0) ? o : max, options[0]);
       const maxPeOIStrike = options.reduce((max: any, o: any) => o.peOI > (max?.peOI || 0) ? o : max, options[0]);
 
-      const chainLotSize = options[0]?.lotSize || 75;
+      const chainLotSize = options[0]?.lotSize || 65;
 
       res.json({
         source: "upstox",
@@ -2711,7 +2711,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return null;
     }
 
-    const liveLotSize = chainData?.[0]?.call_options?.lot_size || chainData?.[0]?.put_options?.lot_size || 75;
+    const liveLotSize = chainData?.[0]?.call_options?.lot_size || chainData?.[0]?.put_options?.lot_size || 65;
 
     let totalCeVolume = 0, totalPeVolume = 0;
     let ceOIBuildupCount = 0, peOIBuildupCount = 0;
@@ -2934,7 +2934,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       return { success: false, error: "Already have an active position or recent order" };
     }
 
-    const lotSize = proposal.lotSize || 75;
+    const lotSize = proposal.lotSize || 65;
     const quantity = lotSize;
 
     const upstoxPayload = {
@@ -3240,7 +3240,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const brokerage = 200;
     const targetPremium = premium + 40 + Math.round(Math.random() * 80);
     const slPremium = premium - 20 - Math.round(Math.random() * 30);
-    const lotSize = 75;
+    const lotSize = 65;
     const potentialProfit = (targetPremium - premium) * lotSize;
     const netProfit = potentialProfit - brokerage;
     const zeroLossReady = greenCandles >= 2 && netProfit >= 500 && confidence >= 55;
@@ -3253,7 +3253,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       id: generateProposalId(),
       action, confidence, strike, premium,
       target: targetPremium, stopLoss: slPremium,
-      lotSize: 75, potentialProfit, brokerage, netProfit,
+      lotSize: 65, potentialProfit, brokerage, netProfit,
       reasoning: [
         `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal at ${strike}`,
         `Monte Carlo: ${monteCarloWin}% win across 10K paths`,
@@ -3359,7 +3359,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       ceLTP,
       peLTP,
       sampleOrderPayload: {
-        quantity: 75,
+        quantity: 65,
         product: "I",
         validity: "DAY",
         price: 0,
@@ -3409,10 +3409,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       premium: Math.round(ltp),
       target: Math.round(ltp * 1.3),
       stopLoss: Math.round(ltp * 0.8),
-      lotSize: 75,
-      potentialProfit: Math.round((ltp * 0.3) * 75),
+      lotSize: 65,
+      potentialProfit: Math.round((ltp * 0.3) * 65),
       brokerage: 200,
-      netProfit: Math.round((ltp * 0.3) * 75) - 200,
+      netProfit: Math.round((ltp * 0.3) * 65) - 200,
       reasoning: [`IMMEDIATE execution: ${action} at ATM ${atmStrike}`, `LIVE premium: Rs.${ltp}`, `Instrument: ${instrumentKey}`],
       engineVersion: "v8.0 IMMEDIATE",
       rocketThrust: "HYPERDRIVE",
@@ -3611,7 +3611,7 @@ Provide the full 10-section comprehensive analysis now.`;
 
   const LOSS_ALERT_THRESHOLD = 300;
   const MIN_PROFIT_TARGET = 500;
-  const LOT_SIZE = 75;
+  const LOT_SIZE = 65;
 
   function calculatePositionATR(history: number[]): number {
     if (history.length < 3) return 0;
@@ -3978,7 +3978,7 @@ Provide the full 10-section comprehensive analysis now.`;
     let resolvedInstrumentKey = reqInstrumentKey || "";
 
     try {
-      const lotSize = 75;
+      const lotSize = 65;
       const quantity = Number(lots || 1) * lotSize;
 
       let instrumentKey = reqInstrumentKey;
@@ -4221,7 +4221,7 @@ Provide the full 10-section comprehensive analysis now.`;
     const orderAction = (action || "BUY") as "BUY" | "SELL";
 
     try {
-      const lotSize = 75;
+      const lotSize = 65;
       const quantity = Number(lots) * lotSize;
 
       let instrumentKey = reqInstrumentKey;
