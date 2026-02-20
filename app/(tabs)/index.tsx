@@ -48,13 +48,17 @@ interface TradeProposal {
   greenCandles: number;
   zeroLossReady: boolean;
   monteCarloWinProb: number;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "LIVE_EXECUTED" | "LIVE_REJECTED" | "LIVE_ERROR";
   createdAt: string;
   respondedAt: string | null;
   expiresAt: string;
   istTime: string;
   uaeTime: string;
   scanCycle: number;
+  underlying?: string;
+  underlyingName?: string;
+  spotPrice?: number;
+  scanMode?: "NIFTY" | "STOCK" | "BOTH";
 }
 
 const NEON_GREEN = "#39FF14";
@@ -139,6 +143,7 @@ export default function MarketScreen() {
   const [scanCycleCount, setScanCycleCount] = useState(0);
   const [togglingAutoScan, setTogglingAutoScan] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
+  const [scanModeState, setScanModeState] = useState<"NIFTY" | "STOCK" | "BOTH">("BOTH");
 
   const [dataSource, setDataSource] = useState<"upstox" | "offline">("offline");
 
@@ -543,6 +548,34 @@ export default function MarketScreen() {
               {autoScanActive && (
                 <Text style={styles.scanCycleText}>Cycle #{scanCycleCount}</Text>
               )}
+              <View style={{ flexDirection: "row", marginLeft: 6, gap: 3 }}>
+                {(["NIFTY", "STOCK", "BOTH"] as const).map((mode) => (
+                  <Pressable
+                    key={mode}
+                    onPress={async () => {
+                      try {
+                        await nativeFetch(`${getApiUrl()}api/auto-trade/scan-mode`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ mode }),
+                        });
+                        setScanModeState(mode);
+                      } catch {}
+                    }}
+                    style={{
+                      paddingHorizontal: 6, paddingVertical: 2,
+                      borderRadius: 6,
+                      backgroundColor: scanModeState === mode ? "rgba(0,243,255,0.2)" : "rgba(255,255,255,0.05)",
+                      borderWidth: 1,
+                      borderColor: scanModeState === mode ? CYAN : "transparent",
+                    }}
+                  >
+                    <Text style={{ color: scanModeState === mode ? CYAN : Colors.dark.textMuted, fontSize: 8, fontFamily: "DMSans_600SemiBold" }}>
+                      {mode === "BOTH" ? "ALL" : mode}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
             <Pressable
               style={({ pressed }) => [
@@ -574,7 +607,7 @@ export default function MarketScreen() {
             <View style={styles.scanningCard}>
               <ActivityIndicator size="small" color={CYAN} />
               <Text style={styles.scanningText}>
-                Scanning market with 20 neural formulas... Waiting for trade signal
+                Scanning {scanModeState === "NIFTY" ? "Nifty 50" : scanModeState === "STOCK" ? "Stock Options" : "Nifty 50 + Stock Options"} with 20 neural formulas...
               </Text>
             </View>
           )}
@@ -587,6 +620,20 @@ export default function MarketScreen() {
 
             return (
               <View key={proposal.id} style={[styles.proposalCard, proposal.zeroLossReady && styles.proposalCardReady]}>
+                {proposal.underlying && proposal.underlying !== "NIFTY50" && (
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 6 }}>
+                    <View style={{ backgroundColor: "rgba(0,243,255,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ color: CYAN, fontSize: 10, fontFamily: "DMSans_700Bold" }}>STOCK</Text>
+                    </View>
+                    <Text style={{ color: "#FFF", fontSize: 13, fontFamily: "DMSans_700Bold" }}>{proposal.underlying}</Text>
+                    {proposal.underlyingName && (
+                      <Text style={{ color: Colors.dark.textMuted, fontSize: 10, fontFamily: "DMSans_400Regular" }}>{proposal.underlyingName}</Text>
+                    )}
+                    {proposal.spotPrice && (
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, fontFamily: "DMSans_500Medium" }}>Rs.{proposal.spotPrice}</Text>
+                    )}
+                  </View>
+                )}
                 <View style={styles.proposalHeaderRow}>
                   <View style={[styles.proposalActionBadge, { backgroundColor: isCE ? Colors.dark.greenBg : Colors.dark.redBg }]}>
                     <Text style={[styles.proposalActionText, { color: isCE ? Colors.dark.green : Colors.dark.red }]}>
@@ -698,7 +745,7 @@ export default function MarketScreen() {
                   </Pressable>
                 </View>
 
-                <Text style={styles.proposalIdText}>ID: {proposal.id} | {proposal.istTime} IST</Text>
+                <Text style={styles.proposalIdText}>ID: {proposal.id} | {proposal.underlying || "NIFTY50"} | {proposal.istTime} IST</Text>
               </View>
             );
           })}
@@ -711,7 +758,7 @@ export default function MarketScreen() {
                     backgroundColor: p.status === "APPROVED" || p.status === "EXECUTED" ? Colors.dark.green
                       : p.status === "REJECTED" ? Colors.dark.red : Colors.dark.textMuted
                   }]} />
-                  <Text style={styles.resolvedAction}>{p.action} {p.strike}</Text>
+                  <Text style={styles.resolvedAction}>{p.underlying && p.underlying !== "NIFTY50" ? `${p.underlying} ` : ""}{p.action} {p.strike}</Text>
                   <Text style={[styles.resolvedStatus, {
                     color: p.status === "APPROVED" || p.status === "EXECUTED" ? Colors.dark.green
                       : p.status === "REJECTED" ? Colors.dark.red : Colors.dark.textMuted
