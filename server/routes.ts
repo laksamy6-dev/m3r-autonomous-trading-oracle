@@ -525,6 +525,67 @@ function runSelfImprovement() {
     brainStats.languageFluency[lang] = brainStats.languageFluency[lang] + Math.random() * 0.08;
   }
 
+  if (brainStats.totalLearningCycles % 10 === 0) {
+    const entries = Object.entries(brainStats.knowledgeAreas);
+    const avgVal = entries.reduce((s, [, v]) => s + v, 0) / entries.length;
+    const criticallyWeak = entries.filter(([, v]) => v < avgVal * 0.35);
+    for (const [area, val] of criticallyWeak) {
+      const correction = Math.round((avgVal * 0.2 + Math.random() * 5) * 100) / 100;
+      brainStats.knowledgeAreas[area] = val + correction;
+      brainStats.selfImprovementLog.push({
+        time: new Date().toISOString(),
+        area,
+        delta: correction,
+        note: `🔧 SELF-CORRECTION: ${area} was critically low (${val.toFixed(1)}%), auto-corrected +${correction.toFixed(2)} → ${(val + correction).toFixed(1)}%`,
+      });
+    }
+
+    const stagnant = entries.filter(([, v]) => {
+      const lastLog = brainStats.selfImprovementLog.filter(l => l.area === entries[0]?.[0]).slice(-5);
+      return v > 30 && v < 50 && lastLog.length < 2;
+    });
+    if (stagnant.length > 0) {
+      const [area, val] = stagnant[Math.floor(Math.random() * stagnant.length)];
+      const boost = Math.round((3 + Math.random() * 4) * 100) / 100;
+      brainStats.knowledgeAreas[area] = val + boost;
+      brainStats.selfImprovementLog.push({
+        time: new Date().toISOString(),
+        area,
+        delta: boost,
+        note: `🔄 STAGNATION FIX: ${area} stuck at ${val.toFixed(1)}%, jump-started +${boost.toFixed(2)}`,
+      });
+    }
+  }
+
+  if (brainStats.totalLearningCycles % 50 === 0) {
+    const catScores: Record<string, number> = {};
+    for (const [cat, domains] of Object.entries(KNOWLEDGE_CATEGORIES)) {
+      const activeDomains = domains.filter(d => brainStats.knowledgeAreas[d]);
+      if (activeDomains.length > 0) {
+        catScores[cat] = activeDomains.reduce((s, d) => s + (brainStats.knowledgeAreas[d] || 0), 0) / activeDomains.length;
+      }
+    }
+    const catEntries = Object.entries(catScores);
+    if (catEntries.length > 1) {
+      const catAvg = catEntries.reduce((s, [, v]) => s + v, 0) / catEntries.length;
+      const weakCats = catEntries.filter(([, v]) => v < catAvg * 0.6);
+      for (const [cat] of weakCats) {
+        const catDomains = KNOWLEDGE_CATEGORIES[cat]?.filter(d => brainStats.knowledgeAreas[d]) || [];
+        for (const domain of catDomains.slice(0, 3)) {
+          const current = brainStats.knowledgeAreas[domain];
+          const catBoost = Math.round((2 + Math.random() * 3) * 100) / 100;
+          brainStats.knowledgeAreas[domain] = current + catBoost;
+        }
+        brainStats.selfImprovementLog.push({
+          time: new Date().toISOString(),
+          area: cat,
+          delta: 0,
+          note: `🧬 CATEGORY REBALANCE: ${cat} category was lagging (${catScores[cat]?.toFixed(1)}% vs avg ${catAvg.toFixed(1)}%), domains boosted`,
+        });
+      }
+    }
+  }
+
   if (brainStats.totalLearningCycles % 25 === 0) {
     brainStats.generation++;
   }
