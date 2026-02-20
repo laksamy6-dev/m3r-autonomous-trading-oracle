@@ -595,6 +595,27 @@ export default function AIScreen() {
   }, []);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/ai/chat-history`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp,
+            })));
+            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 200);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (recordingRef.current) recordingRef.current.stopAndUnloadAsync().catch(() => {});
     };

@@ -1327,6 +1327,20 @@ Creator: MANIKANDAN RAJENDRAN — Founder, M3R Innovative Fintech Solutions. Alw
 
       res.write("data: [DONE]\n\n");
       res.end();
+
+      if (dbPool && fullText) {
+        try {
+          if (!aiChatTableReady) aiChatTableReady = await ensureAiChatTable();
+          if (aiChatTableReady) {
+            await dbPool.query(
+              "INSERT INTO ai_chat_messages (role, content) VALUES ($1, $2), ($3, $4)",
+              ["user", question, "assistant", fullText]
+            );
+          }
+        } catch (dbErr: any) {
+          console.error("[AI CHAT] DB save error:", dbErr.message);
+        }
+      }
     } catch (error) {
       console.error("Error getting market insight:", error);
       if (res.headersSent) {
@@ -4912,6 +4926,51 @@ You are now in VOICE MODE — the user is speaking to you while driving.
   }
 
   let lamyChatTableReady = false;
+
+  async function ensureAiChatTable(): Promise<boolean> {
+    if (!dbPool) return false;
+    try {
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS ai_chat_messages (
+          id SERIAL PRIMARY KEY,
+          role VARCHAR(20) NOT NULL,
+          content TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      return true;
+    } catch (err) {
+      console.error("[AI CHAT] Table creation error:", err);
+      return false;
+    }
+  }
+
+  let aiChatTableReady = false;
+
+  app.get("/api/ai/chat-history", async (_req, res) => {
+    try {
+      if (!dbPool) return res.json({ messages: [] });
+      if (!aiChatTableReady) {
+        aiChatTableReady = await ensureAiChatTable();
+      }
+      if (!aiChatTableReady) return res.json({ messages: [] });
+      const result = await dbPool.query(
+        "SELECT id, role, content, created_at FROM ai_chat_messages ORDER BY created_at ASC"
+      );
+      res.json({
+        messages: result.rows.map((m: any) => ({
+          id: m.id.toString(),
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          date: new Date(m.created_at).toLocaleDateString("en-IN"),
+        })),
+      });
+    } catch (err) {
+      console.error("[AI CHAT] History load error:", err);
+      res.json({ messages: [] });
+    }
+  });
 
   app.get("/api/lamy/chat-history", async (_req, res) => {
     try {
