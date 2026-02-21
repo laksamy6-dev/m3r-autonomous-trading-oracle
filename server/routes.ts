@@ -1843,6 +1843,8 @@ Based on this data, give me:
         }
       } catch {}
 
+      const deviceFingerprint = `${platform}-${deviceModel}-${screenWidth}x${screenHeight}-${osVersion}-${String(pixelRatio || 1)}`;
+
       if (method === "failed") {
         const existing = failedAttempts.find(f => f.ip === ip);
         if (existing) {
@@ -1879,24 +1881,113 @@ Based on this data, give me:
       loginEvents.unshift(event);
       if (loginEvents.length > 200) loginEvents.length = 200;
 
-      res.json({ success: true });
+      if (dbPool) {
+        try {
+          await dbPool.query(
+            `INSERT INTO login_events (id, method, timestamp, ip, user_agent, platform, screen_width, screen_height, language, city, region, country, timezone, lat, lon, isp, device_model, os_version, pixel_ratio, network_type, battery_level, is_charging, app_version, session_id, device_fingerprint)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+            [event.id, event.method, event.timestamp, event.ip, event.userAgent, event.platform,
+             event.screenWidth, event.screenHeight, event.language, city, region, country, timezone,
+             lat, lon, isp, event.deviceModel, event.osVersion, event.pixelRatio, event.networkType,
+             event.batteryLevel, event.isCharging, event.appVersion, event.sessionId, deviceFingerprint]
+          );
+        } catch (dbErr) {
+          console.error("[LOGIN DB] Failed to persist login event:", dbErr);
+        }
+      }
+
+      const istTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      const methodLabel = method === "pin" ? "OWNER (PIN)" : method === "visitor" ? "VISITOR" : method === "replit" ? "REPLIT USER" : "FAILED ATTEMPT";
+      const isOwnerLogin = method === "pin";
+      const isThreat = method === "failed" || method === "visitor";
+
+      if (isTelegramConfigured()) {
+        const alertIcon = method === "pin" ? "✅" : method === "visitor" ? "👁️" : method === "failed" ? "🚨" : "🔑";
+        const urgency = method === "failed" ? "⚠️ SECURITY ALERT" : method === "visitor" ? "👤 VISITOR ACCESS" : method === "pin" ? "🏠 OWNER LOGIN" : "🔐 LOGIN";
+
+        let tgMsg = `${alertIcon} <b>${urgency}</b>\n`;
+        tgMsg += `━━━━━━━━━━━━━━━━━━\n`;
+        tgMsg += `👤 <b>Type:</b> ${methodLabel}\n`;
+        tgMsg += `📱 <b>Device:</b> ${deviceModel || "Unknown"}\n`;
+        tgMsg += `💻 <b>OS:</b> ${osVersion || "Unknown"}\n`;
+        tgMsg += `📐 <b>Screen:</b> ${screenWidth || 0}×${screenHeight || 0} @${pixelRatio || 1}x\n`;
+        tgMsg += `🌐 <b>Platform:</b> ${platform || "Unknown"}\n`;
+        tgMsg += `📡 <b>Network:</b> ${networkType || "Unknown"}\n`;
+        if (batteryLevel >= 0) {
+          tgMsg += `🔋 <b>Battery:</b> ${batteryLevel}% ${isCharging ? "(Charging)" : ""}\n`;
+        }
+        tgMsg += `━━━━━━━━━━━━━━━━━━\n`;
+        tgMsg += `🌍 <b>Location:</b> ${city}, ${region}, ${country}\n`;
+        tgMsg += `🏢 <b>ISP:</b> ${isp}\n`;
+        tgMsg += `🔗 <b>IP:</b> ${ip}\n`;
+        if (lat !== 0 && lon !== 0) {
+          tgMsg += `📍 <b>Coords:</b> ${lat.toFixed(4)}, ${lon.toFixed(4)}\n`;
+        }
+        tgMsg += `━━━━━━━━━━━━━━━━━━\n`;
+        tgMsg += `🕐 <b>Time:</b> ${istTime}\n`;
+        tgMsg += `🆔 <b>Session:</b> ${sessionId || "N/A"}\n`;
+        tgMsg += `🌐 <b>Language:</b> ${language || "en"}\n`;
+
+        if (method === "failed") {
+          const failCount = failedAttempts.find(f => f.ip === ip)?.count || 1;
+          tgMsg += `\n🚨 <b>FAILED ATTEMPTS FROM THIS IP: ${failCount}</b>\n`;
+          if (failCount >= 3) {
+            tgMsg += `⛔ <b>BRUTE FORCE DETECTED — MULTIPLE FAILED PINS!</b>\n`;
+          }
+        }
+
+        if (method === "visitor") {
+          tgMsg += `\n👁️ <b>UNKNOWN PERSON ACCESSED YOUR APP</b>\n`;
+          tgMsg += `📋 <b>Browser:</b> ${typeof userAgent === "string" ? userAgent.substring(0, 100) : "Unknown"}\n`;
+        }
+
+        tgMsg += `\n🤖 LAMY Security Monitor v3.0`;
+
+        sendTelegramMessage(tgMsg).catch(() => {});
+      }
+
+      const logIcon = method === "pin" ? "✅" : method === "visitor" ? "👁️" : method === "failed" ? "🚨" : "🔑";
+      console.log(`[LOGIN] ${logIcon} ${methodLabel} from ${ip} (${city}, ${country}) — ${deviceModel || "Unknown"} / ${platform}`);
+
+      res.json({ success: true, isOwner: isOwnerLogin });
     } catch (error) {
       console.error("Login event error:", error);
       res.status(500).json({ error: "Failed to log event" });
     }
   });
 
-  app.get("/api/login-events", (_req, res) => {
-    const totalLogins = loginEvents.length;
-    const ownerLogins = loginEvents.filter(e => e.method === "pin").length;
-    const visitorLogins = loginEvents.filter(e => e.method === "visitor").length;
-    const failedLogins = loginEvents.filter(e => e.method === "failed").length;
-    const uniqueIPs = new Set(loginEvents.map(e => e.ip)).size;
-    const uniqueDevices = new Set(loginEvents.map(e => `${e.platform}-${e.deviceModel}-${e.screenWidth}x${e.screenHeight}`)).size;
-    const countries = [...new Set(loginEvents.filter(e => e.country !== "Unknown").map(e => e.country))];
+  app.get("/api/login-events", async (_req, res) => {
+    let allEvents = loginEvents;
+
+    if (dbPool && loginEvents.length === 0) {
+      try {
+        const result = await dbPool.query(
+          `SELECT id, method, timestamp, ip, user_agent as "userAgent", platform, screen_width as "screenWidth", screen_height as "screenHeight", language, city, region, country, timezone, lat, lon, isp, device_model as "deviceModel", os_version as "osVersion", pixel_ratio as "pixelRatio", network_type as "networkType", battery_level as "batteryLevel", is_charging as "isCharging", app_version as "appVersion", session_id as "sessionId", device_fingerprint as "deviceFingerprint"
+           FROM login_events ORDER BY timestamp DESC LIMIT 200`
+        );
+        if (result.rows.length > 0) {
+          allEvents = result.rows.map((r: any) => ({
+            ...r,
+            timestamp: new Date(r.timestamp).toISOString(),
+          }));
+          loginEvents.length = 0;
+          loginEvents.push(...allEvents);
+        }
+      } catch (dbErr) {
+        console.error("[LOGIN DB] Failed to load login events:", dbErr);
+      }
+    }
+
+    const totalLogins = allEvents.length;
+    const ownerLogins = allEvents.filter(e => e.method === "pin").length;
+    const visitorLogins = allEvents.filter(e => e.method === "visitor").length;
+    const failedLogins = allEvents.filter(e => e.method === "failed").length;
+    const uniqueIPs = new Set(allEvents.map(e => e.ip)).size;
+    const uniqueDevices = new Set(allEvents.map(e => `${e.platform}-${e.deviceModel}-${e.screenWidth}x${e.screenHeight}`)).size;
+    const countries = [...new Set(allEvents.filter(e => e.country !== "Unknown").map(e => e.country))];
 
     res.json({
-      events: loginEvents,
+      events: allEvents,
       stats: {
         totalLogins,
         ownerLogins,
