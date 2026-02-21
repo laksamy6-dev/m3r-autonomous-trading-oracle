@@ -8,7 +8,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  ImageBackground,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import Colors from "@/constants/colors";
 import { LinearGradient } from "expo-linear-gradient";
+import { Video, ResizeMode } from "expo-av";
 
 const C = Colors.dark;
 const CYAN = "#00D4FF";
@@ -36,36 +36,19 @@ export default function LockScreen() {
   const [showSplash, setShowSplash] = useState(true);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
-  const splashScale = useRef(new Animated.Value(0.8)).current;
-  const logoGlow = useRef(new Animated.Value(0.6)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const videoRef = useRef<Video>(null);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
+  function endSplash() {
+    Animated.timing(splashOpacity, { toValue: 0, duration: 600, useNativeDriver: true }).start(() => {
+      setShowSplash(false);
+    });
+  }
+
   useEffect(() => {
-    Animated.spring(splashScale, {
-      toValue: 1,
-      tension: 40,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoGlow, { toValue: 1, duration: 1500, useNativeDriver: true }),
-        Animated.timing(logoGlow, { toValue: 0.6, duration: 1500, useNativeDriver: true }),
-      ])
-    ).start();
-
-    setTimeout(() => {
-      Animated.timing(taglineOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    }, 600);
-
     const timer = setTimeout(() => {
-      Animated.timing(splashOpacity, { toValue: 0, duration: 500, useNativeDriver: true }).start(() => {
-        setShowSplash(false);
-      });
-    }, 3000);
-
+      endSplash();
+    }, 20000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -147,11 +130,26 @@ export default function LockScreen() {
   if (showSplash) {
     return (
       <Animated.View style={[styles.splashContainer, { opacity: splashOpacity }]}>
-        <ImageBackground
-          source={require("@/assets/images/m3r-splash-bg.png")}
+        <Video
+          ref={videoRef}
+          source={require("@/assets/videos/m3r-intro.mp4")}
           style={StyleSheet.absoluteFill}
-          resizeMode="cover"
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isMuted={false}
+          isLooping={false}
+          onPlaybackStatusUpdate={(status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              endSplash();
+            }
+          }}
         />
+        <Pressable style={styles.skipBtn} onPress={endSplash}>
+          <View style={styles.skipBtnInner}>
+            <Text style={styles.skipBtnText}>Skip</Text>
+            <Ionicons name="chevron-forward" size={16} color="#FFF" />
+          </View>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -497,5 +495,28 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     color: C.textMuted,
     opacity: 0.5,
+  },
+  skipBtn: {
+    position: "absolute",
+    top: Platform.OS === "web" ? 67 + 16 : 56,
+    right: 20,
+    zIndex: 10,
+  },
+  skipBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  skipBtnText: {
+    fontSize: 14,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
 });
