@@ -984,6 +984,7 @@ export default function SettingsScreen() {
                   styles.loginEventCard,
                   event.method === "pin" && styles.loginEventOwner,
                   event.method === "failed" && styles.loginEventFailed,
+                  event.method === "visitor" && { borderLeftWidth: 3, borderLeftColor: "#FF9500" },
                   pressed && { opacity: 0.8 },
                 ]}
               >
@@ -998,6 +999,16 @@ export default function SettingsScreen() {
                       {event.method === "pin" ? "OWNER" : event.method === "failed" ? "FAILED" : "VISITOR"}
                     </Text>
                   </View>
+                  {event.method === "visitor" && (
+                    <View style={{ backgroundColor: "#FF9500" + "30", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 9, fontFamily: "DMSans_700Bold", color: "#FF9500" }}>UNKNOWN DEVICE</Text>
+                    </View>
+                  )}
+                  {event.method === "failed" && (
+                    <View style={{ backgroundColor: RED_ALERT + "30", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 9, fontFamily: "DMSans_700Bold", color: RED_ALERT }}>INTRUDER</Text>
+                    </View>
+                  )}
                   <Text style={styles.loginTimeText}>
                     {formatLoginTime(event.timestamp)}
                   </Text>
@@ -1062,6 +1073,27 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Text style={styles.modalTitle}>Full Device Report</Text>
+
+                {selectedEvent.method === "visitor" && (
+                  <View style={{ backgroundColor: "#FF9500" + "18", borderWidth: 1, borderColor: "#FF9500" + "40", borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 11, fontFamily: "DMSans_700Bold", color: "#FF9500", textAlign: "center" }}>
+                      UNKNOWN PERSON ACCESSED YOUR APP
+                    </Text>
+                    <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: "#FF9500", textAlign: "center", marginTop: 4, opacity: 0.8 }}>
+                      This person entered as a visitor. Full device details below.
+                    </Text>
+                  </View>
+                )}
+                {selectedEvent.method === "failed" && (
+                  <View style={{ backgroundColor: RED_ALERT + "18", borderWidth: 1, borderColor: RED_ALERT + "40", borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 11, fontFamily: "DMSans_700Bold", color: RED_ALERT, textAlign: "center" }}>
+                      INTRUDER ALERT — WRONG PIN ENTERED
+                    </Text>
+                    <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: RED_ALERT, textAlign: "center", marginTop: 4, opacity: 0.8 }}>
+                      Someone tried to guess your PIN. Their device details are captured below.
+                    </Text>
+                  </View>
+                )}
 
                 <LoginDetailField icon="time-outline" label="Login Time (IST)" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" })} />
                 <LoginDetailField icon="location-outline" label="City / Region" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
