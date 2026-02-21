@@ -476,7 +476,7 @@ const langStyles = StyleSheet.create({
 const briefStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0E1A",
+    backgroundColor: "#1B2838",
     alignItems: "center",
   },
   skipBtn: {

@@ -2255,7 +2255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 8,
     gap: 8,
-    backgroundColor: "rgba(5, 5, 8, 0.95)",
+    backgroundColor: "rgba(27, 40, 56, 0.95)",
     borderTopWidth: 1,
     borderTopColor: PANEL_BORDER,
     zIndex: 50,

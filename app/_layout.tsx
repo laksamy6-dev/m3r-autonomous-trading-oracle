@@ -64,7 +64,7 @@ function AuthGate() {
 const gateStyles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: "#0A0E1A",
+    backgroundColor: "#1B2838",
     alignItems: "center",
     justifyContent: "center",
   },

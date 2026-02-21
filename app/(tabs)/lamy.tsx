@@ -562,7 +562,7 @@ const st = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: PANEL_BORDER,
-    backgroundColor: "rgba(5, 5, 8, 0.95)",
+    backgroundColor: "rgba(27, 40, 56, 0.95)",
     gap: 10,
   },
   orbContainer: {

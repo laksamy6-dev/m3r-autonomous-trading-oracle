@@ -25,7 +25,7 @@ const RED = '#EF4444';
 const CYAN = '#00D4FF';
 const MAGENTA = '#FF00FF';
 const GOLD = '#F59E0B';
-const BG = '#111827';
+const BG = '#243350';
 const TEXT_COLOR = '#94A3B8';
 
 function TradingChart({

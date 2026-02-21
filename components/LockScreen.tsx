@@ -159,7 +159,7 @@ export default function LockScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <LinearGradient
-        colors={["#0A0E1A", "#0D1B2A", "#0A0E1A"]}
+        colors={["#1B2838", "#223048", "#1B2838"]}
         style={StyleSheet.absoluteFill}
       />
 

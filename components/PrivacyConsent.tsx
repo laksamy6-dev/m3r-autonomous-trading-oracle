@@ -111,9 +111,9 @@ export default function PrivacyConsent({ onAccept }: { onAccept: () => void }) {
               <Switch
                 value={toggles[perm.id]}
                 onValueChange={() => handleToggle(perm.id)}
-                trackColor={{ false: "#1E293B", true: CYAN + "66" }}
+                trackColor={{ false: "#334766", true: CYAN + "66" }}
                 thumbColor={toggles[perm.id] ? CYAN : "#64748B"}
-                ios_backgroundColor="#1E293B"
+                ios_backgroundColor="#334766"
               />
             </View>
           ))}

@@ -29,7 +29,7 @@ function LockedScreen({ tabName, onLoginPress }: { tabName: string; onLoginPress
   return (
     <View style={[gateStyles.container, { paddingTop: insets.top + webTopInset + 40 }]}>
       <LinearGradient
-        colors={["#0A0E1A", "#0D1B2A", "#0A0E1A"]}
+        colors={["#1B2838", "#223048", "#1B2838"]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -61,7 +61,7 @@ function LockedScreen({ tabName, onLoginPress }: { tabName: string; onLoginPress
 const gateStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0E1A",
+    backgroundColor: "#1B2838",
     alignItems: "center",
     paddingHorizontal: 32,
   },

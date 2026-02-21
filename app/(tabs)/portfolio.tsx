@@ -47,7 +47,7 @@ import BrandHeader from "@/components/BrandHeader";
 
 const CYAN = "#00D4FF";
 const NEON_GREEN = "#39FF14";
-const SURFACE_DARK = "#111827";
+const SURFACE_DARK = "#243350";
 const CARD_BG = "#151D2E";
 
 type TabKey = "DASHBOARD" | "POSITIONS" | "ORDERS" | "HISTORY";
