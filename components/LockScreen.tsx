@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  ImageBackground,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -146,39 +147,11 @@ export default function LockScreen() {
   if (showSplash) {
     return (
       <Animated.View style={[styles.splashContainer, { opacity: splashOpacity }]}>
-        <LinearGradient
-          colors={["#000000", "#0A0E1A", "#0D1B2A", "#0A0E1A", "#000000"]}
+        <ImageBackground
+          source={require("@/assets/images/m3r-splash-bg.png")}
           style={StyleSheet.absoluteFill}
+          resizeMode="cover"
         />
-
-        <View style={styles.splashGlowOuter} />
-        <View style={styles.splashGlowInner} />
-
-        <Animated.View style={[styles.splashContent, { transform: [{ scale: splashScale }] }]}>
-          <Animated.View style={[styles.splashLogoWrap, { opacity: logoGlow }]}>
-            <View style={styles.splashLogoGlow} />
-          </Animated.View>
-          <Image
-            source={require("@/assets/images/m3r-logo.png")}
-            style={styles.splashLogo}
-            resizeMode="contain"
-          />
-
-          <View style={styles.splashTextBlock}>
-            <Text style={styles.splashM3R}>M3R</Text>
-            <View style={styles.splashDivider} />
-            <Text style={styles.splashCompany}>INNOVATIVE FINTECH SOLUTIONS</Text>
-          </View>
-
-          <Animated.View style={[styles.splashTaglineWrap, { opacity: taglineOpacity }]}>
-            <Text style={styles.splashTagline}>TRADE TO PROSPER</Text>
-            <Text style={styles.splashTaglineSub}>Where Every Trader Wins</Text>
-          </Animated.View>
-        </Animated.View>
-
-        <View style={styles.splashFooter}>
-          <Text style={styles.splashFooterText}>DEVELOPER: MANIKANDAN RAJENDRAN</Text>
-        </View>
       </Animated.View>
     );
   }
