@@ -1768,6 +1768,7 @@ Based on this data, give me:
          ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
         [pin]
       );
+      currentPin = pin;
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1803,8 +1804,8 @@ Based on this data, give me:
       if (!pinTableReady) pinTableReady = await ensurePinTable();
       if (!pinTableReady) return res.status(500).json({ error: "Database setup failed" });
       const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
-      const currentPin = result.rows.length > 0 ? result.rows[0].value : "1234";
-      if (oldPin !== currentPin) {
+      const dbPin = result.rows.length > 0 ? result.rows[0].value : "1234";
+      if (oldPin !== dbPin && oldPin !== currentPin) {
         return res.json({ success: false, error: "Incorrect current PIN" });
       }
       await dbPool.query(
@@ -1812,6 +1813,8 @@ Based on this data, give me:
          ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
         [newPin]
       );
+      currentPin = newPin;
+      console.log(`[AUTH] PIN changed successfully`);
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -4400,6 +4403,22 @@ Provide the full 10-section comprehensive analysis now.`;
   });
 
   let currentPin = "1234";
+
+  if (dbPool) {
+    (async () => {
+      try {
+        await dbPool.query(`CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`);
+        const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+        if (result.rows.length > 0 && result.rows[0].value) {
+          currentPin = result.rows[0].value;
+          console.log(`[AUTH] PIN loaded from database`);
+        }
+      } catch (e) {
+        console.error("[AUTH] Failed to load PIN from database:", e);
+      }
+    })();
+  }
+
   const savedAutoTrade = savedVault.AUTO_TRADE_MODE === "true";
   let autoTradeMode = savedAutoTrade;
   let cachedLiveLotSize = 0;

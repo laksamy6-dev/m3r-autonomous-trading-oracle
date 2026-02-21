@@ -105,7 +105,7 @@ export default function SettingsScreen() {
   const [changePinModal, setChangePinModal] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [savedPin, setSavedPin] = useState("1234");
+  const [savedPin, setSavedPin] = useState("");
   const [autoTradePinModal, setAutoTradePinModal] = useState(false);
   const [autoTradePin, setAutoTradePin] = useState("");
   const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
@@ -298,9 +298,25 @@ export default function SettingsScreen() {
     ]);
   }
 
-  function verifyPin() {
+  async function verifyPin() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (pinInput === savedPin) {
+    let correctPin = savedPin;
+    if (!correctPin) {
+      try {
+        const baseUrl = getApiUrl();
+        const res = await globalThis.fetch(`${baseUrl}api/auth/pin`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pin) {
+            correctPin = data.pin;
+            setSavedPin(data.pin);
+          }
+        }
+      } catch {}
+    }
+    if (!correctPin) correctPin = "1234";
+    if (pinInput === correctPin) {
+      setSavedPin(correctPin);
       setPinVerified(true);
       setPinError(false);
       fetchLoginEvents();
