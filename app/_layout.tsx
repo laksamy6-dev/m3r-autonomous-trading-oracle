@@ -18,9 +18,22 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Platform } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
+
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (meta) {
+    meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+  }
+  document.addEventListener("gesturestart", (e) => e.preventDefault());
+  document.addEventListener("touchmove", (e) => {
+    if ((e as any).scale !== undefined && (e as any).scale !== 1) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
 
 function RootLayoutNav() {
   return (

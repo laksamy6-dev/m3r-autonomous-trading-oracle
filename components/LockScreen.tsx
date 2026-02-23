@@ -130,20 +130,32 @@ export default function LockScreen() {
   if (showSplash) {
     return (
       <Animated.View style={[styles.splashContainer, { opacity: splashOpacity }]}>
-        <Video
-          ref={videoRef}
-          source={require("@/assets/videos/m3r-intro.mp4")}
-          style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isMuted={false}
-          isLooping={false}
-          onPlaybackStatusUpdate={(status) => {
-            if (status.isLoaded && status.didJustFinish) {
-              endSplash();
-            }
-          }}
-        />
+        {Platform.OS === "web" ? (
+          <video
+            autoPlay
+            playsInline
+            muted={false}
+            onEnded={endSplash}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" } as any}
+          >
+            <source src={require("@/assets/videos/m3r-intro.mp4")} type="video/mp4" />
+          </video>
+        ) : (
+          <Video
+            ref={videoRef}
+            source={require("@/assets/videos/m3r-intro.mp4")}
+            style={StyleSheet.absoluteFill}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isMuted={false}
+            isLooping={false}
+            onPlaybackStatusUpdate={(status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                endSplash();
+              }
+            }}
+          />
+        )}
         <Pressable style={styles.skipBtn} onPress={endSplash}>
           <View style={styles.skipBtnInner}>
             <Text style={styles.skipBtnText}>Skip</Text>

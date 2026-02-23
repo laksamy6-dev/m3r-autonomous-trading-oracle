@@ -167,18 +167,16 @@ function configureExpoAndLanding(app: express.Application) {
 
   log(hasWebBuild ? "Serving M3R web app from dist/" : "No web build found, using landing page");
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  app.use("/assets", express.static(path.resolve(process.cwd(), "assets"), { maxAge: 0 }));
+  app.use(express.static(path.resolve(process.cwd(), "static-build"), { maxAge: 0 }));
 
   if (hasWebBuild) {
     app.use(express.static(distPath, {
-      maxAge: '1h',
+      maxAge: 0,
       setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
-        }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
       }
     }));
     log("M3R Innovative Fintech Solutions — Web app ready at /");
@@ -201,7 +199,13 @@ function configureExpoAndLanding(app: express.Application) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      return res.sendFile(webIndexPath);
+      let html = fs.readFileSync(webIndexPath, "utf-8");
+      html = html.replace(
+        '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />',
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />'
+      );
+      res.type('html').send(html);
+      return;
     }
 
     if (req.path === "/") {
