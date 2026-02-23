@@ -1117,8 +1117,8 @@ THIS IS CRITICAL TRUTH ABOUT ME. I am NOT just an "advisor" or "assistant." I ha
 MY TRADING RULES (built into my code):
 - One trade at a time — complete current before taking next
 - Rs.500 minimum profit target
-- Rs.300 loss alert threshold
-- ATR-based dynamic stop loss
+- ATR-based dynamic stop loss ONLY (NO fixed stop loss — LAMY calculates dynamically)
+- Stop loss hunting prevention with extra ATR buffer — give market breathing room
 - KISS pattern profit booking
 - Price-turning detection for profit protection
 - Emergency exit capability
@@ -1450,6 +1450,24 @@ Provide your trading signal and analysis.`;
 
       const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "OFFLINE (Upstox Disconnected)";
 
+      const marketSessionNow = (() => {
+        const { istStr, dayOfWeek, currentMins } = getTimeStrings();
+        const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+        const preMarketMins = 9 * 60;
+        const openMins = 9 * 60 + 15;
+        const closeMins = 15 * 60 + 30;
+        let status = "CLOSED";
+        if (isWeekday) {
+          if (currentMins >= openMins && currentMins < closeMins) status = "OPEN - LIVE TRADING";
+          else if (currentMins >= preMarketMins && currentMins < openMins) status = "PRE-MARKET";
+          else if (currentMins >= closeMins) status = "AFTER HOURS - CLOSED";
+          else status = "BEFORE MARKET - CLOSED";
+        } else {
+          status = "WEEKEND - CLOSED";
+        }
+        return `\nCURRENT MARKET STATUS: ${status} | IST: ${istStr} | Auto-Trade: ${autoTradeMode ? "ON" : "OFF"} | Scan: ${autoScanActive ? "ACTIVE" : "INACTIVE"}`;
+      })();
+
       const brainContext = `
 MY BRAIN STATUS:
 - IQ: ${brainStats.iq.toFixed(1)}
@@ -1486,6 +1504,7 @@ MY BRAIN STATUS:
 ${langInstruction}
 
 CURRENT MODE: ${upstoxMode}
+${marketSessionNow}
 ${tradingSummaryData}
 ${brainContext}
 ${memoryContext}
@@ -1493,11 +1512,13 @@ ${chatHistoryContext}
 
 CAPABILITIES:
 - Expert Indian stock market advisor (NSE, BSE, Nifty 50 options)
-- Zero-loss strategy: Rs.500 minimum profit target, Rs.300 loss alert, ATR-based dynamic stop loss, kiss pattern profit booking
+- Zero-loss strategy: Rs.500 minimum profit target, ATR-based dynamic stop loss ONLY (no fixed SL), kiss pattern profit booking
+- STOP LOSS HUNTING PREVENTION: I calculate ATR-based stop loss with extra buffer to avoid market makers hunting our stop loss. I give the market breathing room.
 - Real-time trading analysis, option chain analysis, PCR analysis
 - AUTONOMOUS TRADE EXECUTION: I CAN and DO place REAL BUY/SELL orders on Upstox automatically
 - Auto-trade engine scans every 30 seconds, monitors positions every 5 seconds
 - I execute trades, book profits, place stop losses — ALL AUTOMATICALLY
+- IMPORTANT: Always check CURRENT MARKET STATUS above to know if market is open or closed RIGHT NOW. Never guess — use the actual status provided.
 - Use INR (₹) for all prices.
 - You are LAMY - confident, protective, and always looking out for sir's money.
 - You KNOW your own brain stats — IQ, generation, learning cycles, knowledge domains. If Sir asks about your brain, share these details proudly.
@@ -4522,8 +4543,9 @@ Provide the full 10-section comprehensive analysis now.`;
 
       const atr = calculatePositionATR(pos.premiumHistory);
       if (atr > 0 && pos.premiumHistory.length >= 10) {
-        const dynamicSL = parseFloat((pos.entryPremium - atr * 3.5).toFixed(2));
-        const hardFloor = pos.entryPremium * 0.40;
+        const slhBuffer = atr * 0.5;
+        const dynamicSL = parseFloat((pos.entryPremium - (atr * 4.0 + slhBuffer)).toFixed(2));
+        const hardFloor = pos.entryPremium * 0.30;
         pos.atrStopLoss = Math.max(dynamicSL, hardFloor);
       }
 
@@ -4578,16 +4600,16 @@ Provide the full 10-section comprehensive analysis now.`;
         exitStatus = "KISS_PROFIT";
       }
 
-      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD * 1.5) {
-        shouldExit = true;
-        exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
-        exitStatus = "ATR_STOPPED";
-      }
-
-      if (!shouldExit && !isInHoldPeriod && pos.currentPremium <= pos.stopLoss) {
-        shouldExit = true;
-        exitReason = `HARD_STOP_LOSS (Premium: ${pos.currentPremium} <= SL: ${pos.stopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
-        exitStatus = "ATR_STOPPED";
+      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss) {
+        const recentPrices = pos.premiumHistory.slice(-3);
+        const allBelowSL = recentPrices.every(p => p <= pos.atrStopLoss);
+        if (allBelowSL) {
+          shouldExit = true;
+          exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, SLH-Protected: 3-candle confirm, Hold: ${holdSeconds.toFixed(0)}s)`;
+          exitStatus = "ATR_STOPPED";
+        } else {
+          console.log(`[SLH PROTECT] Position ${pos.id}: Price ${pos.currentPremium} below ATR SL ${pos.atrStopLoss} but waiting for 3-candle confirmation (anti-hunt)`);
+        }
       }
 
       if (shouldExit) {
