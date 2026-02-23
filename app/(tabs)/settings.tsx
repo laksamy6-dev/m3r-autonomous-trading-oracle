@@ -1050,8 +1050,10 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                <View style={styles.loginTapHint}>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" }}>
+                  <Ionicons name="document-text-outline" size={13} color={CYAN} />
+                  <Text style={{ fontSize: 11, fontFamily: "DMSans_500Medium", color: CYAN, marginLeft: 4 }}>Tap for full report</Text>
+                  <Ionicons name="chevron-forward" size={14} color={CYAN} style={{ marginLeft: 4 }} />
                 </View>
               </Pressable>
             ))
@@ -1071,16 +1073,25 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={!!selectedEvent} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setSelectedEvent(null)}>
-          <Pressable style={[styles.modalContent, { maxWidth: 400 }]} onPress={() => {}}>
+      <Modal visible={!!selectedEvent} transparent animationType="slide" onRequestClose={() => setSelectedEvent(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)" }}>
+          <View style={{ flex: 1, paddingTop: insets.top + webTopInset + 20, paddingBottom: insets.bottom + webBottomInset + 20, paddingHorizontal: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 20, fontFamily: "DMSans_700Bold", color: Colors.dark.text }}>Device Report</Text>
+              <Pressable
+                onPress={() => setSelectedEvent(null)}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="close" size={20} color={Colors.dark.text} />
+              </Pressable>
+            </View>
             {selectedEvent && (
-              <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
-                <View style={{ alignItems: "center", marginBottom: 12 }}>
-                  <View style={[styles.loginMethodBadge, { paddingHorizontal: 16, paddingVertical: 8 }, selectedEvent.method === "pin" ? styles.loginMethodPin : selectedEvent.method === "failed" ? styles.loginMethodFailed : styles.loginMethodVisitor]}>
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 40 }}>
+                <View style={{ alignItems: "center", marginBottom: 16 }}>
+                  <View style={[styles.loginMethodBadge, { paddingHorizontal: 20, paddingVertical: 10 }, selectedEvent.method === "pin" ? styles.loginMethodPin : selectedEvent.method === "failed" ? styles.loginMethodFailed : styles.loginMethodVisitor]}>
                     <Ionicons
                       name={selectedEvent.method === "pin" ? "key" : selectedEvent.method === "failed" ? "warning" : "person-outline"}
-                      size={16}
+                      size={18}
                       color={selectedEvent.method === "pin" ? "#000" : "#fff"}
                     />
                     <Text style={[styles.loginMethodText, { fontSize: 14 }, selectedEvent.method === "pin" && { color: "#000" }]}>
@@ -1088,56 +1099,57 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.modalTitle}>Full Device Report</Text>
 
                 {selectedEvent.method === "visitor" && (
-                  <View style={{ backgroundColor: "#FF9500" + "18", borderWidth: 1, borderColor: "#FF9500" + "40", borderRadius: 8, padding: 10, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 11, fontFamily: "DMSans_700Bold", color: "#FF9500", textAlign: "center" }}>
+                  <View style={{ backgroundColor: "#FF9500" + "18", borderWidth: 1, borderColor: "#FF9500" + "40", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "DMSans_700Bold", color: "#FF9500", textAlign: "center" }}>
                       UNKNOWN PERSON ACCESSED YOUR APP
                     </Text>
-                    <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: "#FF9500", textAlign: "center", marginTop: 4, opacity: 0.8 }}>
+                    <Text style={{ fontSize: 11, fontFamily: "DMSans_400Regular", color: "#FF9500", textAlign: "center", marginTop: 4, opacity: 0.8 }}>
                       This person entered as a visitor. Full device details below.
                     </Text>
                   </View>
                 )}
                 {selectedEvent.method === "failed" && (
-                  <View style={{ backgroundColor: RED_ALERT + "18", borderWidth: 1, borderColor: RED_ALERT + "40", borderRadius: 8, padding: 10, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 11, fontFamily: "DMSans_700Bold", color: RED_ALERT, textAlign: "center" }}>
+                  <View style={{ backgroundColor: RED_ALERT + "18", borderWidth: 1, borderColor: RED_ALERT + "40", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "DMSans_700Bold", color: RED_ALERT, textAlign: "center" }}>
                       INTRUDER ALERT — WRONG PIN ENTERED
                     </Text>
-                    <Text style={{ fontSize: 10, fontFamily: "DMSans_400Regular", color: RED_ALERT, textAlign: "center", marginTop: 4, opacity: 0.8 }}>
-                      Someone tried to guess your PIN. Their device details are captured below.
+                    <Text style={{ fontSize: 11, fontFamily: "DMSans_400Regular", color: RED_ALERT, textAlign: "center", marginTop: 4, opacity: 0.8 }}>
+                      Someone tried to guess your PIN. Their device details are captured.
                     </Text>
                   </View>
                 )}
 
-                <LoginDetailField icon="time-outline" label="Login Time (IST)" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" })} />
-                <LoginDetailField icon="location-outline" label="City / Region" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
-                <LoginDetailField icon="flag-outline" label="Country" value={selectedEvent.country} />
-                <LoginDetailField icon="navigate-outline" label="Coordinates" value={selectedEvent.lat ? `${selectedEvent.lat.toFixed(4)}, ${selectedEvent.lon.toFixed(4)}` : "N/A"} />
-                <LoginDetailField icon="globe-outline" label="IP Address" value={selectedEvent.ip} />
-                <LoginDetailField icon="business-outline" label="ISP / Network" value={selectedEvent.isp || "Unknown"} />
-                <LoginDetailField icon="phone-portrait-outline" label="Device Model" value={selectedEvent.deviceModel || "Unknown"} />
-                <LoginDetailField icon="logo-android" label="OS Version" value={selectedEvent.osVersion || "Unknown"} />
-                <LoginDetailField icon="resize-outline" label="Screen" value={`${selectedEvent.screenWidth}x${selectedEvent.screenHeight} @${selectedEvent.pixelRatio?.toFixed(1) || "1"}x`} />
-                <LoginDetailField icon="browsers-outline" label="Browser / Client" value={parseBrowser(selectedEvent.userAgent)} />
-                <LoginDetailField icon="wifi-outline" label="Network Type" value={selectedEvent.networkType || "Unknown"} />
-                <LoginDetailField icon="battery-half-outline" label="Battery" value={selectedEvent.batteryLevel >= 0 ? `${selectedEvent.batteryLevel}%${selectedEvent.isCharging ? " (Charging)" : ""}` : "N/A"} />
-                <LoginDetailField icon="language-outline" label="Language" value={selectedEvent.language === "ta" ? "Tamil" : "English"} />
-                <LoginDetailField icon="earth-outline" label="Timezone" value={selectedEvent.timezone} />
-                <LoginDetailField icon="code-slash-outline" label="App Version" value={selectedEvent.appVersion || "3.0"} />
-                <LoginDetailField icon="finger-print-outline" label="Session ID" value={selectedEvent.sessionId || "N/A"} />
+                <View style={{ backgroundColor: Colors.dark.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.dark.border, padding: 16 }}>
+                  <LoginDetailField icon="time-outline" label="Login Time (IST)" value={new Date(selectedEvent.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" })} />
+                  <LoginDetailField icon="location-outline" label="City / Region" value={selectedEvent.city !== "Unknown" ? `${selectedEvent.city}, ${selectedEvent.region}` : "Unavailable"} />
+                  <LoginDetailField icon="flag-outline" label="Country" value={selectedEvent.country} />
+                  <LoginDetailField icon="navigate-outline" label="Coordinates" value={selectedEvent.lat ? `${selectedEvent.lat.toFixed(4)}, ${selectedEvent.lon.toFixed(4)}` : "N/A"} />
+                  <LoginDetailField icon="globe-outline" label="IP Address" value={selectedEvent.ip} />
+                  <LoginDetailField icon="business-outline" label="ISP / Network" value={selectedEvent.isp || "Unknown"} />
+                  <LoginDetailField icon="phone-portrait-outline" label="Device Model" value={selectedEvent.deviceModel || "Unknown"} />
+                  <LoginDetailField icon="logo-android" label="OS Version" value={selectedEvent.osVersion || "Unknown"} />
+                  <LoginDetailField icon="resize-outline" label="Screen" value={`${selectedEvent.screenWidth}x${selectedEvent.screenHeight} @${selectedEvent.pixelRatio?.toFixed(1) || "1"}x`} />
+                  <LoginDetailField icon="browsers-outline" label="Browser / Client" value={parseBrowser(selectedEvent.userAgent)} />
+                  <LoginDetailField icon="wifi-outline" label="Network Type" value={selectedEvent.networkType || "Unknown"} />
+                  <LoginDetailField icon="battery-half-outline" label="Battery" value={selectedEvent.batteryLevel >= 0 ? `${selectedEvent.batteryLevel}%${selectedEvent.isCharging ? " (Charging)" : ""}` : "N/A"} />
+                  <LoginDetailField icon="language-outline" label="Language" value={selectedEvent.language === "ta" ? "Tamil" : "English"} />
+                  <LoginDetailField icon="earth-outline" label="Timezone" value={selectedEvent.timezone} />
+                  <LoginDetailField icon="code-slash-outline" label="App Version" value={selectedEvent.appVersion || "3.0"} />
+                  <LoginDetailField icon="finger-print-outline" label="Session ID" value={selectedEvent.sessionId || "N/A"} />
+                </View>
 
                 <Pressable
                   onPress={() => setSelectedEvent(null)}
-                  style={[styles.modalConfirm, { marginTop: 16 }]}
+                  style={[styles.modalConfirm, { marginTop: 20, paddingVertical: 14 }]}
                 >
-                  <Text style={styles.modalConfirmText}>Close</Text>
+                  <Text style={styles.modalConfirmText}>Close Report</Text>
                 </Pressable>
               </ScrollView>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={changePinModal} transparent animationType="fade">
@@ -1735,9 +1747,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loginTapHint: {
-    position: "absolute" as const,
-    right: 12,
-    top: "50%" as any,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginTop: 8,
   },
   loginEventFailed: {
     borderColor: "rgba(255,59,48,0.4)",

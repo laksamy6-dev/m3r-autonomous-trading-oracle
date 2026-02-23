@@ -1983,7 +1983,7 @@ Based on this data, give me:
   app.get("/api/login-events", async (_req, res) => {
     let allEvents = loginEvents;
 
-    if (dbPool && loginEvents.length === 0) {
+    if (dbPool) {
       try {
         const result = await dbPool.query(
           `SELECT id, method, timestamp, ip, user_agent as "userAgent", platform, screen_width as "screenWidth", screen_height as "screenHeight", language, city, region, country, timezone, lat, lon, isp, device_model as "deviceModel", os_version as "osVersion", pixel_ratio as "pixelRatio", network_type as "networkType", battery_level as "batteryLevel", is_charging as "isCharging", app_version as "appVersion", session_id as "sessionId", device_fingerprint as "deviceFingerprint"
