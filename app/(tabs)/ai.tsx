@@ -540,7 +540,11 @@ export default function AIScreen() {
               });
             }
           }
-        } catch {}
+        } catch (parseErr: any) {
+            if (d.trim() && d !== "[DONE]") {
+              console.warn("[LAMY] Stream parse skip:", d.slice(0, 100));
+            }
+          }
       }
     }
     addLog(`${fileType} analysis complete`, "success");
@@ -598,7 +602,7 @@ export default function AIScreen() {
     (async () => {
       try {
         const baseUrl = getApiUrl();
-        const res = await globalThis.fetch(`${baseUrl}api/ai/chat-history`);
+        const res = await globalThis.fetch(`${baseUrl}api/lamy/chat-history`);
         if (res.ok) {
           const data = await res.json();
           if (data.messages && data.messages.length > 0) {
@@ -1003,10 +1007,10 @@ export default function AIScreen() {
 
     try {
       const baseUrl = getApiUrl();
-      const response = await fetch(`${baseUrl}api/market-insight`, {
+      const response = await fetch(`${baseUrl}api/m3r/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ question: message }),
+        body: JSON.stringify({ message }),
       });
 
       if (!response.ok) throw new Error("Failed");
@@ -1047,7 +1051,11 @@ export default function AIScreen() {
                 });
               }
             }
-          } catch {}
+          } catch (parseErr: any) {
+            if (d.trim() && d !== "[DONE]") {
+              console.warn("[LAMY] Stream parse skip:", d.slice(0, 100));
+            }
+          }
         }
       }
       addLog("Analysis complete", "success");

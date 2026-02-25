@@ -529,7 +529,11 @@ export default function BotScreen() {
                     )
                   );
                 }
-              } catch {}
+              } catch (parseErr: any) {
+                if (dataStr.trim() && dataStr !== "[DONE]") {
+                  console.warn("[LAMY] Stream parse skip:", dataStr.slice(0, 100));
+                }
+              }
             }
           }
         }

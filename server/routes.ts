@@ -246,6 +246,8 @@ const NIFTY_SKIP_THRESHOLD = 3;
 let autoScanActive = false;
 let autoScanInterval: ReturnType<typeof setInterval> | null = null;
 let scanCycleCount = 0;
+let consecutiveOfflineScans = 0;
+const MAX_OFFLINE_SCANS = 3;
 
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
@@ -2424,6 +2426,7 @@ btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
       upstoxAccessToken = tokenData.access_token || null;
       upstoxTokenValid = null;
       upstoxTokenLastChecked = 0;
+      consecutiveOfflineScans = 0;
       if (upstoxAccessToken) {
         try {
           const currentVault = loadVaultFromFile();
@@ -3397,9 +3400,17 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       chainData = liveData.chainData;
       nearestExpiry = liveData.nearestExpiry || "";
       scanLotSize = liveData.liveLotSize || cachedLiveLotSize;
+      consecutiveOfflineScans = 0;
       console.log(`[LAMY SCAN] LIVE data — Spot: ${spot}, Expiry: ${nearestExpiry}, LotSize: ${scanLotSize}`);
     } else {
-      console.log(`[LAMY SCAN] Upstox OFFLINE — Cannot scan without live data`);
+      consecutiveOfflineScans++;
+      if (consecutiveOfflineScans <= 3) {
+        console.log(`[LAMY SCAN] Upstox OFFLINE — Cannot scan without live data (${consecutiveOfflineScans}/${MAX_OFFLINE_SCANS})`);
+      }
+      if (consecutiveOfflineScans >= MAX_OFFLINE_SCANS && autoScanActive) {
+        console.log(`[LAMY SCAN] Upstox OFFLINE for ${consecutiveOfflineScans} consecutive scans — pausing auto-scan. Will resume when token is updated.`);
+        stopAutoScanInternal("upstox_offline");
+      }
       return null;
     }
 
@@ -4771,6 +4782,7 @@ Provide the full 10-section comprehensive analysis now.`;
     const preMarketMins = 9 * 60;
     const closeMins = 15 * 60 + 30;
 
+    consecutiveOfflineScans = 0;
     if (!autoScanActive && isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
       console.log("[AUTO-START] Market open — starting scan after token update");
       await startAutoScanInternal("token_update");
@@ -6334,7 +6346,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const closeMins = 15 * 60 + 30;
 
       if (isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
-        if (!autoScanActive) {
+        if (!autoScanActive && consecutiveOfflineScans < MAX_OFFLINE_SCANS) {
           console.log("[LAMY SCHEDULER] Market is open + autoTradeMode ON — starting scan");
           startAutoScanInternal("market_scheduler");
         }
