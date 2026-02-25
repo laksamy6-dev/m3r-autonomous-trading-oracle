@@ -1425,7 +1425,7 @@ Provide your trading signal and analysis.`;
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -1574,7 +1574,7 @@ Creator: MANIKANDAN RAJENDRAN — Founder, M3R Innovative Fintech Solutions. Alw
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: question }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -1666,7 +1666,7 @@ Based on this data, give me:
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: OPTIONS_SYSTEM_PROMPT,
@@ -1745,7 +1745,7 @@ Based on this data, give me:
       const systemMsg = optionsBotHistory.find(m => m.role === "system");
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: geminiContents,
         config: {
           systemInstruction: systemMsg?.content || OPTIONS_SYSTEM_PROMPT,
@@ -2322,7 +2322,7 @@ Based on this data, give me:
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           systemInstruction: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses.",
@@ -2839,7 +2839,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const chatResponse = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           tools: [{ googleSearch: {} }],
@@ -4445,7 +4445,7 @@ Provide the full 10-section comprehensive analysis now.`;
       const genAI = (global as any).__m3rGenAI as GoogleGenAI;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -5331,7 +5331,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const base64AudioData = audioBuffer.toString("base64");
       const mimeTypes: Record<string, string> = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
       const transcribeResult = await genAITranscribe.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [
           { inlineData: { mimeType: mimeTypes[audioFormat] || "audio/wav", data: base64AudioData } },
           { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
@@ -5374,7 +5374,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const voiceSystemMsg = voiceBotHistory.find(m => m.role === "system");
 
       const voiceChatResponse = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: geminiVoiceContents,
         config: {
           systemInstruction: voiceSystemMsg?.content || LAMY_VOICE_PROMPT,
@@ -5934,7 +5934,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction: systemInstruction + slangContext,
@@ -6044,7 +6044,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
       const result = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction,
@@ -6141,7 +6141,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const base64Audio = audioBuffer.toString("base64");
       const mimeMap: Record<string, string> = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
       const transcriptionResult = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [
           { inlineData: { mimeType: mimeMap[audioFormat] || "audio/wav", data: base64Audio } },
           { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
@@ -6176,7 +6176,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       const systemInstruction = (global as any).__m3rSystemInstruction as string;
 
       const result = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction,
