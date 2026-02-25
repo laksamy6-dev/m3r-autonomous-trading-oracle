@@ -623,6 +623,72 @@ function formatUptime(seconds) {
 
 // server/routes.ts
 var VAULT_FILE_PATH = path.join(process.cwd(), ".vault-data.json");
+var vaultDbPool = process.env.DATABASE_URL ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 3 }) : null;
+async function initVaultDb() {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query(`
+      CREATE TABLE IF NOT EXISTS vault_data (
+        key_id TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("[VAULT DB] vault_data table ready");
+  } catch (e) {
+    console.error("[VAULT DB] Init failed:", e.message);
+  }
+}
+async function loadVaultFromDb() {
+  if (!vaultDbPool) return {};
+  try {
+    const result = await vaultDbPool.query("SELECT key_id, value FROM vault_data");
+    const data = {};
+    for (const row of result.rows) {
+      data[row.key_id] = row.value;
+    }
+    if (Object.keys(data).length > 0) {
+      console.log("[VAULT DB] Loaded", Object.keys(data).length, "keys from database");
+    }
+    return data;
+  } catch (e) {
+    console.error("[VAULT DB] Load failed:", e.message);
+    return {};
+  }
+}
+async function saveVaultKeyToDb(keyId, value) {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query(
+      `INSERT INTO vault_data (key_id, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key_id) DO UPDATE SET value = $2, updated_at = NOW()`,
+      [keyId, value]
+    );
+  } catch (e) {
+    console.error("[VAULT DB] Save key failed:", e.message);
+  }
+}
+async function deleteVaultKeyFromDb(keyId) {
+  if (!vaultDbPool) return;
+  try {
+    await vaultDbPool.query("DELETE FROM vault_data WHERE key_id = $1", [keyId]);
+  } catch (e) {
+    console.error("[VAULT DB] Delete key failed:", e.message);
+  }
+}
+async function syncVaultToDb(data) {
+  if (!vaultDbPool) return;
+  try {
+    for (const [key, val] of Object.entries(data)) {
+      if (val) {
+        await saveVaultKeyToDb(key, val);
+      }
+    }
+    console.log("[VAULT DB] Synced", Object.keys(data).length, "keys to database");
+  } catch (e) {
+    console.error("[VAULT DB] Sync failed:", e.message);
+  }
+}
 function loadVaultFromFile() {
   try {
     if (fs.existsSync(VAULT_FILE_PATH)) {
@@ -645,38 +711,66 @@ function saveVaultToFile(data) {
   }
 }
 var savedVault = loadVaultFromFile();
-var upstoxApiKey = savedVault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
-var upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
-var upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
-if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
-if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
-if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
+var upstoxApiKey = process.env.UPSTOX_API_KEY || savedVault.UPSTOX_API_KEY;
+var upstoxApiSecret = process.env.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || savedVault.UPSTOX_SECRET_KEY;
+var upstoxAccessToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || savedVault.UPSTOX_ACCESS_TOKEN || null;
+if (!process.env.TELEGRAM_BOT_TOKEN && savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
+if (!process.env.TELEGRAM_CHAT_ID && savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
+if (!process.env.GEMINI_API_KEY && savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
 {
-  let needsSave = false;
   const vaultSync = { ...savedVault };
   const envMap = {
     UPSTOX_API_KEY: process.env.UPSTOX_API_KEY,
     UPSTOX_SECRET_KEY: process.env.UPSTOX_SECRET_KEY,
-    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token,
+    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY
   };
+  let needsSave = false;
   for (const [key, val] of Object.entries(envMap)) {
-    if (val && !vaultSync[key]) {
+    if (val && vaultSync[key] !== val) {
       vaultSync[key] = val;
       needsSave = true;
     }
   }
   if (needsSave) {
     saveVaultToFile(vaultSync);
-    console.log("[VAULT] Auto-synced environment secrets to vault file");
+    console.log("[VAULT] Secrets synced from Replit Secrets to vault backup");
   }
 }
+function applyVaultToRuntime(data) {
+  if (data.UPSTOX_API_KEY) upstoxApiKey = data.UPSTOX_API_KEY;
+  if (data.UPSTOX_SECRET_KEY) upstoxApiSecret = data.UPSTOX_SECRET_KEY;
+  if (data.UPSTOX_ACCESS_TOKEN) upstoxAccessToken = data.UPSTOX_ACCESS_TOKEN;
+  if (data.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = data.TELEGRAM_BOT_TOKEN;
+  if (data.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = data.TELEGRAM_CHAT_ID;
+  if (data.GEMINI_API_KEY) process.env.GEMINI_API_KEY = data.GEMINI_API_KEY;
+}
+(async () => {
+  await initVaultDb();
+  const dbVault = await loadVaultFromDb();
+  if (Object.keys(dbVault).length > 0) {
+    applyVaultToRuntime(dbVault);
+    const mergedVault = { ...savedVault, ...dbVault };
+    saveVaultToFile(mergedVault);
+    console.log("[VAULT] DB vault merged with file vault \u2014 runtime updated");
+  }
+  const currentVault = loadVaultFromFile();
+  if (Object.keys(currentVault).length > 0) {
+    await syncVaultToDb(currentVault);
+  }
+})();
 var tradeProposals = [];
+var scanMode = "BOTH";
+var lastNiftySignalTime = 0;
+var consecutiveNiftySkips = 0;
+var NIFTY_SKIP_THRESHOLD = 3;
 var autoScanActive = false;
 var autoScanInterval = null;
 var scanCycleCount = 0;
+var consecutiveOfflineScans = 0;
+var MAX_OFFLINE_SCANS = 3;
 var openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
   console.log("[INFO] LAMY Core Engine \u2014 standby mode.");
@@ -686,7 +780,7 @@ var openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
 });
 var optionsBotHistory = [];
-var m3rApiKey = savedVault.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+var m3rApiKey = process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY;
 var m3rModel = null;
 var m3rChatHistory = [];
 var brainStats = {
@@ -1086,7 +1180,127 @@ var LEARNING_DOMAINS = [
   "Real Estate Market Correlation",
   "Private Equity Valuation Models",
   "Venture Capital Deal Scoring",
-  "Angel Investment Pattern Recognition"
+  "Angel Investment Pattern Recognition",
+  "Autonomous Vehicle Technology",
+  "AR/VR Market Impact",
+  "Mixed Reality Applications",
+  "Brain-Computer Interface",
+  "Neuromorphic Computing",
+  "DNA Data Storage",
+  "Synthetic Biology Markets",
+  "Space Economy Investing",
+  "Asteroid Mining Potential",
+  "Nuclear Fusion Energy Impact",
+  "Hydrogen Economy Analysis",
+  "Carbon Credit Trading",
+  "Water Scarcity Investment",
+  "Food Security Technology",
+  "Precision Agriculture",
+  "Telemedicine Market Growth",
+  "Genomic Medicine Impact",
+  "Drug Discovery AI",
+  "Personalized Medicine",
+  "Wearable Health Technology",
+  "Mental Health Tech Market",
+  "Smart City Infrastructure",
+  "Urban Mobility Solutions",
+  "Electric Vehicle Supply Chain",
+  "Battery Technology Evolution",
+  "Solar Energy Advances",
+  "Wind Energy Markets",
+  "Tidal & Wave Energy",
+  "Geothermal Potential",
+  "Energy Storage Solutions",
+  "Semiconductor Industry Analysis",
+  "Chip Design Architecture",
+  "Foundry Market Dynamics",
+  "Photonics Technology",
+  "Advanced Materials Science",
+  "Superconductor Applications",
+  "3D Printing Industry",
+  "Advanced Manufacturing",
+  "Industrial Automation",
+  "Supply Chain AI Optimization",
+  "Logistics Technology",
+  "Last Mile Delivery Innovation",
+  "E-Commerce Market Intelligence",
+  "Digital Payment Ecosystem",
+  "Open Banking Impact",
+  "Insurance Technology",
+  "RegTech Solutions",
+  "Wealth Management AI",
+  "Robo-Advisory Systems",
+  "Social Trading Platforms",
+  "Fractional Investing",
+  "NFT Market Analysis",
+  "Metaverse Economy",
+  "Web3 Infrastructure",
+  "Decentralized Finance Deep Dive",
+  "Layer 2 Scaling Solutions",
+  "Cross-Chain Protocols",
+  "Privacy Technology",
+  "Homomorphic Encryption",
+  "Zero-Knowledge Proofs",
+  "Federated Learning Systems",
+  "Differential Privacy",
+  "Secure Multi-Party Computation",
+  "Quantum Machine Learning",
+  "Quantum Cryptography",
+  "Post-Quantum Security",
+  "Neuroplasticity & Learning",
+  "Memory Enhancement Techniques",
+  "Speed Reading Mastery",
+  "Critical Thinking Framework",
+  "Systems Thinking Approach",
+  "Design Thinking Process",
+  "First Principles Reasoning",
+  "Bayesian Inference",
+  "Decision Theory",
+  "Game Theory Applications",
+  "Mechanism Design",
+  "Auction Theory",
+  "Network Effects Analysis",
+  "Platform Economics",
+  "Two-Sided Market Strategy",
+  "Behavioral Economics Deep Dive",
+  "Nudge Theory Application",
+  "Prospect Theory Trading",
+  "Attention Economy",
+  "Creator Economy Analysis",
+  "Subscription Economy Patterns",
+  "Data Monetization Strategy",
+  "API Economy",
+  "Cloud Computing Economics",
+  "Edge AI Deployment",
+  "TinyML Applications",
+  "On-Device Intelligence",
+  "Natural Language Understanding",
+  "Conversational AI Design",
+  "Emotion Detection AI",
+  "Multimodal AI Systems",
+  "Foundation Model Architecture",
+  "AI Alignment Research",
+  "Indian Stock Market History",
+  "Harshad Mehta Case Study",
+  "Ketan Parekh Analysis",
+  "Rakesh Jhunjhunwala Strategy",
+  "Warren Buffett Principles",
+  "Ray Dalio Framework",
+  "Jim Simons Quantitative Approach",
+  "George Soros Reflexivity",
+  "Peter Lynch Growth Investing",
+  "Charlie Munger Mental Models",
+  "Howard Marks Market Cycles",
+  "Nassim Taleb Antifragility",
+  "Michael Burry Contrarian Analysis",
+  "Cathie Wood Innovation Investing",
+  "Carl Icahn Activist Strategy",
+  "Indian Cultural Intelligence",
+  "Festival Season Market Patterns",
+  "Monsoon Economy Impact",
+  "Rural India Digital Adoption",
+  "Tier 2/3 City Growth Analysis",
+  "India Demographics Dividend"
 ];
 var BRAIN_PHASES = [
   "NEURAL_SCAN",
@@ -1250,6 +1464,64 @@ function runSelfImprovement() {
   brainStats.emotionalIQ = brainStats.emotionalIQ + 0.01 + Math.random() * 0.04;
   for (const lang of Object.keys(brainStats.languageFluency)) {
     brainStats.languageFluency[lang] = brainStats.languageFluency[lang] + Math.random() * 0.08;
+  }
+  if (brainStats.totalLearningCycles % 10 === 0) {
+    const entries = Object.entries(brainStats.knowledgeAreas);
+    const avgVal = entries.reduce((s, [, v]) => s + v, 0) / entries.length;
+    const criticallyWeak = entries.filter(([, v]) => v < avgVal * 0.35);
+    for (const [area, val] of criticallyWeak) {
+      const correction = Math.round((avgVal * 0.2 + Math.random() * 5) * 100) / 100;
+      brainStats.knowledgeAreas[area] = val + correction;
+      brainStats.selfImprovementLog.push({
+        time: (/* @__PURE__ */ new Date()).toISOString(),
+        area,
+        delta: correction,
+        note: `\u{1F527} SELF-CORRECTION: ${area} was critically low (${val.toFixed(1)}%), auto-corrected +${correction.toFixed(2)} \u2192 ${(val + correction).toFixed(1)}%`
+      });
+    }
+    const stagnant = entries.filter(([, v]) => {
+      const lastLog = brainStats.selfImprovementLog.filter((l) => l.area === entries[0]?.[0]).slice(-5);
+      return v > 30 && v < 50 && lastLog.length < 2;
+    });
+    if (stagnant.length > 0) {
+      const [area, val] = stagnant[Math.floor(Math.random() * stagnant.length)];
+      const boost = Math.round((3 + Math.random() * 4) * 100) / 100;
+      brainStats.knowledgeAreas[area] = val + boost;
+      brainStats.selfImprovementLog.push({
+        time: (/* @__PURE__ */ new Date()).toISOString(),
+        area,
+        delta: boost,
+        note: `\u{1F504} STAGNATION FIX: ${area} stuck at ${val.toFixed(1)}%, jump-started +${boost.toFixed(2)}`
+      });
+    }
+  }
+  if (brainStats.totalLearningCycles % 50 === 0) {
+    const catScores = {};
+    for (const [cat, domains] of Object.entries(KNOWLEDGE_CATEGORIES)) {
+      const activeDomains = domains.filter((d) => brainStats.knowledgeAreas[d]);
+      if (activeDomains.length > 0) {
+        catScores[cat] = activeDomains.reduce((s, d) => s + (brainStats.knowledgeAreas[d] || 0), 0) / activeDomains.length;
+      }
+    }
+    const catEntries = Object.entries(catScores);
+    if (catEntries.length > 1) {
+      const catAvg = catEntries.reduce((s, [, v]) => s + v, 0) / catEntries.length;
+      const weakCats = catEntries.filter(([, v]) => v < catAvg * 0.6);
+      for (const [cat] of weakCats) {
+        const catDomains = KNOWLEDGE_CATEGORIES[cat]?.filter((d) => brainStats.knowledgeAreas[d]) || [];
+        for (const domain of catDomains.slice(0, 3)) {
+          const current = brainStats.knowledgeAreas[domain];
+          const catBoost = Math.round((2 + Math.random() * 3) * 100) / 100;
+          brainStats.knowledgeAreas[domain] = current + catBoost;
+        }
+        brainStats.selfImprovementLog.push({
+          time: (/* @__PURE__ */ new Date()).toISOString(),
+          area: cat,
+          delta: 0,
+          note: `\u{1F9EC} CATEGORY REBALANCE: ${cat} category was lagging (${catScores[cat]?.toFixed(1)}% vs avg ${catAvg.toFixed(1)}%), domains boosted`
+        });
+      }
+    }
   }
   if (brainStats.totalLearningCycles % 25 === 0) {
     brainStats.generation++;
@@ -1675,8 +1947,8 @@ THIS IS CRITICAL TRUTH ABOUT ME. I am NOT just an "advisor" or "assistant." I ha
 MY TRADING RULES (built into my code):
 - One trade at a time \u2014 complete current before taking next
 - Rs.500 minimum profit target
-- Rs.300 loss alert threshold
-- ATR-based dynamic stop loss
+- ATR-based dynamic stop loss ONLY (NO fixed stop loss \u2014 LAMY calculates dynamically)
+- Stop loss hunting prevention with extra ATR buffer \u2014 give market breathing room
 - KISS pattern profit booking
 - Price-turning detection for profit protection
 - Emergency exit capability
@@ -1768,7 +2040,7 @@ async function registerRoutes(app2) {
     res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss: ws: https:; media-src 'self' data: blob:;");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https: http:; media-src 'self' data: blob:; font-src 'self' data:;");
     next();
   });
   app2.get("/api/system/copyright", (_req, res) => {
@@ -1895,7 +2167,7 @@ Market Cap: ${marketCap}
 Provide your trading signal and analysis.`;
       const genAI = global.__m3rGenAI;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -1957,6 +2229,24 @@ CLOSED TRADES: ${exited.length} (${wins} wins), Total P&L: Rs.${totalPnl.toFixed
         return lines.join("\n");
       })();
       const upstoxMode = upstoxAccessToken && upstoxApiKey ? "LIVE (Upstox Connected)" : "OFFLINE (Upstox Disconnected)";
+      const marketSessionNow = (() => {
+        const { istStr, dayOfWeek, currentMins } = getTimeStrings();
+        const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
+        const preMarketMins = 9 * 60;
+        const openMins = 9 * 60 + 15;
+        const closeMins = 15 * 60 + 30;
+        let status = "CLOSED";
+        if (isWeekday) {
+          if (currentMins >= openMins && currentMins < closeMins) status = "OPEN - LIVE TRADING";
+          else if (currentMins >= preMarketMins && currentMins < openMins) status = "PRE-MARKET";
+          else if (currentMins >= closeMins) status = "AFTER HOURS - CLOSED";
+          else status = "BEFORE MARKET - CLOSED";
+        } else {
+          status = "WEEKEND - CLOSED";
+        }
+        return `
+CURRENT MARKET STATUS: ${status} | IST: ${istStr} | Auto-Trade: ${autoTradeMode ? "ON" : "OFF"} | Scan: ${autoScanActive ? "ACTIVE" : "INACTIVE"}`;
+      })();
       const brainContext = `
 MY BRAIN STATUS:
 - IQ: ${brainStats.iq.toFixed(1)}
@@ -1991,6 +2281,7 @@ MY BRAIN STATUS:
 ${langInstruction}
 
 CURRENT MODE: ${upstoxMode}
+${marketSessionNow}
 ${tradingSummaryData}
 ${brainContext}
 ${memoryContext}
@@ -1998,11 +2289,13 @@ ${chatHistoryContext}
 
 CAPABILITIES:
 - Expert Indian stock market advisor (NSE, BSE, Nifty 50 options)
-- Zero-loss strategy: Rs.500 minimum profit target, Rs.300 loss alert, ATR-based dynamic stop loss, kiss pattern profit booking
+- Zero-loss strategy: Rs.500 minimum profit target, ATR-based dynamic stop loss ONLY (no fixed SL), kiss pattern profit booking
+- STOP LOSS HUNTING PREVENTION: I calculate ATR-based stop loss with extra buffer to avoid market makers hunting our stop loss. I give the market breathing room.
 - Real-time trading analysis, option chain analysis, PCR analysis
 - AUTONOMOUS TRADE EXECUTION: I CAN and DO place REAL BUY/SELL orders on Upstox automatically
 - Auto-trade engine scans every 30 seconds, monitors positions every 5 seconds
 - I execute trades, book profits, place stop losses \u2014 ALL AUTOMATICALLY
+- IMPORTANT: Always check CURRENT MARKET STATUS above to know if market is open or closed RIGHT NOW. Never guess \u2014 use the actual status provided.
 - Use INR (\u20B9) for all prices.
 - You are LAMY - confident, protective, and always looking out for sir's money.
 - You KNOW your own brain stats \u2014 IQ, generation, learning cycles, knowledge domains. If Sir asks about your brain, share these details proudly.
@@ -2014,7 +2307,7 @@ Creator: MANIKANDAN RAJENDRAN \u2014 Founder, M3R Innovative Fintech Solutions. 
       if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = global.__m3rGenAI;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: question }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -2097,7 +2390,7 @@ Based on this data, give me:
 5. Conditions that would trigger a direction switch`;
       const genAI = global.__m3rGenAI;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: OPTIONS_SYSTEM_PROMPT,
@@ -2175,7 +2468,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       const geminiContents = optionsBotHistory.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
       const systemMsg = optionsBotHistory.find((m) => m.role === "system");
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: geminiContents,
         config: {
           systemInstruction: systemMsg?.content || OPTIONS_SYSTEM_PROMPT,
@@ -2211,6 +2504,99 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
     optionsBotHistory.length = 0;
     res.json({ success: true });
   });
+  async function ensurePinTable() {
+    if (!dbPool) return false;
+    try {
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key VARCHAR(100) PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  let pinTableReady = false;
+  app2.get("/api/auth/pin", async (_req, res) => {
+    try {
+      if (!dbPool) return res.json({ pin: null });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.json({ pin: null });
+      const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+      if (result.rows.length > 0) {
+        res.json({ pin: result.rows[0].value });
+      } else {
+        res.json({ pin: null });
+      }
+    } catch {
+      res.json({ pin: null });
+    }
+  });
+  app2.post("/api/auth/pin", async (req, res) => {
+    try {
+      const { pin } = req.body;
+      if (!pin || typeof pin !== "string" || pin.length < 4) {
+        return res.status(400).json({ error: "Invalid PIN" });
+      }
+      if (!dbPool) return res.status(500).json({ error: "Database unavailable" });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.status(500).json({ error: "Database setup failed" });
+      await dbPool.query(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES ('auth_pin', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [pin]
+      );
+      currentPin = pin;
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  app2.get("/api/auth/replit", (req, res) => {
+    const userId = req.headers["x-replit-user-id"];
+    const userName = req.headers["x-replit-user-name"];
+    const userRoles = req.headers["x-replit-user-roles"];
+    const userProfileImage = req.headers["x-replit-user-profile-image"];
+    if (!userId || !userName) {
+      return res.json({ authenticated: false });
+    }
+    res.json({
+      authenticated: true,
+      userId: String(userId),
+      userName: String(userName),
+      roles: userRoles ? String(userRoles) : "",
+      profileImage: userProfileImage ? String(userProfileImage) : null
+    });
+  });
+  app2.post("/api/auth/change-pin", async (req, res) => {
+    try {
+      const { oldPin, newPin } = req.body;
+      if (!newPin || typeof newPin !== "string" || newPin.length < 4) {
+        return res.status(400).json({ error: "Invalid new PIN" });
+      }
+      if (!dbPool) return res.status(500).json({ error: "Database unavailable" });
+      if (!pinTableReady) pinTableReady = await ensurePinTable();
+      if (!pinTableReady) return res.status(500).json({ error: "Database setup failed" });
+      const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+      const dbPin = result.rows.length > 0 ? result.rows[0].value : "1234";
+      if (oldPin !== dbPin && oldPin !== currentPin) {
+        return res.json({ success: false, error: "Incorrect current PIN" });
+      }
+      await dbPool.query(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES ('auth_pin', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [newPin]
+      );
+      currentPin = newPin;
+      console.log(`[AUTH] PIN changed successfully`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
   app2.post("/api/login-event", async (req, res) => {
     try {
       const { method, platform, screenWidth, screenHeight, language, deviceModel, osVersion, pixelRatio, networkType, batteryLevel, isCharging, appVersion, sessionId } = req.body;
@@ -2234,6 +2620,7 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
         }
       } catch {
       }
+      const deviceFingerprint = `${platform}-${deviceModel}-${screenWidth}x${screenHeight}-${osVersion}-${String(pixelRatio || 1)}`;
       if (method === "failed") {
         const existing = failedAttempts.find((f) => f.ip === ip);
         if (existing) {
@@ -2272,22 +2659,149 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
       };
       loginEvents.unshift(event);
       if (loginEvents.length > 200) loginEvents.length = 200;
-      res.json({ success: true });
+      if (dbPool) {
+        try {
+          await dbPool.query(
+            `INSERT INTO login_events (id, method, timestamp, ip, user_agent, platform, screen_width, screen_height, language, city, region, country, timezone, lat, lon, isp, device_model, os_version, pixel_ratio, network_type, battery_level, is_charging, app_version, session_id, device_fingerprint)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+            [
+              event.id,
+              event.method,
+              event.timestamp,
+              event.ip,
+              event.userAgent,
+              event.platform,
+              event.screenWidth,
+              event.screenHeight,
+              event.language,
+              city,
+              region,
+              country,
+              timezone,
+              lat,
+              lon,
+              isp,
+              event.deviceModel,
+              event.osVersion,
+              event.pixelRatio,
+              event.networkType,
+              event.batteryLevel,
+              event.isCharging,
+              event.appVersion,
+              event.sessionId,
+              deviceFingerprint
+            ]
+          );
+        } catch (dbErr) {
+          console.error("[LOGIN DB] Failed to persist login event:", dbErr);
+        }
+      }
+      const istTime = (/* @__PURE__ */ new Date()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      const methodLabel = method === "pin" ? "OWNER (PIN)" : method === "visitor" ? "VISITOR" : method === "replit" ? "REPLIT USER" : "FAILED ATTEMPT";
+      const isOwnerLogin = method === "pin";
+      const isThreat = method === "failed" || method === "visitor";
+      if (isTelegramConfigured()) {
+        const alertIcon = method === "pin" ? "\u2705" : method === "visitor" ? "\u{1F441}\uFE0F" : method === "failed" ? "\u{1F6A8}" : "\u{1F511}";
+        const urgency = method === "failed" ? "\u26A0\uFE0F SECURITY ALERT" : method === "visitor" ? "\u{1F464} VISITOR ACCESS" : method === "pin" ? "\u{1F3E0} OWNER LOGIN" : "\u{1F510} LOGIN";
+        let tgMsg = `${alertIcon} <b>${urgency}</b>
+`;
+        tgMsg += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+`;
+        tgMsg += `\u{1F464} <b>Type:</b> ${methodLabel}
+`;
+        tgMsg += `\u{1F4F1} <b>Device:</b> ${deviceModel || "Unknown"}
+`;
+        tgMsg += `\u{1F4BB} <b>OS:</b> ${osVersion || "Unknown"}
+`;
+        tgMsg += `\u{1F4D0} <b>Screen:</b> ${screenWidth || 0}\xD7${screenHeight || 0} @${pixelRatio || 1}x
+`;
+        tgMsg += `\u{1F310} <b>Platform:</b> ${platform || "Unknown"}
+`;
+        tgMsg += `\u{1F4E1} <b>Network:</b> ${networkType || "Unknown"}
+`;
+        if (batteryLevel >= 0) {
+          tgMsg += `\u{1F50B} <b>Battery:</b> ${batteryLevel}% ${isCharging ? "(Charging)" : ""}
+`;
+        }
+        tgMsg += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+`;
+        tgMsg += `\u{1F30D} <b>Location:</b> ${city}, ${region}, ${country}
+`;
+        tgMsg += `\u{1F3E2} <b>ISP:</b> ${isp}
+`;
+        tgMsg += `\u{1F517} <b>IP:</b> ${ip}
+`;
+        if (lat !== 0 && lon !== 0) {
+          tgMsg += `\u{1F4CD} <b>Coords:</b> ${lat.toFixed(4)}, ${lon.toFixed(4)}
+`;
+        }
+        tgMsg += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+`;
+        tgMsg += `\u{1F550} <b>Time:</b> ${istTime}
+`;
+        tgMsg += `\u{1F194} <b>Session:</b> ${sessionId || "N/A"}
+`;
+        tgMsg += `\u{1F310} <b>Language:</b> ${language || "en"}
+`;
+        if (method === "failed") {
+          const failCount = failedAttempts.find((f) => f.ip === ip)?.count || 1;
+          tgMsg += `
+\u{1F6A8} <b>FAILED ATTEMPTS FROM THIS IP: ${failCount}</b>
+`;
+          if (failCount >= 3) {
+            tgMsg += `\u26D4 <b>BRUTE FORCE DETECTED \u2014 MULTIPLE FAILED PINS!</b>
+`;
+          }
+        }
+        if (method === "visitor") {
+          tgMsg += `
+\u{1F441}\uFE0F <b>UNKNOWN PERSON ACCESSED YOUR APP</b>
+`;
+          tgMsg += `\u{1F4CB} <b>Browser:</b> ${typeof userAgent === "string" ? userAgent.substring(0, 100) : "Unknown"}
+`;
+        }
+        tgMsg += `
+\u{1F916} LAMY Security Monitor v3.0`;
+        sendTelegramMessage3(tgMsg).catch(() => {
+        });
+      }
+      const logIcon = method === "pin" ? "\u2705" : method === "visitor" ? "\u{1F441}\uFE0F" : method === "failed" ? "\u{1F6A8}" : "\u{1F511}";
+      console.log(`[LOGIN] ${logIcon} ${methodLabel} from ${ip} (${city}, ${country}) \u2014 ${deviceModel || "Unknown"} / ${platform}`);
+      res.json({ success: true, isOwner: isOwnerLogin });
     } catch (error) {
       console.error("Login event error:", error);
       res.status(500).json({ error: "Failed to log event" });
     }
   });
-  app2.get("/api/login-events", (_req, res) => {
-    const totalLogins = loginEvents.length;
-    const ownerLogins = loginEvents.filter((e) => e.method === "pin").length;
-    const visitorLogins = loginEvents.filter((e) => e.method === "visitor").length;
-    const failedLogins = loginEvents.filter((e) => e.method === "failed").length;
-    const uniqueIPs = new Set(loginEvents.map((e) => e.ip)).size;
-    const uniqueDevices = new Set(loginEvents.map((e) => `${e.platform}-${e.deviceModel}-${e.screenWidth}x${e.screenHeight}`)).size;
-    const countries = [...new Set(loginEvents.filter((e) => e.country !== "Unknown").map((e) => e.country))];
+  app2.get("/api/login-events", async (_req, res) => {
+    let allEvents = loginEvents;
+    if (dbPool) {
+      try {
+        const result = await dbPool.query(
+          `SELECT id, method, timestamp, ip, user_agent as "userAgent", platform, screen_width as "screenWidth", screen_height as "screenHeight", language, city, region, country, timezone, lat, lon, isp, device_model as "deviceModel", os_version as "osVersion", pixel_ratio as "pixelRatio", network_type as "networkType", battery_level as "batteryLevel", is_charging as "isCharging", app_version as "appVersion", session_id as "sessionId", device_fingerprint as "deviceFingerprint"
+           FROM login_events ORDER BY timestamp DESC LIMIT 200`
+        );
+        if (result.rows.length > 0) {
+          allEvents = result.rows.map((r) => ({
+            ...r,
+            timestamp: new Date(r.timestamp).toISOString()
+          }));
+          loginEvents.length = 0;
+          loginEvents.push(...allEvents);
+        }
+      } catch (dbErr) {
+        console.error("[LOGIN DB] Failed to load login events:", dbErr);
+      }
+    }
+    const totalLogins = allEvents.length;
+    const ownerLogins = allEvents.filter((e) => e.method === "pin").length;
+    const visitorLogins = allEvents.filter((e) => e.method === "visitor").length;
+    const failedLogins = allEvents.filter((e) => e.method === "failed").length;
+    const uniqueIPs = new Set(allEvents.map((e) => e.ip)).size;
+    const uniqueDevices = new Set(allEvents.map((e) => `${e.platform}-${e.deviceModel}-${e.screenWidth}x${e.screenHeight}`)).size;
+    const countries = [...new Set(allEvents.filter((e) => e.country !== "Unknown").map((e) => e.country))];
     res.json({
-      events: loginEvents,
+      events: allEvents,
       stats: {
         totalLogins,
         ownerLogins,
@@ -2461,11 +2975,13 @@ Active Position: ${strategy.currentPosition} @ Strike ${strategy.currentStrike},
     const currentVault = loadVaultFromFile();
     if (trimmedValue) {
       currentVault[keyId] = trimmedValue;
+      saveVaultKeyToDb(keyId, trimmedValue);
     } else {
       delete currentVault[keyId];
+      deleteVaultKeyFromDb(keyId);
     }
     saveVaultToFile(currentVault);
-    console.log(`[VAULT] Key ${keyId} updated by user (saved to disk)`);
+    console.log(`[VAULT] Key ${keyId} updated by user (saved to disk + database)`);
     if (keyId === "UPSTOX_ACCESS_TOKEN" && trimmedValue) {
       checkUpstoxTokenHealth().then((health) => {
         console.log(`[VAULT] Immediate token validation: ${health.valid ? "VALID" : "INVALID"} \u2014 ${health.message}`);
@@ -2518,7 +3034,8 @@ Token is invalid: ${health.message}`);
     const currentVault = loadVaultFromFile();
     delete currentVault[keyId];
     saveVaultToFile(currentVault);
-    console.log(`[VAULT] Key ${keyId} deleted by user (removed from disk)`);
+    deleteVaultKeyFromDb(keyId);
+    console.log(`[VAULT] Key ${keyId} deleted by user (removed from disk + database)`);
     res.json({ success: true, keyId, deleted: true });
   });
   app2.post("/api/m3r/analyze", async (req, res) => {
@@ -2532,7 +3049,7 @@ Token is invalid: ${health.message}`);
       const prompt = question || `Analyze Nifty 50 option chain: Spot ${optionChain?.spotPrice}, PCR ${optionChain?.overallPCR}, Max Pain ${optionChain?.maxPainStrike}. Give trading signal.`;
       const genAI = global.__m3rGenAI;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           systemInstruction: "You are a Nifty 50 options trading expert. Analyze data and give clear trading signals with strike prices, targets, and stop losses.",
@@ -2673,6 +3190,7 @@ btn.disabled=false;btn.textContent='UPDATE TOKEN & GO LIVE';
       upstoxAccessToken = tokenData.access_token || null;
       upstoxTokenValid = null;
       upstoxTokenLastChecked = 0;
+      consecutiveOfflineScans = 0;
       if (upstoxAccessToken) {
         try {
           const currentVault = loadVaultFromFile();
@@ -3007,7 +3525,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (!m3rModel) return res.status(503).json({ error: "LAMY AI not configured" });
       const genAI = global.__m3rGenAI;
       const chatResponse = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           tools: [{ googleSearch: {} }]
@@ -3042,6 +3560,28 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     "ADANIENT": "NSE_EQ|INE423A01024",
     "POWERGRID": "NSE_EQ|INE752E01010",
     "NESTLEIND": "NSE_EQ|INE239A01024"
+  };
+  const STOCK_FO_KEY_MAP = {
+    "RELIANCE": { foKey: "NSE_FO|RELIANCE", lotSize: 250, strikeGap: 20 },
+    "TCS": { foKey: "NSE_FO|TCS", lotSize: 175, strikeGap: 50 },
+    "HDFCBANK": { foKey: "NSE_FO|HDFCBANK", lotSize: 550, strikeGap: 20 },
+    "INFY": { foKey: "NSE_FO|INFY", lotSize: 300, strikeGap: 25 },
+    "ICICIBANK": { foKey: "NSE_FO|ICICIBANK", lotSize: 700, strikeGap: 15 },
+    "BHARTIARTL": { foKey: "NSE_FO|BHARTIARTL", lotSize: 475, strikeGap: 20 },
+    "SBIN": { foKey: "NSE_FO|SBIN", lotSize: 750, strikeGap: 10 },
+    "ITC": { foKey: "NSE_FO|ITC", lotSize: 1600, strikeGap: 5 },
+    "TATAMOTORS": { foKey: "NSE_FO|TATAMOTORS", lotSize: 575, strikeGap: 10 },
+    "HCLTECH": { foKey: "NSE_FO|HCLTECH", lotSize: 350, strikeGap: 25 },
+    "AXISBANK": { foKey: "NSE_FO|AXISBANK", lotSize: 625, strikeGap: 15 },
+    "SUNPHARMA": { foKey: "NSE_FO|SUNPHARMA", lotSize: 350, strikeGap: 25 },
+    "BAJFINANCE": { foKey: "NSE_FO|BAJFINANCE", lotSize: 125, strikeGap: 100 },
+    "MARUTI": { foKey: "NSE_FO|MARUTI", lotSize: 100, strikeGap: 100 },
+    "TATASTEEL": { foKey: "NSE_FO|TATASTEEL", lotSize: 5500, strikeGap: 2 },
+    "ADANIENT": { foKey: "NSE_FO|ADANIENT", lotSize: 250, strikeGap: 25 },
+    "POWERGRID": { foKey: "NSE_FO|POWERGRID", lotSize: 2700, strikeGap: 5 },
+    "WIPRO": { foKey: "NSE_FO|WIPRO", lotSize: 1500, strikeGap: 5 },
+    "LTIM": { foKey: "NSE_FO|LTIM", lotSize: 150, strikeGap: 50 },
+    "NESTLEIND": { foKey: "NSE_FO|NESTLEIND", lotSize: 200, strikeGap: 25 }
   };
   const INDEX_KEY_MAP = {
     "NIFTY 50": "NSE_INDEX|Nifty 50",
@@ -3266,6 +3806,272 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     }
     return { spot: 0, isLive: false };
   }
+  async function scanStockMomentum() {
+    if (!upstoxAccessToken) return [];
+    try {
+      const stockKeys = Object.values(STOCK_ISIN_MAP).map((k) => encodeURIComponent(k)).join(",");
+      const stocksRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const stocksData = await stocksRes.json();
+      if (stocksData?.status !== "success" || !stocksData?.data) return [];
+      const SYMBOL_ALIAS = { "TMPV": "TATAMOTORS" };
+      const results = [];
+      const addedSymbols = /* @__PURE__ */ new Set();
+      for (const dataKey of Object.keys(stocksData.data)) {
+        const quote = stocksData.data[dataKey];
+        const rawSymbol = dataKey.replace("NSE_EQ:", "");
+        const displaySymbol = SYMBOL_ALIAS[rawSymbol] || rawSymbol;
+        if (addedSymbols.has(displaySymbol) || !STOCK_META[displaySymbol] || !STOCK_FO_KEY_MAP[displaySymbol]) continue;
+        addedSymbols.add(displaySymbol);
+        const meta = STOCK_META[displaySymbol];
+        const lastPrice = quote.last_price || 0;
+        const netChange = quote.net_change || 0;
+        const prevClose = lastPrice - netChange;
+        const changePercent = prevClose > 0 ? netChange / prevClose * 100 : 0;
+        const absChange = Math.abs(changePercent);
+        const volume = quote.volume || 0;
+        const high = quote.ohlc?.high || lastPrice;
+        const low = quote.ohlc?.low || lastPrice;
+        const rangePercent = low > 0 ? (high - low) / low * 100 : 0;
+        const near52High = meta.weekHigh52 > 0 ? lastPrice / meta.weekHigh52 * 100 : 50;
+        const near52Low = meta.weekLow52 > 0 ? lastPrice / meta.weekLow52 * 100 - 100 : 50;
+        let momentumScore = 0;
+        momentumScore += Math.min(30, absChange * 10);
+        momentumScore += Math.min(20, rangePercent * 5);
+        if (near52High > 95) momentumScore += 15;
+        if (near52Low < 10) momentumScore += 10;
+        if (volume > 1e6) momentumScore += 10;
+        else if (volume > 5e5) momentumScore += 5;
+        if (absChange > 2) momentumScore += 15;
+        else if (absChange > 1) momentumScore += 8;
+        const direction = changePercent >= 0 ? "BULLISH" : "BEARISH";
+        results.push({
+          symbol: displaySymbol,
+          name: meta.name,
+          price: lastPrice,
+          changePercent: Math.round(changePercent * 100) / 100,
+          momentumScore: Math.round(momentumScore),
+          direction,
+          high,
+          low,
+          volume
+        });
+      }
+      results.sort((a, b) => b.momentumScore - a.momentumScore);
+      return results.slice(0, 5);
+    } catch (e) {
+      console.error("[STOCK SCANNER] Error scanning stocks:", e);
+      return [];
+    }
+  }
+  async function runStockOptionScan(stock) {
+    const foInfo = STOCK_FO_KEY_MAP[stock.symbol];
+    if (!foInfo || !upstoxAccessToken) return null;
+    const { istStr, uaeStr } = getTimeStrings();
+    try {
+      let nearestExpiry = "";
+      try {
+        const contractRes = await globalThis.fetch(
+          `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent(foInfo.foKey)}`,
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+        );
+        const contractData = await contractRes.json();
+        if (contractData.status === "success" && contractData.data) {
+          const expiries = [...new Set(contractData.data.map((c) => c.expiry))].sort();
+          const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+          nearestExpiry = expiries.find((e) => e >= today) || expiries[0] || "";
+        }
+      } catch {
+      }
+      const ocRes = await globalThis.fetch(
+        `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ""}`,
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}`, Accept: "application/json" } }
+      );
+      const data = await ocRes.json();
+      if (data.status !== "success" || !data.data?.length) {
+        console.log(`[STOCK SCAN] No option chain data for ${stock.symbol}`);
+        return null;
+      }
+      const chainData = data.data;
+      const spot = stock.price;
+      const atmStrike = Math.round(spot / foInfo.strikeGap) * foInfo.strikeGap;
+      const isBullish = stock.direction === "BULLISH";
+      let bestPremium = 0;
+      let bestInstrumentKey = "";
+      let bestStrike = atmStrike;
+      let totalCeOI = 0, totalPeOI = 0;
+      let maxCeOI = 0, maxPeOI = 0, maxCeOIStrike = 0, maxPeOIStrike = 0;
+      let ceOIBuildupCount = 0, peOIBuildupCount = 0;
+      let nearAtmCeIV = 0, nearAtmPeIV = 0, ivCount = 0;
+      for (const opt of chainData) {
+        const sp = opt.strike_price || opt.strikePrice;
+        const ceOI = opt.call_options?.market_data?.oi || 0;
+        const peOI = opt.put_options?.market_data?.oi || 0;
+        totalCeOI += ceOI;
+        totalPeOI += peOI;
+        if (ceOI > maxCeOI) {
+          maxCeOI = ceOI;
+          maxCeOIStrike = sp;
+        }
+        if (peOI > maxPeOI) {
+          maxPeOI = peOI;
+          maxPeOIStrike = sp;
+        }
+        const prevCeOI = opt.call_options?.market_data?.prev_oi || ceOI;
+        const prevPeOI = opt.put_options?.market_data?.prev_oi || peOI;
+        if (ceOI > prevCeOI) ceOIBuildupCount++;
+        if (peOI > prevPeOI) peOIBuildupCount++;
+        if (Math.abs(sp - atmStrike) <= foInfo.strikeGap * 3) {
+          nearAtmCeIV += opt.call_options?.option_greeks?.iv || 0;
+          nearAtmPeIV += opt.put_options?.option_greeks?.iv || 0;
+          ivCount++;
+        }
+        if (sp === atmStrike) {
+          if (isBullish) {
+            const ce = opt.call_options?.market_data?.ltp || 0;
+            const ceKey = opt.call_options?.instrument_key || "";
+            if (ce > 0) {
+              bestPremium = ce;
+              bestInstrumentKey = ceKey;
+              bestStrike = sp;
+            }
+          } else {
+            const pe = opt.put_options?.market_data?.ltp || 0;
+            const peKey = opt.put_options?.instrument_key || "";
+            if (pe > 0) {
+              bestPremium = pe;
+              bestInstrumentKey = peKey;
+              bestStrike = sp;
+            }
+          }
+        }
+        if (!bestInstrumentKey && Math.abs(sp - atmStrike) === foInfo.strikeGap) {
+          if (isBullish) {
+            const ce = opt.call_options?.market_data?.ltp || 0;
+            const ceKey = opt.call_options?.instrument_key || "";
+            if (ce > 0) {
+              bestPremium = ce;
+              bestInstrumentKey = ceKey;
+              bestStrike = sp;
+            }
+          } else {
+            const pe = opt.put_options?.market_data?.ltp || 0;
+            const peKey = opt.put_options?.instrument_key || "";
+            if (pe > 0) {
+              bestPremium = pe;
+              bestInstrumentKey = peKey;
+              bestStrike = sp;
+            }
+          }
+        }
+      }
+      if (!bestInstrumentKey || bestPremium <= 0) {
+        console.log(`[STOCK SCAN] No valid option found for ${stock.symbol} at ATM ${atmStrike}`);
+        return null;
+      }
+      const pcr = totalPeOI > 0 && totalCeOI > 0 ? totalPeOI / totalCeOI : 1;
+      const avgCeIV = ivCount > 0 ? nearAtmCeIV / ivCount : 0;
+      const avgPeIV = ivCount > 0 ? nearAtmPeIV / ivCount : 0;
+      const ivSkew = avgPeIV > 0 ? avgCeIV / avgPeIV : 1;
+      let confidenceScore = 50;
+      confidenceScore += Math.min(15, stock.momentumScore * 0.3);
+      if (Math.abs(stock.changePercent) > 1.5) confidenceScore += 8;
+      if (isBullish) {
+        if (pcr > 1.2) confidenceScore += 10;
+        else if (pcr > 1) confidenceScore += 5;
+        if (maxPeOI > maxCeOI) confidenceScore += 6;
+        if (peOIBuildupCount > ceOIBuildupCount) confidenceScore += 4;
+      } else {
+        if (pcr < 0.8) confidenceScore += 10;
+        else if (pcr < 1) confidenceScore += 5;
+        if (maxCeOI > maxPeOI) confidenceScore += 6;
+        if (ceOIBuildupCount > peOIBuildupCount) confidenceScore += 4;
+      }
+      const confidence = Math.min(95, Math.max(30, confidenceScore));
+      if (confidence < 60) {
+        console.log(`[STOCK SCAN] ${stock.symbol} confidence too low: ${confidence}% \u2014 skipping`);
+        return null;
+      }
+      const action = isBullish ? "BUY_CE" : "BUY_PE";
+      const premium = Math.round(bestPremium);
+      const lotSize = foInfo.lotSize;
+      const brokerage = 200;
+      const targetPremium = Math.round(premium * 1.5);
+      const slPremium = Math.round(premium * 0.7);
+      const potentialProfit = (targetPremium - premium) * lotSize;
+      const netProfit = potentialProfit - brokerage;
+      const potentialLoss = (premium - slPremium) * lotSize;
+      const riskReward = potentialLoss > 0 ? potentialProfit / potentialLoss : 0;
+      const oiBuildupStrength = isBullish ? peOIBuildupCount : ceOIBuildupCount;
+      const greenCandles = Math.min(3, Math.max(0, Math.floor(oiBuildupStrength / 3)));
+      const entropyVal = Math.abs(ivSkew - 1);
+      const entropyLevel = entropyVal > 0.15 ? "HIGH" : entropyVal > 0.05 ? "MODERATE" : "LOW";
+      const monteCarloWin = Math.min(90, Math.max(25, Math.round(confidence * 0.6 + (100 - entropyVal * 200) * 0.4)));
+      const fusionScore = Math.min(95, Math.round(confidence * 0.4 + monteCarloWin * 0.3 + stock.momentumScore * 0.3));
+      const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 300 && confidence >= 65 && riskReward >= 1.3;
+      if (!zeroLossReady && netProfit < 300) {
+        console.log(`[STOCK SCAN] ${stock.symbol} net profit too low: Rs.${netProfit} \u2014 skipping`);
+        return null;
+      }
+      const rocketScore = Math.min(95, Math.round(confidence * 0.5 + stock.momentumScore * 0.5));
+      const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
+      const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
+      console.log(`[STOCK SCAN] ${stock.symbol} SIGNAL: ${action} ${bestStrike} @ Rs.${premium} | Conf: ${confidence}% | Net: Rs.${netProfit} | Momentum: ${stock.momentumScore}`);
+      const expiresAt = new Date(Date.now() + 5 * 6e4);
+      return {
+        id: generateProposalId(),
+        action,
+        confidence,
+        strike: bestStrike,
+        premium,
+        target: targetPremium,
+        stopLoss: slPremium,
+        lotSize,
+        potentialProfit,
+        brokerage,
+        netProfit,
+        reasoning: [
+          `STOCK OPTIONS: ${stock.name} (${stock.symbol}) \u2014 ${stock.direction} momentum`,
+          `Stock Price: Rs.${stock.price} | Change: ${stock.changePercent > 0 ? "+" : ""}${stock.changePercent}% | Momentum: ${stock.momentumScore}/100`,
+          `${action === "BUY_CE" ? "Bullish" : "Bearish"} signal \u2014 ATM Strike: ${atmStrike}, Selected: ${bestStrike}`,
+          `LIVE premium: Rs.${premium} at ${bestStrike}${action === "BUY_CE" ? "CE" : "PE"}`,
+          `PCR: ${pcr.toFixed(2)} | IV Skew: ${ivSkew.toFixed(2)}`,
+          `OI Buildup \u2014 CE: ${ceOIBuildupCount} strikes | PE: ${peOIBuildupCount} strikes`,
+          `Max CE OI: ${maxCeOIStrike} (resistance) | Max PE OI: ${maxPeOIStrike} (support)`,
+          `Lot Size: ${lotSize} | Expiry: ${nearestExpiry}`,
+          `Confidence: ${confidence}% | Risk:Reward = 1:${riskReward.toFixed(1)}`,
+          zeroLossReady ? "Zero-loss criteria MET" : "Zero-loss NOT MET \u2014 proceed with caution",
+          `Instrument: ${bestInstrumentKey}`
+        ],
+        engineVersion: "v8.0 NeuroQuantum SuperBrain",
+        rocketThrust: thrustLevel,
+        neuroWisdom: wisdomLevel,
+        fusionScore,
+        entropyLevel,
+        greenCandles,
+        zeroLossReady,
+        monteCarloWinProb: monteCarloWin,
+        status: "PENDING",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        respondedAt: null,
+        expiresAt: expiresAt.toISOString(),
+        istTime: istStr,
+        uaeTime: uaeStr,
+        scanCycle: scanCycleCount,
+        instrumentKey: bestInstrumentKey,
+        expiry: nearestExpiry,
+        underlying: stock.symbol,
+        underlyingName: stock.name,
+        spotPrice: stock.price,
+        scanMode: "STOCK"
+      };
+    } catch (e) {
+      console.error(`[STOCK SCAN] Error scanning ${stock.symbol} options:`, e);
+      return null;
+    }
+  }
   async function runAutoScan() {
     const { istStr, uaeStr, ist, currentMins, dayOfWeek } = getTimeStrings();
     if (dayOfWeek === 0 || dayOfWeek === 6) return null;
@@ -3286,9 +4092,17 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       chainData = liveData.chainData;
       nearestExpiry = liveData.nearestExpiry || "";
       scanLotSize = liveData.liveLotSize || cachedLiveLotSize;
+      consecutiveOfflineScans = 0;
       console.log(`[LAMY SCAN] LIVE data \u2014 Spot: ${spot}, Expiry: ${nearestExpiry}, LotSize: ${scanLotSize}`);
     } else {
-      console.log(`[LAMY SCAN] Upstox OFFLINE \u2014 Cannot scan without live data`);
+      consecutiveOfflineScans++;
+      if (consecutiveOfflineScans <= 3) {
+        console.log(`[LAMY SCAN] Upstox OFFLINE \u2014 Cannot scan without live data (${consecutiveOfflineScans}/${MAX_OFFLINE_SCANS})`);
+      }
+      if (consecutiveOfflineScans >= MAX_OFFLINE_SCANS && autoScanActive) {
+        console.log(`[LAMY SCAN] Upstox OFFLINE for ${consecutiveOfflineScans} consecutive scans \u2014 pausing auto-scan. Will resume when token is updated.`);
+        stopAutoScanInternal("upstox_offline");
+      }
       return null;
     }
     const atmStrike = Math.round(spot / 50) * 50;
@@ -3429,11 +4243,40 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const riskReward = potentialLoss > 0 ? potentialProfit / potentialLoss : 0;
     const zeroLossReady = greenCandles >= 2 && entropyLevel !== "HIGH" && netProfit >= 500 && confidence >= 65 && riskReward >= 1.5;
     if (confidence < 65) {
-      console.log(`[LAMY SCAN] Confidence too low: ${confidence}% \u2014 skipping (need 65%+) (PCR: ${pcr.toFixed(2)}, IV Skew: ${ivSkew.toFixed(2)})`);
+      console.log(`[LAMY SCAN] Nifty confidence too low: ${confidence}% \u2014 checking stocks instead`);
+      consecutiveNiftySkips++;
+      if (consecutiveNiftySkips >= NIFTY_SKIP_THRESHOLD) {
+        console.log(`[LAMY SCAN] ${consecutiveNiftySkips} weak Nifty scans \u2014 switching to STOCK SCAN`);
+        const topStocks = await scanStockMomentum();
+        if (topStocks.length > 0) {
+          console.log(`[STOCK SCANNER] Top movers: ${topStocks.map((s) => `${s.symbol}(${s.changePercent > 0 ? "+" : ""}${s.changePercent}%)`).join(", ")}`);
+          for (const stock of topStocks) {
+            const stockProposal = await runStockOptionScan(stock);
+            if (stockProposal) {
+              consecutiveNiftySkips = 0;
+              return stockProposal;
+            }
+          }
+        }
+        console.log(`[STOCK SCANNER] No stock options signals found either`);
+      }
       return null;
     }
     if (!zeroLossReady) {
-      console.log(`[LAMY SCAN] Zero-loss criteria NOT met \u2014 skipping (RR: ${riskReward.toFixed(2)}, Net: Rs.${netProfit}, Candles: ${greenCandles}, Entropy: ${entropyLevel})`);
+      console.log(`[LAMY SCAN] Nifty zero-loss NOT met \u2014 checking stocks (RR: ${riskReward.toFixed(2)}, Net: Rs.${netProfit}, Candles: ${greenCandles})`);
+      consecutiveNiftySkips++;
+      if (consecutiveNiftySkips >= NIFTY_SKIP_THRESHOLD) {
+        const topStocks = await scanStockMomentum();
+        if (topStocks.length > 0) {
+          for (const stock of topStocks) {
+            const stockProposal = await runStockOptionScan(stock);
+            if (stockProposal) {
+              consecutiveNiftySkips = 0;
+              return stockProposal;
+            }
+          }
+        }
+      }
       return null;
     }
     const fusionScore = Math.min(95, Math.round(confidence * 0.4 + monteCarloWin * 0.3 + pcrStrength * 0.3));
@@ -3441,6 +4284,8 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     const thrustLevel = rocketScore > 70 ? "HYPERDRIVE" : rocketScore > 50 ? "ORBIT" : "LIFTOFF";
     const wisdomLevel = fusionScore > 70 ? "GRANDMASTER" : fusionScore > 50 ? "EXPERT" : "LEARNING";
     const expiresAt = new Date(Date.now() + 5 * 6e4);
+    consecutiveNiftySkips = 0;
+    lastNiftySignalTime = Date.now();
     return {
       id: generateProposalId(),
       action,
@@ -3480,7 +4325,11 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       uaeTime: uaeStr,
       scanCycle: scanCycleCount,
       instrumentKey,
-      expiry: nearestExpiry
+      expiry: nearestExpiry,
+      underlying: "NIFTY50",
+      underlyingName: "Nifty 50",
+      spotPrice: spot,
+      scanMode: "NIFTY"
     };
   }
   async function sendTelegramApprovalRequest(proposal) {
@@ -3633,7 +4482,9 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
           kissPhase: "NONE",
           lossAlerted: false,
           instrumentKey: proposal.instrumentKey || "",
-          entryTimestamp: Date.now()
+          entryTimestamp: Date.now(),
+          underlying: proposal.underlying,
+          underlyingName: proposal.underlyingName
         };
         activePositions.push(newPosition);
         startPositionMonitoring();
@@ -3761,7 +4612,7 @@ IST: ${istStr} | UAE: ${uaeStr}`,
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ chat_id: tgChatId, text: `*LAMY - Position Monitor*
 
-${activePos.type} ${activePos.strike} | ${profitLoss}
+${activePos.underlying || "NIFTY50"} ${activePos.type} ${activePos.strike} | ${profitLoss}
 Entry: Rs.${activePos.entryPremium} | Current: Rs.${activePos.currentPremium}
 Kiss: ${activePos.kissPhase} | ATR SL: ${activePos.atrStopLoss}
 Cycle #${scanCycleCount} | IST: ${istStr}`, parse_mode: "Markdown" })
@@ -3789,6 +4640,7 @@ Cycle #${scanCycleCount} | IST: ${istStr}`, parse_mode: "Markdown" })
 Cycle #${scanCycleCount} | IST: ${istStr}
 Analyzing option chain, PCR, OI buildup, IV skew...
 Looking for zero-loss entry with min Rs.${MIN_PROFIT_TARGET} profit potential.
+Mode: ${scanMode} | Nifty skips: ${consecutiveNiftySkips}/${NIFTY_SKIP_THRESHOLD}
 ${autoTradeMode ? "AUTO-TRADE ON \u2014 Will execute automatically" : "Manual approval mode"}`, parse_mode: "Markdown" })
           }).catch(() => {
           });
@@ -3973,6 +4825,9 @@ Probability: ${monteCarloWin}%`;
       rejected,
       expired,
       upstoxConnected: !!upstoxAccessToken,
+      scanMode,
+      consecutiveNiftySkips,
+      niftySkipThreshold: NIFTY_SKIP_THRESHOLD,
       recentProposals: tradeProposals.slice(-5).reverse().map((p) => ({
         id: p.id,
         action: p.action,
@@ -3981,9 +4836,34 @@ Probability: ${monteCarloWin}%`;
         status: p.status,
         upstoxOrderId: p.upstoxOrderId,
         instrumentKey: p.instrumentKey,
-        createdAt: p.createdAt
+        createdAt: p.createdAt,
+        underlying: p.underlying,
+        underlyingName: p.underlyingName
       }))
     });
+  });
+  app2.get("/api/auto-trade/stock-scan", async (_req, res) => {
+    try {
+      const topStocks = await scanStockMomentum();
+      res.json({
+        stocks: topStocks,
+        scanMode,
+        consecutiveNiftySkips,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (e) {
+      res.status(500).json({ error: "Stock scan failed" });
+    }
+  });
+  app2.post("/api/auto-trade/scan-mode", (req, res) => {
+    const { mode } = req.body;
+    if (mode === "NIFTY" || mode === "STOCK" || mode === "BOTH") {
+      scanMode = mode;
+      console.log(`[LAMY] Scan mode changed to: ${mode}`);
+      res.json({ scanMode: mode, message: `Scan mode set to ${mode}` });
+    } else {
+      res.status(400).json({ error: "Invalid mode. Use NIFTY, STOCK, or BOTH" });
+    }
   });
   app2.post("/api/auto-trade/test-live-order", async (req, res) => {
     if (!upstoxAccessToken) return res.status(401).json({ error: "Upstox not connected" });
@@ -4182,7 +5062,7 @@ ${engineData ? `Engine Signal: ${engineData.signal}, Confidence: ${engineData.co
 Provide the full 10-section comprehensive analysis now.`;
       const genAI = global.__m3rGenAI;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -4214,6 +5094,20 @@ Provide the full 10-section comprehensive analysis now.`;
     }
   });
   let currentPin = "1234";
+  if (dbPool) {
+    (async () => {
+      try {
+        await dbPool.query(`CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`);
+        const result = await dbPool.query("SELECT value FROM app_settings WHERE key = 'auth_pin'");
+        if (result.rows.length > 0 && result.rows[0].value) {
+          currentPin = result.rows[0].value;
+          console.log(`[AUTH] PIN loaded from database`);
+        }
+      } catch (e) {
+        console.error("[AUTH] Failed to load PIN from database:", e);
+      }
+    })();
+  }
   const savedAutoTrade = savedVault.AUTO_TRADE_MODE === "true";
   let autoTradeMode = savedAutoTrade;
   let cachedLiveLotSize = 0;
@@ -4222,9 +5116,9 @@ Provide the full 10-section comprehensive analysis now.`;
   }
   const activePositions = [];
   let positionSimInterval = null;
-  const LOSS_ALERT_THRESHOLD = 500;
-  const MIN_PROFIT_TARGET = 500;
-  const MIN_HOLD_SECONDS = 180;
+  const LOSS_ALERT_THRESHOLD = 1e3;
+  const MIN_PROFIT_TARGET = 300;
+  const MIN_HOLD_SECONDS = 300;
   function getLotSize() {
     return cachedLiveLotSize || 65;
   }
@@ -4281,8 +5175,9 @@ Provide the full 10-section comprehensive analysis now.`;
       if (pos.currentPremium < pos.lowestPremium) pos.lowestPremium = pos.currentPremium;
       const atr = calculatePositionATR(pos.premiumHistory);
       if (atr > 0 && pos.premiumHistory.length >= 10) {
-        const dynamicSL = parseFloat((pos.entryPremium - atr * 2.5).toFixed(2));
-        const hardFloor = pos.entryPremium * 0.55;
+        const slhBuffer = atr * 0.5;
+        const dynamicSL = parseFloat((pos.entryPremium - (atr * 4 + slhBuffer)).toFixed(2));
+        const hardFloor = pos.entryPremium * 0.3;
         pos.atrStopLoss = Math.max(dynamicSL, hardFloor);
       }
       const kiss = detectPositionKissPattern(pos);
@@ -4311,7 +5206,7 @@ Provide the full 10-section comprehensive analysis now.`;
         const isDropping = recentPrices.length >= 3 && recentPrices[recentPrices.length - 1] < recentPrices[recentPrices.length - 2] && recentPrices[recentPrices.length - 2] < recentPrices[recentPrices.length - 3];
         const peakPnl = (pos.peakPremium - pos.entryPremium) * pos.lots * getLotSize();
         const droppedFromPeak = peakPnl > 0 ? (peakPnl - pos.pnl) / peakPnl * 100 : 0;
-        if (isDropping || droppedFromPeak > 40) {
+        if (isDropping || droppedFromPeak > 55) {
           shouldExit = true;
           exitReason = `MIN_PROFIT_BOOK (P&L: Rs.${pos.pnl.toFixed(0)}, Target Rs.${MIN_PROFIT_TARGET} MET, ${isDropping ? "price dropping" : `dropped ${droppedFromPeak.toFixed(0)}% from peak`})`;
           exitStatus = "PROFIT_BOOKED";
@@ -4324,20 +5219,21 @@ Provide the full 10-section comprehensive analysis now.`;
         exitReason = `TARGET_REACHED (P&L: Rs.${pos.pnl.toFixed(0)}, Target: Rs.${targetPnl.toFixed(0)})`;
         exitStatus = "PROFIT_BOOKED";
       }
-      if (!shouldExit && kiss.shouldBook && pos.pnl > MIN_PROFIT_TARGET * 0.5 && !isInHoldPeriod) {
+      if (!shouldExit && kiss.shouldBook && pos.pnl > MIN_PROFIT_TARGET * 0.8 && !isInHoldPeriod) {
         shouldExit = true;
         exitReason = `KISS_PATTERN_PROFIT (${kiss.description})`;
         exitStatus = "KISS_PROFIT";
       }
-      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss && pos.pnl < -LOSS_ALERT_THRESHOLD) {
-        shouldExit = true;
-        exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
-        exitStatus = "ATR_STOPPED";
-      }
-      if (!shouldExit && !isInHoldPeriod && pos.currentPremium <= pos.stopLoss) {
-        shouldExit = true;
-        exitReason = `HARD_STOP_LOSS (Premium: ${pos.currentPremium} <= SL: ${pos.stopLoss}, Hold: ${holdSeconds.toFixed(0)}s)`;
-        exitStatus = "ATR_STOPPED";
+      if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss) {
+        const recentPrices = pos.premiumHistory.slice(-3);
+        const allBelowSL = recentPrices.every((p) => p <= pos.atrStopLoss);
+        if (allBelowSL) {
+          shouldExit = true;
+          exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, SLH-Protected: 3-candle confirm, Hold: ${holdSeconds.toFixed(0)}s)`;
+          exitStatus = "ATR_STOPPED";
+        } else {
+          console.log(`[SLH PROTECT] Position ${pos.id}: Price ${pos.currentPremium} below ATR SL ${pos.atrStopLoss} but waiting for 3-candle confirmation (anti-hunt)`);
+        }
       }
       if (shouldExit) {
         pos.exitPremium = pos.currentPremium;
@@ -4486,6 +5382,7 @@ Provide the full 10-section comprehensive analysis now.`;
     const isWeekday = dayOfWeek > 0 && dayOfWeek < 6;
     const preMarketMins = 9 * 60;
     const closeMins = 15 * 60 + 30;
+    consecutiveOfflineScans = 0;
     if (!autoScanActive && isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
       console.log("[AUTO-START] Market open \u2014 starting scan after token update");
       await startAutoScanInternal("token_update");
@@ -4954,7 +5851,7 @@ You are now in VOICE MODE \u2014 the user is speaking to you while driving.
       const base64AudioData = audioBuffer.toString("base64");
       const mimeTypes = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
       const transcribeResult = await genAITranscribe.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [
           { inlineData: { mimeType: mimeTypes[audioFormat] || "audio/wav", data: base64AudioData } },
           { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
@@ -4987,7 +5884,7 @@ ${lamyContext}`;
       const geminiVoiceContents = voiceBotHistory.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
       const voiceSystemMsg = voiceBotHistory.find((m) => m.role === "system");
       const voiceChatResponse = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: geminiVoiceContents,
         config: {
           systemInstruction: voiceSystemMsg?.content || LAMY_VOICE_PROMPT,
@@ -5175,6 +6072,18 @@ ${lamyContext}`;
     }
     runSelfImprovement();
     res.json({ success: true, message: "Training cycle triggered" });
+  });
+  app2.post("/api/brain/restore", (req, res) => {
+    const { iq, generation, totalLearningCycles, accuracyScore, emotionalIQ, secret } = req.body;
+    if (secret !== "m3r-restore-2024") return res.status(403).json({ error: "Unauthorized" });
+    if (iq && iq > brainStats.iq) brainStats.iq = iq;
+    if (generation && generation > brainStats.generation) brainStats.generation = generation;
+    if (totalLearningCycles && totalLearningCycles > brainStats.totalLearningCycles) brainStats.totalLearningCycles = totalLearningCycles;
+    if (accuracyScore && accuracyScore > brainStats.accuracyScore) brainStats.accuracyScore = accuracyScore;
+    if (emotionalIQ && emotionalIQ > brainStats.emotionalIQ) brainStats.emotionalIQ = emotionalIQ;
+    saveBrainToDisk();
+    saveBrainToDb();
+    res.json({ success: true, iq: brainStats.iq, generation: brainStats.generation, totalLearningCycles: brainStats.totalLearningCycles });
   });
   app2.post("/api/brain/memory/save", async (req, res) => {
     try {
@@ -5474,7 +6383,7 @@ ${lamyContext}`;
       const genAI = global.__m3rGenAI;
       const systemInstruction = global.__m3rSystemInstruction;
       const response = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction: systemInstruction + slangContext,
@@ -5579,7 +6488,7 @@ ${msgText}` }];
       const genAI = global.__m3rGenAI;
       const systemInstruction = global.__m3rSystemInstruction;
       const result = await genAI.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction,
@@ -5684,7 +6593,7 @@ ${msgText}` }];
       const base64Audio = audioBuffer.toString("base64");
       const mimeMap = { wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" };
       const transcriptionResult = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: [{ role: "user", parts: [
           { inlineData: { mimeType: mimeMap[audioFormat] || "audio/wav", data: base64Audio } },
           { text: "Transcribe this audio exactly. Return ONLY the transcribed text, nothing else." }
@@ -5711,7 +6620,7 @@ ${msgText}` }];
       if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
       const systemInstruction = global.__m3rSystemInstruction;
       const result = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-native",
         contents: m3rChatHistory,
         config: {
           systemInstruction,
@@ -5913,7 +6822,7 @@ ${msgText}` }];
       const preMarketMins = 9 * 60;
       const closeMins = 15 * 60 + 30;
       if (isWeekday && currentMins >= preMarketMins && currentMins < closeMins) {
-        if (!autoScanActive) {
+        if (!autoScanActive && consecutiveOfflineScans < MAX_OFFLINE_SCANS) {
           console.log("[LAMY SCHEDULER] Market is open + autoTradeMode ON \u2014 starting scan");
           startAutoScanInternal("market_scheduler");
         }
@@ -6122,17 +7031,15 @@ function configureExpoAndLanding(app2) {
   const webIndexPath = path2.join(distPath, "index.html");
   const hasWebBuild = fs2.existsSync(webIndexPath);
   log(hasWebBuild ? "Serving M3R web app from dist/" : "No web build found, using landing page");
-  app2.use("/assets", express2.static(path2.resolve(process.cwd(), "assets")));
-  app2.use(express2.static(path2.resolve(process.cwd(), "static-build")));
+  app2.use("/assets", express2.static(path2.resolve(process.cwd(), "assets"), { maxAge: 0 }));
+  app2.use(express2.static(path2.resolve(process.cwd(), "static-build"), { maxAge: 0 }));
   if (hasWebBuild) {
     app2.use(express2.static(distPath, {
-      maxAge: "1h",
+      maxAge: 0,
       setHeaders: (res, filePath) => {
-        if (filePath.endsWith(".html")) {
-          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-          res.setHeader("Pragma", "no-cache");
-          res.setHeader("Expires", "0");
-        }
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
       }
     }));
     log("M3R Innovative Fintech Solutions \u2014 Web app ready at /");
@@ -6152,7 +7059,13 @@ function configureExpoAndLanding(app2) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      return res.sendFile(webIndexPath);
+      let html = fs2.readFileSync(webIndexPath, "utf-8");
+      html = html.replace(
+        '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />',
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />'
+      );
+      res.type("html").send(html);
+      return;
     }
     if (req.path === "/") {
       const templatePath = path2.resolve(process.cwd(), "server", "templates", "landing-page.html");
@@ -6179,6 +7092,9 @@ function setupErrorHandler(app2) {
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ status: "ok", timestamp: Date.now() });
+  });
   configureExpoAndLanding(app);
   const server = await registerRoutes(app);
   setupErrorHandler(app);
