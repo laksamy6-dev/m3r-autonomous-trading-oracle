@@ -145,34 +145,34 @@ function saveVaultToFile(data: Record<string, string>) {
 
 const savedVault = loadVaultFromFile();
 
-let upstoxApiKey = savedVault.UPSTOX_API_KEY || process.env.UPSTOX_API_KEY;
-let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
-let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token || null;
+let upstoxApiKey = process.env.UPSTOX_API_KEY || savedVault.UPSTOX_API_KEY;
+let upstoxApiSecret = process.env.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || savedVault.UPSTOX_SECRET_KEY;
+let upstoxAccessToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || savedVault.UPSTOX_ACCESS_TOKEN || null;
 
-if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
-if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
-if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
+if (!process.env.TELEGRAM_BOT_TOKEN && savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
+if (!process.env.TELEGRAM_CHAT_ID && savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
+if (!process.env.GEMINI_API_KEY && savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_API_KEY;
 
 {
-  let needsSave = false;
   const vaultSync = { ...savedVault };
   const envMap: Record<string, string | undefined> = {
     UPSTOX_API_KEY: process.env.UPSTOX_API_KEY,
     UPSTOX_SECRET_KEY: process.env.UPSTOX_SECRET_KEY,
-    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN || process.env.access_token,
+    UPSTOX_ACCESS_TOKEN: process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_SESSION_TOKEN,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   };
+  let needsSave = false;
   for (const [key, val] of Object.entries(envMap)) {
-    if (val && !vaultSync[key]) {
+    if (val && vaultSync[key] !== val) {
       vaultSync[key] = val;
       needsSave = true;
     }
   }
   if (needsSave) {
     saveVaultToFile(vaultSync);
-    console.log("[VAULT] Auto-synced environment secrets to vault file");
+    console.log("[VAULT] Secrets synced from Replit Secrets to vault backup");
   }
 }
 
@@ -260,7 +260,7 @@ const openai = new OpenAI({
 
 const optionsBotHistory: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
 
-const m3rApiKey = savedVault.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+const m3rApiKey = process.env.GEMINI_API_KEY || savedVault.GEMINI_API_KEY;
 let m3rModel: any = null;
 let m3rChatHistory: Array<{ role: "user" | "model"; parts: any[] }> = [];
 
