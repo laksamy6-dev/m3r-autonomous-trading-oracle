@@ -464,6 +464,46 @@ const LEARNING_DOMAINS = [
   "Currency Carry Trade Analysis", "Commodity Super-Cycle Detection",
   "Real Estate Market Correlation", "Private Equity Valuation Models",
   "Venture Capital Deal Scoring", "Angel Investment Pattern Recognition",
+  "Autonomous Vehicle Technology", "AR/VR Market Impact", "Mixed Reality Applications",
+  "Brain-Computer Interface", "Neuromorphic Computing", "DNA Data Storage",
+  "Synthetic Biology Markets", "Space Economy Investing", "Asteroid Mining Potential",
+  "Nuclear Fusion Energy Impact", "Hydrogen Economy Analysis", "Carbon Credit Trading",
+  "Water Scarcity Investment", "Food Security Technology", "Precision Agriculture",
+  "Telemedicine Market Growth", "Genomic Medicine Impact", "Drug Discovery AI",
+  "Personalized Medicine", "Wearable Health Technology", "Mental Health Tech Market",
+  "Smart City Infrastructure", "Urban Mobility Solutions", "Electric Vehicle Supply Chain",
+  "Battery Technology Evolution", "Solar Energy Advances", "Wind Energy Markets",
+  "Tidal & Wave Energy", "Geothermal Potential", "Energy Storage Solutions",
+  "Semiconductor Industry Analysis", "Chip Design Architecture", "Foundry Market Dynamics",
+  "Photonics Technology", "Advanced Materials Science", "Superconductor Applications",
+  "3D Printing Industry", "Advanced Manufacturing", "Industrial Automation",
+  "Supply Chain AI Optimization", "Logistics Technology", "Last Mile Delivery Innovation",
+  "E-Commerce Market Intelligence", "Digital Payment Ecosystem", "Open Banking Impact",
+  "Insurance Technology", "RegTech Solutions", "Wealth Management AI",
+  "Robo-Advisory Systems", "Social Trading Platforms", "Fractional Investing",
+  "NFT Market Analysis", "Metaverse Economy", "Web3 Infrastructure",
+  "Decentralized Finance Deep Dive", "Layer 2 Scaling Solutions", "Cross-Chain Protocols",
+  "Privacy Technology", "Homomorphic Encryption", "Zero-Knowledge Proofs",
+  "Federated Learning Systems", "Differential Privacy", "Secure Multi-Party Computation",
+  "Quantum Machine Learning", "Quantum Cryptography", "Post-Quantum Security",
+  "Neuroplasticity & Learning", "Memory Enhancement Techniques", "Speed Reading Mastery",
+  "Critical Thinking Framework", "Systems Thinking Approach", "Design Thinking Process",
+  "First Principles Reasoning", "Bayesian Inference", "Decision Theory",
+  "Game Theory Applications", "Mechanism Design", "Auction Theory",
+  "Network Effects Analysis", "Platform Economics", "Two-Sided Market Strategy",
+  "Behavioral Economics Deep Dive", "Nudge Theory Application", "Prospect Theory Trading",
+  "Attention Economy", "Creator Economy Analysis", "Subscription Economy Patterns",
+  "Data Monetization Strategy", "API Economy", "Cloud Computing Economics",
+  "Edge AI Deployment", "TinyML Applications", "On-Device Intelligence",
+  "Natural Language Understanding", "Conversational AI Design", "Emotion Detection AI",
+  "Multimodal AI Systems", "Foundation Model Architecture", "AI Alignment Research",
+  "Indian Stock Market History", "Harshad Mehta Case Study", "Ketan Parekh Analysis",
+  "Rakesh Jhunjhunwala Strategy", "Warren Buffett Principles", "Ray Dalio Framework",
+  "Jim Simons Quantitative Approach", "George Soros Reflexivity", "Peter Lynch Growth Investing",
+  "Charlie Munger Mental Models", "Howard Marks Market Cycles", "Nassim Taleb Antifragility",
+  "Michael Burry Contrarian Analysis", "Cathie Wood Innovation Investing", "Carl Icahn Activist Strategy",
+  "Indian Cultural Intelligence", "Festival Season Market Patterns", "Monsoon Economy Impact",
+  "Rural India Digital Adoption", "Tier 2/3 City Growth Analysis", "India Demographics Dividend",
 ];
 
 const BRAIN_PHASES = [
@@ -5547,6 +5587,19 @@ You are now in VOICE MODE — the user is speaking to you while driving.
     }
     runSelfImprovement();
     res.json({ success: true, message: "Training cycle triggered" });
+  });
+
+  app.post("/api/brain/restore", (req, res) => {
+    const { iq, generation, totalLearningCycles, accuracyScore, emotionalIQ, secret } = req.body;
+    if (secret !== "m3r-restore-2024") return res.status(403).json({ error: "Unauthorized" });
+    if (iq && iq > brainStats.iq) brainStats.iq = iq;
+    if (generation && generation > brainStats.generation) brainStats.generation = generation;
+    if (totalLearningCycles && totalLearningCycles > brainStats.totalLearningCycles) brainStats.totalLearningCycles = totalLearningCycles;
+    if (accuracyScore && accuracyScore > brainStats.accuracyScore) brainStats.accuracyScore = accuracyScore;
+    if (emotionalIQ && emotionalIQ > brainStats.emotionalIQ) brainStats.emotionalIQ = emotionalIQ;
+    saveBrainToDisk();
+    saveBrainToDb();
+    res.json({ success: true, iq: brainStats.iq, generation: brainStats.generation, totalLearningCycles: brainStats.totalLearningCycles });
   });
 
   app.post("/api/brain/memory/save", async (req, res) => {
