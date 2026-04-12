@@ -1,0 +1,10 @@
+.env
+.env.*
+.vault-data.json
+.vault-data.json.*
+.brain-data.json
+*.backup*
+*.save*
+node_modules/
+dist/
+*.tar.gz

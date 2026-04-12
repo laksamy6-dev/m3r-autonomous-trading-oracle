@@ -1,0 +1,16 @@
+
+  // Block mock data - force real API only
+  app.use("/api/market/*", (req, res, next) => {
+    if (!process.env.UPSTOX_ACCESS_TOKEN && req.path.includes('live-stocks')) {
+      return res.status(503).json({
+        error: "LIVE DATA ONLY - No Upstox token", 
+        mock_disabled: true
+      });
+    }
+    next();
+  });
+
+  return httpServer;
+}
+
+export default registerRoutes;

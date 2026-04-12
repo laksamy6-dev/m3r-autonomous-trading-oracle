@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CM-X GENESIS: JARVIS AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+        /* --- JARVIS THEME --- */
+        body {
+            background-color: #000000;
+            color: #00f3ff; /* Cyan Glow */
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Holographic Panels */
+        .holo-card {
+            background: rgba(0, 20, 40, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.05);
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Scanline Effect */
+        .holo-card::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Active Glow Animation */
+        @keyframes border-pulse {
+            0% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 10px rgba(0, 243, 255, 0.1); }
+            50% { border-color: rgba(0, 243, 255, 0.8); box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); }
+            100% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 10px rgba(0, 243, 255, 0.1); }
+        }
+        .active-pulse { animation: border-pulse 2s infinite; }
+
+        /* --- 🔥 CREATOR NAME FIRE EFFECT 🔥 --- */
+        .creator-fire {
+            background: linear-gradient(to top, #ff0000, #ff7b00, #ffcc00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(255, 69, 0, 0.6);
+            letter-spacing: 2px;
+            animation: fire-flicker 0.1s infinite alternate;
+        }
+        @keyframes fire-flicker {
+            0% { text-shadow: 0 0 10px rgba(255, 69, 0, 0.6); }
+            100% { text-shadow: 0 0 20px rgba(255, 140, 0, 0.8), 0 0 5px rgba(255, 255, 0, 0.5); }
+        }
+
+        /* Chart Container */
+        .chart-container { position: relative; height: 250px; width: 100%; }
+
+        /* Buttons */
+        .jarvis-btn {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+        .jarvis-btn:active {
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 20px #00f3ff;
+        }
+
+        /* Inputs */
+        .jarvis-input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            font-family: 'Rajdhani', sans-serif;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .jarvis-input:focus {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            border-color: #fff;
+        }
+
+        /* Voice Visualizer */
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            height: 20px;
+            gap: 3px;
+        }
+        .wave-bar {
+            width: 4px;
+            background: #00f3ff;
+            animation: wave 1s infinite ease-in-out;
+        }
+        .wave-bar:nth-child(1) { height: 10px; animation-delay: 0.1s; }
+        .wave-bar:nth-child(2) { height: 15px; animation-delay: 0.2s; }
+        .wave-bar:nth-child(3) { height: 20px; animation-delay: 0.3s; }
+        .wave-bar:nth-child(4) { height: 15px; animation-delay: 0.4s; }
+        .wave-bar:nth-child(5) { height: 10px; animation-delay: 0.5s; }
+
+        @keyframes wave {
+            0%, 100% { transform: scaleY(1); opacity: 0.5; }
+            50% { transform: scaleY(1.5); opacity: 1; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #004d40; border-radius: 2px; }
+    </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen relative" onclick="playTouchSound()">
+
+    <!-- BACKGROUND GRID (Holo Effect) -->
+    <div class="fixed inset-0 z-0 opacity-20 pointer-events-none" 
+         style="background-image: linear-gradient(#00f3ff 1px, transparent 1px), linear-gradient(90deg, #00f3ff 1px, transparent 1px); background-size: 40px 40px;">
+    </div>
+
+    <!-- HEADER -->
+    <header class="holo-card p-4 mb-6 z-10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <i class="fas fa-microchip text-3xl animate-pulse text-cyan-400"></i>
+                <div>
+                    <h1 class="text-2xl font-orbitron tracking-widest text-white">GENESIS <span class="text-cyan-400 text-sm">MK-IV</span></h1>
+                    <p class="text-[10px] text-cyan-600 font-bold tracking-[0.2em]">AUTONOMOUS TRADING SYSTEM</p>
+                </div>
+            </div>
+            
+            <!-- 🔥 THE CREATOR 🔥 -->
+            <div class="mt-3 flex items-center gap-2">
+                <i class="fas fa-crown text-amber-500 animate-bounce"></i>
+                <div class="creator-fire text-xl md:text-2xl">
+                    BOSS MANIKANDAN
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="flex flex-col items-end gap-2 w-full md:w-auto">
+            <input type="password" id="gemini-key" placeholder="ENTER GEMINI API KEY..." class="jarvis-input px-3 py-1 rounded text-xs w-full md:w-64 mb-1">
+            
+            <div class="flex items-center gap-2 bg-black/50 px-3 py-1 rounded border border-cyan-900 w-full md:w-auto justify-end">
+                <div class="voice-wave opacity-0 transition-opacity" id="voice-viz">
+                    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                </div>
+                <span class="text-[10px] font-bold text-cyan-400" id="voice-status">SYSTEM MUTED</span>
+                <button onclick="toggleJarvis()" class="jarvis-btn px-4 py-2 rounded text-xs ml-2">
+                    <i class="fas fa-power-off mr-2"></i> ACTIVATE JARVIS
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6 z-10 flex-grow">
+
+        <!-- 1. METRICS (Left) -->
+        <section class="space-y-4">
+            <!-- Price -->
+            <div class="holo-card p-4 text-center active-pulse">
+                <h3 class="text-xs text-cyan-600 font-orbitron tracking-widest">NIFTY 50 INDEX</h3>
+                <div class="text-4xl font-bold text-white mt-2 font-mono" id="nifty-price">19,500.00</div>
+                <div class="text-xs text-emerald-400 mt-1"><i class="fas fa-arrow-up"></i> LIVE FEED</div>
+            </div>
+
+            <!-- Physics Data -->
+            <div class="holo-card p-4">
+                <h3 class="text-xs text-cyan-600 font-orbitron tracking-widest mb-3">PHYSICS TELEMETRY</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm">Velocity</span>
+                    <span class="text-lg font-bold font-mono text-amber-400" id="val-velocity">0.00</span>
+                </div>
+                <div class="w-full bg-cyan-900/30 h-1 mb-4"><div id="bar-velocity" class="bg-amber-400 h-1 transition-all" style="width: 0%"></div></div>
+                
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm">Acceleration</span>
+                    <span class="text-lg font-bold font-mono text-purple-400" id="val-accel">0.00</span>
+                </div>
+                <div class="w-full bg-cyan-900/30 h-1"><div id="bar-accel" class="bg-purple-400 h-1 transition-all" style="width: 0%"></div></div>
+            </div>
+        </section>
+
+        <!-- 2. CHART (Center) -->
+        <section class="holo-card p-4 lg:col-span-2 flex flex-col">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xs text-cyan-600 font-orbitron tracking-widest">MARKET SCANNER</h3>
+                <div class="flex gap-4">
+                    <span class="text-[10px] text-blue-400"><i class="fas fa-circle text-[6px]"></i> PRICE</span>
+                    <span class="text-[10px] text-red-400"><i class="fas fa-circle text-[6px]"></i> VWAP</span>
+                </div>
+            </div>
+            <div class="chart-container flex-grow">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </section>
+
+        <!-- 3. AI INTERFACE & LOGS (Bottom Grid) -->
+        <section class="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- AI COMMAND INTERFACE -->
+            <div class="holo-card p-6 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs text-cyan-600 font-orbitron tracking-widest mb-2"><i class="fas fa-robot mr-2"></i> JARVIS AI INTERFACE</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="user-query" placeholder="Ask Jarvis (e.g., 'Status report')" class="jarvis-input w-full px-3 py-2 rounded text-sm">
+                        <button onclick="askJarvis()" class="jarvis-btn px-4 py-2 rounded">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-400">CURRENT DECISION</span>
+                        <span class="text-[10px] text-slate-400">CONFIDENCE</span>
+                    </div>
+                    <div class="flex justify-between items-center mt-1">
+                        <div class="text-3xl font-black text-white animate-pulse" id="ai-decision">WAITING</div>
+                        <div class="text-xl font-bold font-mono text-emerald-400" id="ai-conf">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOG TERMINAL -->
+            <div class="holo-card p-4 h-48 overflow-y-auto font-mono text-xs border-l-4 border-l-amber-500" id="terminal">
+                <div class="mb-1 text-emerald-400">> SYSTEM INITIALIZED...</div>
+                <div class="mb-1 text-cyan-300">> WELCOME BACK, BOSS MANIKANDAN.</div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. JARVIS VOICE SYSTEM ---
+        let isJarvisActive = false;
+        const synth = window.speechSynthesis;
+        let voices = [];
+
+        // Load Voices
+        window.speechSynthesis.onvoiceschanged = () => {
+            voices = synth.getVoices();
+        };
+
+        function getJarvisVoice() {
+            // Try to find a robotic/authoritative male voice
+            return voices.find(v => v.name.includes("Google UK English Male") || v.name.includes("Microsoft David")) || voices[0];
+        }
+
+        function speak(text) {
+            if (!isJarvisActive) return;
+
+            // Visualizer On
+            document.getElementById('voice-viz').classList.remove('opacity-0');
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = getJarvisVoice();
+            utterance.rate = 1.0; 
+            utterance.pitch = 0.9; // Slightly deeper for Jarvis effect
+            
+            utterance.onend = () => {
+                // Visualizer Off
+                document.getElementById('voice-viz').classList.add('opacity-0');
+            };
+
+            synth.speak(utterance);
+        }
+
+        // --- 2. SOUND EFFECTS (SFX) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTouchSound() {
+            if (!isJarvisActive) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playAlertSound() {
+            if (!isJarvisActive) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // --- 3. GEMINI AI INTEGRATION ---
+        async function askJarvis() {
+            const apiKey = document.getElementById('gemini-key').value.trim();
+            const query = document.getElementById('user-query').value.trim();
+            
+            if (!apiKey) {
+                alert("ACCESS DENIED: Please enter Gemini API Key.");
+                speak("Access Denied. Please provide security credentials.");
+                return;
+            }
+            if (!query) return;
+
+            log(`USER: ${query}`, 'info');
+            document.getElementById('user-query').value = '';
+            
+            // Show thinking state
+            speak("Processing request.");
+            
+            const prompt = `
+                You are JARVIS, an advanced AI trading assistant for Boss Manikandan. 
+                Keep responses short, robotic, and authoritative.
+                Current Market Data: Nifty @ ${currentPrice.toFixed(2)}, Velocity: ${document.getElementById('val-velocity').innerText}.
+                User asks: "${query}"
+            `;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                
+                const data = await response.json();
+                if(data.candidates && data.candidates[0].content) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    log(`JARVIS: ${reply}`, 'success');
+                    speak(reply);
+                }
+            } catch (e) {
+                log("CONNECTION ERROR", 'danger');
+                speak("Connection lost. Unable to reach servers.");
+            }
+        }
+
+        // --- 4. SYSTEM CONTROLS ---
+        function toggleJarvis() {
+            isJarvisActive = !isJarvisActive;
+            const status = document.getElementById('voice-status');
+            
+            if(isJarvisActive) {
+                status.innerText = "JARVIS ONLINE";
+                status.classList.add("text-emerald-400");
+                status.classList.remove("text-cyan-400");
+                speak("Systems Online. Welcome back, Boss Manikandan. All protocols secured.");
+                log("Voice Module Activated.", "success");
+            } else {
+                status.innerText = "SYSTEM MUTED";
+                status.classList.remove("text-emerald-400");
+                status.classList.add("text-cyan-400");
+                synth.cancel();
+            }
+        }
+
+        function log(msg, type) {
+            const term = document.getElementById('terminal');
+            const div = document.createElement('div');
+            const color = type === 'success' ? 'text-emerald-400' : (type === 'warning' ? 'text-amber-400' : 'text-cyan-300');
+            div.innerHTML = `<span class="text-slate-500">[LOG]</span> <span class="${color}">> ${msg}</span>`;
+            term.prepend(div);
+        }
+
+        // --- 5. SIMULATION LOOP ---
+        let currentPrice = 19500;
+        let vwap = 19500;
+        const maxPoints = 50;
+        const labels = Array(maxPoints).fill('');
+        const priceData = Array(maxPoints).fill(19500);
+        const vwapData = Array(maxPoints).fill(19500);
+
+        // Chart Init
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Price',
+                        data: priceData,
+                        borderColor: '#00f3ff',
+                        backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: true
+                    },
+                    {
+                        label: 'VWAP',
+                        data: vwapData,
+                        borderColor: '#ef4444',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
+                }
+            }
+        });
+
+        function updateSimulation() {
+            // Math
+            const move = (Math.random() - 0.5) * 10;
+            currentPrice += move;
+            vwap = (vwap * 19 + currentPrice) / 20;
+            const velocity = move;
+            
+            // UI Update
+            document.getElementById('nifty-price').innerText = currentPrice.toFixed(2);
+            document.getElementById('val-velocity').innerText = velocity.toFixed(2);
+            
+            // Logic Trigger
+            if (velocity > 4) {
+                triggerSignal("BUY CE", "High Velocity Detected");
+            } else if (velocity < -4) {
+                triggerSignal("BUY PE", "Momentum Crash Detected");
+            } else {
+                document.getElementById('ai-decision').innerText = "SCANNING...";
+                document.getElementById('ai-decision').className = "text-3xl font-black text-slate-500 animate-pulse";
+            }
+
+            // Chart Update
+            priceData.push(currentPrice); priceData.shift();
+            vwapData.push(vwap); vwapData.shift();
+            chart.update();
+        }
+
+        function triggerSignal(type, reason) {
+            const el = document.getElementById('ai-decision');
+            const color = type.includes("CE") ? "text-emerald-400" : "text-red-500";
+            
+            if (el.innerText !== type) { // Only if changed
+                el.innerText = type;
+                el.className = `text-4xl font-black ${color} animate-bounce`;
+                
+                // JARVIS SPEAK
+                playAlertSound();
+                if(Math.random() > 0.7) { // Don't speak too often
+                    speak(`Boss! ${reason}. Suggesting ${type}.`);
+                    log(`SIGNAL: ${type} | ${reason}`, "warning");
+                }
+            }
+        }
+
+        // Start Loop
+        setInterval(updateSimulation, 1000);
+
+    </script>
+</body>
+</html>

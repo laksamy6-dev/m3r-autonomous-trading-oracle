@@ -1,0 +1,30 @@
+[VAULT] Loaded saved tokens from disk (legacy)
+[INFO] LAMY Core Engine — standby mode.
+[BRAIN] Loaded brain data. IQ: 107087 Gen: 10175
+[LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active
+[AUTO-TRADE] Mode restored from vault: ENABLED
+Serving M3R web app from dist/
+M3R Innovative Fintech Solutions — Web app ready at /
+[SOCKET] Neural Feed WebSocket initialized
+[LAMY] Express server serving on port 5000
+[NEURAL] WebSocket Neural Feed active on ws://0.0.0.0:5000
+[BRAIN DB] Loaded brain from database. IQ: 107087 Gen: 10175
+[VAULT] PIN loaded from database
+[BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds
+GET /api/health 200 in 27ms :: {"status":"ok","timestamp":1775643301939}
+GET /api/health 200 in 2ms :: {"status":"ok","timestamp":1775643425982}
+GET /api/auto-trade/status 200 in 10ms :: {"autoScanActive":false,"autoTradeMod…
+GET /api/auto-trade/status 200 in 5ms :: {"autoScanActive":false,"autoTradeMode":true,"scanCycleCount":0,"totalProposals":0,"pending":0,"approved":0,"liveExecuted":0,"liveRejected":0,"rejected":0,"expired":0,"upstoxConnected":true,"scanMode"
+[LAMY BOOT] IST: 15:47:09 | UAE: 14:17 | Market: CLOSED | AutoTrade: ON
+[LAMY BOOT] Upstox token: VALID — Token valid
+[LAMY SCHEDULER] Market hours scheduler started — checking every 60 seconds
+/root/m3r-autonomous-trading-oracle/server_dist/index.js:138878
+  app.get("/api/settings", async (req, res) => {
+  ^
+
+ReferenceError: app is not defined
+    at startMarketScheduler (/root/m3r-autonomous-trading-oracle/server_dist/index.js:138878:3)
+    at Timeout._onTimeout (/root/m3r-autonomous-trading-oracle/server_dist/index.js:138962:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+Node.js v20.20.2

@@ -1,0 +1,13 @@
+--- server/routes.ts
++++ server/routes.ts
+@@ -27,6 +27,10 @@ import { GoogleGenAI } from '@google/genai';
+ import { z } from 'zod';
+ import axios from 'axios';
+ 
++// Global state variables (singleton pattern)
++let lamyLastInteraction: number = Date.now();
++const LOSS_ALERT_THRESHOLD = 5000; // ₹5000 loss threshold
++
+ // ========== Part 2: Environment Validation ==========
+ const envSchema = z.object({
+   DATABASE_URL: z.string().default('postgresql://localhost/m3r'),

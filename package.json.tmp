@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "postinstall": "patch-package",
+    "expo:dev": "EXPO_PACKAGER_PROXY_URL=https://$M3R_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$M3R_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$M3R_DEV_DOMAIN:5000 npx expo start --localhost",
+    "server:dev": "NODE_ENV=development tsx server/index.ts",
+    "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
+    "expo:static:build": "node scripts/build.js",
+    "server:build": "esbuild server/index.ts --platform=node --bundle --format=esm --outdir=server_dist --keep-names --external:node:* --external:fs --external:path --external:crypto --external:events --external:stream --external:http --external:https --external:net --external:tls --external:zlib --external:url --external:querystring --external:os --external:util --external:buffer --external:string_decoder --external:timers --external:dns --external:dgram",
+    "server:prod": "NODE_ENV=production node server_dist/index.js",
+    "db:push": "drizzle-kit push",
+    "start": "npx expo start",
+    "lint": "npx expo lint",
+    "lint:fix": "npx expo lint --fix"
+  }
+}
