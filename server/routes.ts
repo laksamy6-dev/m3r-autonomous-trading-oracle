@@ -516,7 +516,7 @@ if (!openaiApiKey) {
   console.log('[INFO] LAMY Core Engine — standby mode.');
 }
 const openai = new OpenAI({
-  apiKey: openaiApiKey || 'placeholder-key-not-configured',
+  apiKey: openaiApiKey || '',
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
