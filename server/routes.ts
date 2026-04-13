@@ -1,8 +1,5 @@
-// Missing variable definitions
-let LOSS_ALERT_THRESHOLD = 0.05;
-let lamyCurrentTask: string | null = null;
-
 let lamyLastInteraction: number = Date.now();
+let lamyCurrentTask: string | null = null;
 
 // server/routes.ts
 // ============================================================================
@@ -40,6 +37,12 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+
+// Trading Constants
+const MIN_HOLD_SECONDS = 60;
+const LOSS_ALERT_THRESHOLD = 1000;
+let positionSimInterval: NodeJS.Timeout | null = null;
+
 
 // ============================================================================
 // 1. ENVIRONMENT VALIDATION (Zod) – Full validation with all original vars
@@ -103,7 +106,7 @@ function encrypt(text: string, masterKey: string): string {
   return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 function decrypt(encrypted: string, masterKey: string): string {
-
+  const [ivHex, dataHex] = encrypted.split(':');
   const iv = Buffer.from(ivHex, 'hex');
   const key = crypto.createHash('sha256').update(masterKey).digest();
   const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
@@ -186,6 +189,23 @@ async function verifyPin(pin: string, pool?: pg.Pool | null): Promise<boolean> {
   return true;  // PIN DISABLED
 }
 
+
+async function loadPaperTradingSetting(): Promise<boolean> {
+  try {
+    const result = await dbPool.query(
+      "SELECT value FROM app_settings WHERE key = 'paper_trading'"
+    );
+    if (result.rows.length > 0) {
+      const isPaper = result.rows[0].value === 'true';
+      console.log(`[TRADE MODE] Paper trading: ${isPaper ? 'ENABLED (SIM)' : 'DISABLED (LIVE)'}`);
+      return isPaper;
+    }
+  } catch (err) {
+    console.error('[TRADE MODE] Error loading paper_trading setting:', err);
+  }
+  console.log('[TRADE MODE] Defaulting to PAPER trading (safe mode)');
+  return true;
+}
 async function changePin(pool: pg.Pool, oldPin: string, newPin: string): Promise<boolean> {
   const valid = await verifyPin(oldPin, pool);
   if (!valid) return false;
@@ -438,6 +458,7 @@ const savedVault = loadVaultFromFile();
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || env.UPSTOX_ACCESS_TOKEN || null;
+let upstoxExtendedToken = savedVault.UPSTOX_EXTENDED_TOKEN || env.UPSTOX_EXTENDED_TOKEN || upstoxAccessToken || null;
 
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
@@ -451,6 +472,7 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
     UPSTOX_API_KEY: env.UPSTOX_API_KEY,
     UPSTOX_SECRET_KEY: env.UPSTOX_SECRET_KEY,
     UPSTOX_ACCESS_TOKEN: env.UPSTOX_ACCESS_TOKEN,
+    UPSTOX_EXTENDED_TOKEN: env.UPSTOX_EXTENDED_TOKEN,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: env.TELEGRAM_CHAT_ID,
     GEMINI_API_KEY: env.GEMINI_API_KEY,
@@ -467,6 +489,17 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
   }
 }
 
+// Helper function to select appropriate Upstox token
+function getUpstoxToken(forTrading: boolean = false): string {
+  if (forTrading) {
+    // Use regular token for orders (short-lived but fresh)
+    return upstoxAccessToken || process.env.UPSTOX_ACCESS_TOKEN || '';
+  } else {
+    // Use extended token for data (longer lasting, falls back to regular token)
+    return upstoxExtendedToken || process.env.UPSTOX_EXTENDED_TOKEN || upstoxAccessToken || '';
+  }
+}
+
 // Trading state
 let tradeProposals: TradeProposal[] = [];
 let autoScanActive = false;
@@ -477,6 +510,7 @@ let consecutiveNiftySkips = 0;
 const NIFTY_SKIP_THRESHOLD = 3;
 
 // OpenAI (preserved)
+let paperTradingMode = true; // Default to SAFE paper trading
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
   console.log('[INFO] LAMY Core Engine — standby mode.');
@@ -529,6 +563,7 @@ let brainStats: BrainStats = {
   isTraining: false,
   currentPhase: 'IDLE',
 };
+
 
 function saveBrainToDisk() {
   try {
@@ -923,6 +958,7 @@ const KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
   POLITICS_ECONOMY: ['Indian Political Landscape', 'Global Geopolitics Analysis', 'Economic Policy Impact Analysis', 'Financial Regulation (SEBI/RBI)', 'Taxation Policy Impact', 'International Trade Policy'],
 };
 
+
 const LEARNING_STRATEGIES = [
   'DEEP_FOCUS',
   'CROSS_DOMAIN_SYNTHESIS',
@@ -1265,7 +1301,7 @@ async function checkUpstoxTokenHealth(): Promise<{ valid: boolean; message: stri
   if (!upstoxAccessToken) return { valid: false, message: 'No Upstox token configured' };
   try {
     const res = await fetch('https://api.upstox.com/v2/user/profile', {
-      headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+      headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
     });
     if (res.ok) return { valid: true, message: 'Token valid' };
     return { valid: false, message: 'Token expired — re-authentication needed' };
@@ -1310,6 +1346,7 @@ const VAULT_KEYS = [
   { id: 'UPSTOX_API_KEY', label: 'Upstox API Key', category: 'upstox' },
   { id: 'UPSTOX_SECRET_KEY', label: 'Upstox Secret Key', category: 'upstox' },
   { id: 'UPSTOX_ACCESS_TOKEN', label: 'Upstox Access Token', category: 'upstox' },
+  { id: 'UPSTOX_EXTENDED_TOKEN', label: 'Upstox Extended Token', category: 'upstox' },
   { id: 'TELEGRAM_BOT_TOKEN', label: 'Telegram Bot Token', category: 'telegram' },
   { id: 'TELEGRAM_CHAT_ID', label: 'Telegram Chat ID', category: 'telegram' },
   { id: 'GEMINI_API_KEY', label: 'LAMY Brain API Key', category: 'ai' },
@@ -1320,6 +1357,7 @@ function getVaultValue(keyId: string): string | undefined {
     case 'UPSTOX_API_KEY': return upstoxApiKey || env.UPSTOX_API_KEY;
     case 'UPSTOX_SECRET_KEY': return upstoxApiSecret || env.UPSTOX_SECRET_KEY;
     case 'UPSTOX_ACCESS_TOKEN': return upstoxAccessToken || undefined;
+    case 'UPSTOX_EXTENDED_TOKEN': return upstoxExtendedToken || undefined;
     case 'TELEGRAM_BOT_TOKEN': return process.env.TELEGRAM_BOT_TOKEN;
     case 'TELEGRAM_CHAT_ID': return process.env.TELEGRAM_CHAT_ID;
     case 'GEMINI_API_KEY': return process.env.GEMINI_API_KEY;
@@ -1355,6 +1393,7 @@ const STOCK_ISIN_MAP: Record<string, string> = {
   'NESTLEIND': 'NSE_EQ|INE239A01024',
 };
 
+
 const STOCK_FO_KEY_MAP: Record<string, { foKey: string; lotSize: number; strikeGap: number }> = {
   'RELIANCE': { foKey: 'NSE_FO|RELIANCE', lotSize: 250, strikeGap: 20 },
   'TCS': { foKey: 'NSE_FO|TCS', lotSize: 175, strikeGap: 50 },
@@ -1378,12 +1417,14 @@ const STOCK_FO_KEY_MAP: Record<string, { foKey: string; lotSize: number; strikeG
   'NESTLEIND': { foKey: 'NSE_FO|NESTLEIND', lotSize: 200, strikeGap: 25 },
 };
 
+
 const INDEX_KEY_MAP: Record<string, string> = {
   'NIFTY 50': 'NSE_INDEX|Nifty 50',
   'SENSEX': 'BSE_INDEX|SENSEX',
   'NIFTY BANK': 'NSE_INDEX|Nifty Bank',
   'NIFTY IT': 'NSE_INDEX|Nifty IT',
 };
+
 
 const STOCK_META: Record<string, { name: string; sector: string; pe: number; weekHigh52: number; weekLow52: number }> = {
   'RELIANCE': { name: 'Reliance Industries', sector: 'Oil & Gas', pe: 28.4, weekHigh52: 3024.90, weekLow52: 2220.30 },
@@ -1408,6 +1449,7 @@ const STOCK_META: Record<string, { name: string; sector: string; pe: number; wee
   'NESTLEIND': { name: 'Nestle India', sector: 'FMCG', pe: 72.5, weekHigh52: 2778.00, weekLow52: 2110.00 },
 };
 
+
 // ============================================================================
 // 18. AUTO-TRADE HELPERS (original, with enhancements)
 // ============================================================================
@@ -1419,7 +1461,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
     try {
       const contractRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
       );
       const contractData = await contractRes.json();
       if (contractData.status === 'success' && contractData.data) {
@@ -1427,16 +1469,17 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch {}
+    } catch { nearestExpiry = "2026-04-13"; }
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
-      { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
     );
     const data = await ocRes.json();
     if (data.status === 'success' && data.data?.length > 0) {
       const spotArr = data.data.filter((d: any) => d.underlying_spot_price > 0);
       const spot = spotArr.length > 0 ? spotArr[0].underlying_spot_price : 0;
+      if (spot > 0) { priceHistory.push(spot); if (priceHistory.length > 300) priceHistory.shift(); }
       const liveLotSize = data.data[0]?.call_options?.lot_size || data.data[0]?.put_options?.lot_size || 0;
       if (liveLotSize > 0) {
         cachedLiveLotSize = liveLotSize;
@@ -1444,7 +1487,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
       }
       return { spot, isLive: true, chainData: data.data, nearestExpiry, liveLotSize: liveLotSize || cachedLiveLotSize };
     }
-  } catch {}
+  } catch { nearestExpiry = "2026-04-13"; }
   return { spot: 0, isLive: false };
 }
 
@@ -1464,7 +1507,7 @@ async function scanStockMomentum(accessToken: string): Promise<Array<{
     const stockKeys = Object.values(STOCK_ISIN_MAP).map(k => encodeURIComponent(k)).join(',');
     const stocksRes = await fetch(
       `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
     );
     const stocksData = await stocksRes.json();
     if (stocksData?.status !== 'success' || !stocksData?.data) return [];
@@ -1535,7 +1578,7 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
     try {
       const contractRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent(foInfo.foKey)}`,
-        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
       );
       const contractData = await contractRes.json();
       if (contractData.status === 'success' && contractData.data) {
@@ -1543,11 +1586,11 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch {}
+    } catch { nearestExpiry = "2026-04-13"; }
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
-      { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
     );
     const data = await ocRes.json();
     if (data.status !== 'success' || !data.data?.length) {
@@ -2061,6 +2104,90 @@ async function sendTelegramTradeResult(proposal: TradeProposal, action: string) 
 // ============================================================================
 
 async function executeProposalOnUpstox(proposal: TradeProposal): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  // === PAPER TRADING MODE CHECK ===
+  if (paperTradingMode) {
+    console.log(`[LAMY PAPER] Simulating ${proposal.action} ${proposal.strike} — paper trading mode active`);
+    proposal.status = 'PAPER_EXECUTED';
+    proposal.upstoxOrderStatus = 'PAPER_SIMULATION';
+    proposal.upstoxOrderId = `PAPER-${Date.now()}`;
+    
+    // Add to active positions for tracking
+    const posType = proposal.action === 'BUY_CE' ? 'CE' : 'PE';
+    const newPosition: ActivePosition = {
+      id: proposal.upstoxOrderId,
+      type: posType,
+      strike: proposal.strike,
+      lots: 1,
+      entryPremium: proposal.premium,
+      currentPremium: proposal.premium,
+      target: proposal.target,
+      stopLoss: proposal.stopLoss,
+      pnl: 0,
+      pnlPercent: 0,
+      entryTime: new Date().toISOString(),
+      status: 'ACTIVE',
+      exitPremium: null,
+      exitTime: null,
+      exitReason: null,
+      premiumHistory: [proposal.premium],
+      peakPremium: proposal.premium,
+      lowestPremium: proposal.premium,
+      atrStopLoss: proposal.premium * 0.60,
+      kissPhase: 'NONE',
+      lossAlerted: false,
+      instrumentKey: proposal.instrumentKey || '',
+      entryTimestamp: Date.now(),
+      underlying: proposal.underlying,
+      underlyingName: proposal.underlyingName,
+    };
+    activePositions.push(newPosition);
+    startPositionMonitoring();
+    
+    return { success: true, orderId: proposal.upstoxOrderId };
+  }
+  // === LIVE TRADING MODE (original code continues) ===
+  // === PAPER TRADING MODE CHECK ===
+  if (paperTradingMode) {
+    console.log(`[LAMY PAPER] Simulating ${proposal.action} ${proposal.strike} — paper trading mode active`);
+    proposal.status = 'PAPER_EXECUTED';
+    proposal.upstoxOrderStatus = 'PAPER_SIMULATION';
+    proposal.upstoxOrderId = `PAPER-${Date.now()}`;
+    
+    // Add to active positions for tracking
+    const posType = proposal.action === 'BUY_CE' ? 'CE' : 'PE';
+    const newPosition: ActivePosition = {
+      id: proposal.upstoxOrderId,
+      type: posType,
+      strike: proposal.strike,
+      lots: 1,
+      entryPremium: proposal.premium,
+      currentPremium: proposal.premium,
+      target: proposal.target,
+      stopLoss: proposal.stopLoss,
+      pnl: 0,
+      pnlPercent: 0,
+      entryTime: new Date().toISOString(),
+      status: 'ACTIVE',
+      exitPremium: null,
+      exitTime: null,
+      exitReason: null,
+      premiumHistory: [proposal.premium],
+      peakPremium: proposal.premium,
+      lowestPremium: proposal.premium,
+      atrStopLoss: proposal.premium * 0.60,
+      kissPhase: 'NONE',
+      lossAlerted: false,
+      instrumentKey: proposal.instrumentKey || '',
+      entryTimestamp: Date.now(),
+      underlying: proposal.underlying,
+      underlyingName: proposal.underlyingName,
+    };
+    activePositions.push(newPosition);
+    startPositionMonitoring();
+    
+    return { success: true, orderId: proposal.upstoxOrderId };
+  }
+  // === LIVE TRADING MODE (original code continues) ===
   if (!upstoxAccessToken) return { success: false, error: 'Upstox not connected' };
   if (!proposal.instrumentKey) return { success: false, error: 'No instrument key in proposal' };
 
@@ -2099,7 +2226,7 @@ async function executeProposalOnUpstox(proposal: TradeProposal): Promise<{ succe
     const upstoxRes = await fetch('https://api.upstox.com/v2/order/place', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${upstoxAccessToken}`,
+        Authorization: `Bearer ${getUpstoxToken(true)}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(upstoxPayload),
@@ -2386,7 +2513,7 @@ async function updatePositionPricesFromUpstox() {
       if (!ik) continue;
       const quoteRes = await fetch(
         `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
-        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
       );
       const quoteData = await quoteRes.json();
       if (quoteData.status === 'success' && quoteData.data) {
@@ -2512,7 +2639,7 @@ async function updatePositionPricesFromUpstox() {
           const sellRes = await fetch('https://api.upstox.com/v2/order/place', {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${upstoxAccessToken}`,
+              Authorization: `Bearer ${getUpstoxToken(false)}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(sellPayload),
@@ -2587,6 +2714,8 @@ function stopPositionMonitoring() {
 // ============================================================================
 
 let autoTradeMode = false; // will be loaded from vault
+const MIN_PROFIT_TARGET = 2000;
+let priceHistory: number[] = [];
 let currentPin = env.PIN_CODE; // will be overridden from DB
 let cachedLiveLotSize = 0;
 // Load PIN from DB at startup
@@ -2633,14 +2762,14 @@ function startMarketScheduler() {
 
   // Missing endpoints
   app.get('/api/settings', async (req, res) => {
-    res.json({ success: true, settings: {} });
-  });
-  
-  app.get('/api/env', async (req, res) => {
-    res.json({ 
-      NODE_ENV: process.env.NODE_ENV || 'development',
-      UPSTOX_API_KEY: upstoxApiKey ? '****' : null
-    });
+  //    res.json({ success: true, settings: {} });
+  //  });
+  //  
+  //  app.get('/api/env', async (req, res) => {
+  //    res.json({ 
+  //      NODE_ENV: process.env.NODE_ENV || 'development',
+  //      UPSTOX_API_KEY: upstoxApiKey ? '****' : null
+  //    });
   });
 }
 
@@ -2659,6 +2788,7 @@ function startMarketScheduler() {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // --------------------------------------------------------------------------
+  console.log("[DEBUG] registerRoutes started");
   // Security middleware (helmet, cors, rate limit)
   // --------------------------------------------------------------------------
   app.use(helmet({
@@ -2930,6 +3060,7 @@ setTimeout(async () => {
       case 'UPSTOX_API_KEY': upstoxApiKey = undefined; break;
       case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; break;
       case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; break;
+    case 'UPSTOX_EXTENDED_TOKEN': upstoxExtendedToken = null; break;
       case 'TELEGRAM_BOT_TOKEN': delete process.env.TELEGRAM_BOT_TOKEN; break;
       case 'TELEGRAM_CHAT_ID': delete process.env.TELEGRAM_CHAT_ID; break;
       case 'GEMINI_API_KEY': delete process.env.GEMINI_API_KEY; break;
@@ -2961,7 +3092,7 @@ setTimeout(async () => {
             isp = geo.isp || 'Unknown';
           }
         }
-      } catch {}
+      } catch { nearestExpiry = "2026-04-13"; }
 
       const deviceFingerprint = `${platform}-${deviceModel}-${screenWidth}x${screenHeight}-${osVersion}-${String(pixelRatio || 1)}`;
 
@@ -3130,7 +3261,7 @@ setTimeout(async () => {
     }
     try {
       const profileRes = await fetch('https://api.upstox.com/v2/user/profile', {
-        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
       });
       const data = await profileRes.json();
       upstoxTokenValid = data.status === 'success';
@@ -3153,7 +3284,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.json({ available_margin: 0, used_margin: 0, realized_pnl: 0, error: 'Not connected' });
     try {
       const fundRes = await fetch('https://api.upstox.com/v2/user/get-funds-and-margin?segment=SEC', {
-        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
       });
       const fundData = await fundRes.json();
       if (fundData.status === 'success' && fundData.data) {
@@ -3240,7 +3371,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const profileRes = await fetch('https://api.upstox.com/v2/user/profile', {
-        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
       });
       const data = await profileRes.json();
       res.json(data);
@@ -3253,34 +3384,10 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const holdingsRes = await fetch('https://api.upstox.com/v2/portfolio/long-term-holdings', {
-        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
       });
       const data = await holdingsRes.json();
       res.json(data);
-
-  // Upstox Webhook Handler - POST route for order/trade/position updates
-  app.post('/api/webhooks/upstox', express.raw({ type: 'application/json' }), async (req, res) => {
-    const signature = req.headers['x-upstox-signature'] as string;
-    const payload = req.body;
-    
-    // Verify webhook signature
-    const crypto = await import('crypto');
-    const expectedSignature = crypto
-      .createHmac('sha256', upstoxApiSecret || '')
-      .update(payload)
-      .digest('hex');
-      
-    if (signature !== expectedSignature) {
-      console.error('[UPSTOX WEBHOOK] Invalid signature');
-      return res.status(401).json({ error: "Invalid signature" });
-    }
-    
-    const event = JSON.parse(payload);
-    console.log('[UPSTOX WEBHOOK] Received:', event.event, event.data?.order_id || event.data?.trade_id);
-    
-    res.json({ status: "received", event: event.event });
-  });
-
     } catch (error) {
       res.status(500).json({ error: 'Failed to get holdings' });
     }
@@ -3290,7 +3397,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const posRes = await fetch('https://api.upstox.com/v2/portfolio/short-term-positions', {
-        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
       });
       const data = await posRes.json();
       res.json(data);
@@ -3305,7 +3412,7 @@ setTimeout(async () => {
       const orderRes = await fetch('https://api.upstox.com/v2/order/place', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${upstoxAccessToken}`,
+          Authorization: `Bearer ${getUpstoxToken(false)}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(req.body),
@@ -3323,7 +3430,7 @@ setTimeout(async () => {
     try {
       const ocRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
       );
       const data = await ocRes.json();
       if (data.status === 'success' && data.data) {
@@ -3345,7 +3452,7 @@ setTimeout(async () => {
       const url = expiry
         ? `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}&expiry_date=${expiry}`
         : `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`;
-      const ocRes = await fetch(url, { headers: { Authorization: `Bearer ${upstoxAccessToken}` } });
+      const ocRes = await fetch(url, { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } });
       const data = await ocRes.json();
       if (data.status !== 'success' || !data.data || data.data.length === 0) {
         return res.json({ source: 'error', error: 'Upstox returned no data: ' + (data.message || 'Empty chain') });
@@ -3453,8 +3560,6 @@ setTimeout(async () => {
 
   // --------------------------------------------------------------------------
   // Market Data Endpoints
-  // --------------------------------------------------------------------------
-  const priceHistory: number[] = [];
 
   app.get('/api/market/cognitive', async (req, res) => {
     let spotPrice = 0;
@@ -3462,14 +3567,14 @@ setTimeout(async () => {
       try {
         const ltp = await fetch(
           `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-          { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+          { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
         );
         const ltpData = await ltp.json();
         if (ltpData.status === 'success' && ltpData.data) {
           const key = Object.keys(ltpData.data)[0];
           spotPrice = ltpData.data[key]?.last_price || 0;
         }
-      } catch {}
+      } catch { nearestExpiry = "2026-04-13"; }
     }
     if (spotPrice > 0) {
       priceHistory.push(spotPrice);
@@ -3583,11 +3688,16 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
       if (!m3rModel) return res.status(503).json({ error: 'LAMY AI not configured' });
       const genAI = global.__m3rGenAI as GoogleGenAI;
-      const chatResponse = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { tools: [{ googleSearch: {} }] },
+      // Analyze using direct fetch
+      const analyzeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        })
       });
+      const analyzeData = await analyzeRes.json();
+      const chatResponse = { text: analyzeData.candidates?.[0]?.content?.parts?.[0]?.text || 'Analysis unavailable.' };
       const text = chatResponse.text || 'Analysis unavailable.';
       res.json({ analysis: text });
     } catch (error) {
@@ -3605,10 +3715,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const indexKeys = Object.values(INDEX_KEY_MAP).map(k => encodeURIComponent(k)).join(',');
       const [stocksRes, indicesRes] = await Promise.all([
         fetch(`https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`, {
-          headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+          headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
         }),
         fetch(`https://api.upstox.com/v2/market-quote/quotes?instrument_key=${indexKeys}`, {
-          headers: { Authorization: `Bearer ${upstoxAccessToken}` },
+          headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
         }),
       ]);
       const stocksData = await stocksRes.json();
@@ -4117,7 +4227,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (!instrumentKey) {
         const chainRes = await fetch(
           `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${expiry ? `&expiry_date=${expiry}` : ''}`,
-          { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
+          { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
         );
         const chainData = await chainRes.json();
         if (chainData.status === 'success' && chainData.data) {
@@ -4150,7 +4260,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const upstoxRes = await fetch('https://api.upstox.com/v2/order/place', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${upstoxAccessToken}`,
+          Authorization: `Bearer ${getUpstoxToken(false)}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(upstoxPayload),
@@ -4252,7 +4362,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         const sellRes = await fetch('https://api.upstox.com/v2/order/place', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${upstoxAccessToken}`,
+            Authorization: `Bearer ${getUpstoxToken(false)}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(sellPayload),
@@ -4419,7 +4529,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       lamyLastInteraction = Date.now();
 
       const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
-      const memoryContext = await getMemoriesForContext();
+      const memoryContext = ""; // await getMemoriesForContext();
       const tradingContext = (() => {
         const active = activePositions.filter(p => p.status === 'ACTIVE');
         if (active.length === 0) return '';
@@ -4430,189 +4540,17 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
       const genAI = global.__m3rGenAI;
       const systemInstruction = global.__m3rSystemInstruction;
-      const response = await genAI.models.generateContentStream({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        config: { systemInstruction, tools: [{ googleSearch: {} }] },
+      // Use non-streaming API (streaming hangs with LocalTunnel)
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] }
+        })
       });
-
-      let fullText = '';
-      for await (const chunk of response) {
-        const text = chunk.text || '';
-        if (text) {
-          fullText += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-
-      const chatMemSummary = `Sir asked: ${message.slice(0, 150)}. LAMY responded about: ${fullText.slice(0, 150)}`;
-      saveMemory(chatMemSummary, 'conversation', 7, ['chat', 'auto_saved']).catch(() => {});
-    } catch (error: any) {
-      console.error('[M3R CHAT] Error:', error.message);
-      if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-        res.end();
-      } else {
-        res.status(500).json({ error: 'M3R chat failed: ' + error.message });
-      }
-    }
-  });
-
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
-  app.post('/api/m3r/chat-with-file', upload.single('file'), async (req: any, res) => {
-    try {
-      const { message } = req.body;
-      const file = req.file;
-      if (!m3rModel) return res.status(503).json({ error: 'M3R Brain not configured' });
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache, no-transform');
-      res.setHeader('X-Accel-Buffering', 'no');
-      res.flushHeaders();
-
-      brainStats.totalInteractions++;
-      const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
-      const memoryContext = await getMemoriesForContext();
-
-      let parts: any[] = [];
-      const msgText = (message || `Analyze this file: ${file?.originalname || 'file'}`) + brainContext + memoryContext;
-      if (file) {
-        const mimeType = file.mimetype || 'application/octet-stream';
-        const base64Data = file.buffer.toString('base64');
-        if (mimeType.startsWith('image/')) {
-          parts = [{ inlineData: { mimeType, data: base64Data } }, { text: msgText }];
-        } else if (mimeType.startsWith('audio/')) {
-          parts = [{ inlineData: { mimeType, data: base64Data } }, { text: msgText }];
-        } else if (mimeType === 'application/pdf') {
-          parts = [{ inlineData: { mimeType: 'application/pdf', data: base64Data } }, { text: msgText }];
-        } else {
-          const textContent = file.buffer.toString('utf-8').slice(0, 30000);
-          parts = [{ text: `[File: ${file.originalname}, type: ${mimeType}]\nContent:\n${textContent}\n\n${msgText}` }];
-        }
-      } else {
-        parts = [{ text: (message || '') + brainContext + memoryContext }];
-      }
-      m3rChatHistory.push({ role: 'user', parts });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
-
-      const genAI = global.__m3rGenAI;
-      const systemInstruction = global.__m3rSystemInstruction;
-      const result = await genAI.models.generateContentStream({
-        model: 'gemini-2.5-flash',
-        contents: m3rChatHistory,
-        config: { systemInstruction, tools: [{ googleSearch: {} }] },
-      });
-
-      let fullResponse = '';
-      for await (const chunk of result) {
-        const text = chunk.text || '';
-        if (text) {
-          fullResponse += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-        }
-      }
-      if (!fullResponse) fullResponse = 'சார், processing பண்ணிட்டேன். மறுபடியும் try பண்ணுங்க.';
-      m3rChatHistory.push({ role: 'model', parts: [{ text: fullResponse }] });
-      res.write('data: [DONE]\n\n');
-      res.end();
-
-      const fileChatMemSummary = `Sir shared a file${file ? ` (${file.originalname})` : ''} and asked: ${(message || '').slice(0, 120)}. LAMY responded about: ${fullResponse.slice(0, 150)}`;
-      saveMemory(fileChatMemSummary, 'conversation', 7, ['chat', 'file', 'auto_saved']).catch(() => {});
-    } catch (error: any) {
-      console.error('[M3R FILE CHAT] Error:', error.message);
-      try {
-        res.write(`data: ${JSON.stringify({ content: 'Sorry Sir, file processing failed. Please try again.' })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-      } catch { res.end(); }
-    }
-  });
-
-  app.post('/api/m3r/generate-image', async (req, res) => {
-    try {
-      const { prompt } = req.body;
-      if (!prompt) return res.status(400).json({ error: 'Prompt required' });
-      if (!m3rModel) return res.status(503).json({ error: 'LAMY AI not configured' });
-      const imgGenAI = global.__m3rGenAI as GoogleGenAI;
-      const response = await imgGenAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp-image-generation',
-        contents: [{ role: 'user', parts: [{ text: `Generate an image: ${prompt}` }] }],
-        config: { responseModalities: ['TEXT', 'IMAGE'] } as any,
-      });
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      for (const part of parts) {
-        if ((part as any).inlineData?.mimeType?.startsWith('image/')) {
-          res.json({ imageBase64: (part as any).inlineData.data });
-          return;
-        }
-      }
-      res.status(500).json({ error: 'No image generated' });
-    } catch (error: any) {
-      console.error('[M3R IMAGE] Error:', error.message);
-      res.status(500).json({ error: 'Image generation failed: ' + error.message });
-    }
-  });
-
-  const voiceBodyParser = express.json({ limit: '50mb' });
-  app.post('/api/m3r/voice', voiceBodyParser, async (req, res) => {
-    try {
-      const { audio } = req.body;
-      if (!audio) return res.status(400).json({ error: 'Audio data required' });
-      if (!m3rModel) return res.status(503).json({ error: 'M3R Brain not configured' });
-      const rawBuffer = Buffer.from(audio, 'base64');
-      let audioBuffer = rawBuffer;
-      let audioFormat: 'wav' | 'mp3' | 'webm' = 'wav';
-      if (rawBuffer[0] === 0x1a && rawBuffer[1] === 0x45) audioFormat = 'webm';
-      else if ((rawBuffer[0] === 0xff && (rawBuffer[1] === 0xfb || rawBuffer[1] === 0xfa)) || (rawBuffer[0] === 0x49 && rawBuffer[1] === 0x44)) audioFormat = 'mp3';
-      else if (rawBuffer[4] === 0x66 && rawBuffer[5] === 0x74) {
-        try {
-          const inputPath = path.join(tmpdir(), `gv-in-${randomUUID()}`);
-          const outputPath = path.join(tmpdir(), `gv-out-${randomUUID()}.wav`);
-          await fs.writeFile(inputPath, rawBuffer);
-          await new Promise<void>((resolve, reject) => {
-            const ffmpeg = spawn('ffmpeg', ['-i', inputPath, '-vn', '-f', 'wav', '-ar', '16000', '-ac', '1', '-acodec', 'pcm_s16le', '-y', outputPath]);
-            ffmpeg.stderr.on('data', () => {});
-            ffmpeg.on('close', (code: number) => { if (code === 0) resolve(); else reject(new Error(`ffmpeg ${code}`)); });
-            ffmpeg.on('error', reject);
-          });
-          audioBuffer = await fs.readFile(outputPath);
-          await fs.unlink(inputPath).catch(() => {});
-          await fs.unlink(outputPath).catch(() => {});
-        } catch (e) { console.error('[M3R VOICE] ffmpeg failed:', e); }
-      }
-      const genAI = global.__m3rGenAI as GoogleGenAI;
-      const base64Audio = audioBuffer.toString('base64');
-      const mimeMap: Record<string, string> = { wav: 'audio/wav', mp3: 'audio/mpeg', webm: 'audio/webm' };
-      const transcriptionResult = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [
-          { inlineData: { mimeType: mimeMap[audioFormat] || 'audio/wav', data: base64Audio } },
-          { text: 'Transcribe this audio exactly. Return ONLY the transcribed text, nothing else.' }
-        ] }],
-      });
-      const userText = transcriptionResult.text || '';
-      if (!userText || userText.trim().length === 0) {
-        return res.json({ userText: '', aiText: 'சார், சரியா கேக்கல. மறுபடியும் பேசுங்க.', audioBase64: null });
-      }
-      console.log('[M3R VOICE] User said:', userText);
-      brainStats.totalInteractions++;
-      const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
-      const memoryContext = await getMemoriesForContext();
-      const tradingContext = (() => {
-        const active = activePositions.filter(p => p.status === 'ACTIVE');
-        if (active.length === 0) return '';
-        return '\n[LIVE POSITIONS: ' + active.map(p => `${p.type} ${p.strike} P&L:₹${p.pnl.toFixed(0)}`).join(', ') + ']';
-      })();
-      const fullUserMsg = userText + brainContext + memoryContext + tradingContext;
-      m3rChatHistory.push({ role: 'user', parts: [{ text: fullUserMsg }] });
-      if (m3rChatHistory.length > 20) m3rChatHistory = m3rChatHistory.slice(-10);
-      const systemInstruction = global.__m3rSystemInstruction as string;
-      const result = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: m3rChatHistory,
-        config: { systemInstruction, tools: [{ googleSearch: {} }] },
-      });
+      const geminiData = await geminiRes.json();
+      const result = { text: geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Processing...' };
       const aiText = result.text || 'சார், system recalibrate ஆகுது. மறுபடியும் try பண்ணுங்க.';
       m3rChatHistory.push({ role: 'model', parts: [{ text: aiText }] });
       console.log('[M3R VOICE] AI response:', aiText.slice(0, 100));
@@ -4691,18 +4629,21 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const content = await fs.readFile(fullPath, 'utf-8');
       res.json({ file: filePath, content });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      // Transcribe audio using direct fetch
+      const transcribeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [
+            { inlineData: { mimeType: mimeMap[audioFormat] || 'audio/wav', data: base64Audio } },
+            { text: 'Transcribe this audio exactly. Return ONLY the transcribed text, nothing else.' }
+          ] }]
+        })
+      });
+      const transcribeData = await transcribeRes.json();
+      const transcriptionResult = { text: transcribeData.candidates?.[0]?.content?.parts?.[0]?.text || '' };
     }
-  });
-
-  app.post('/api/m3r/code/write', async (req, res) => {
-    const { pin, file, oldCode, newCode } = req.body;
-    if (false) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-    const filePath = ALLOWED_CODE_PATHS[file];
     if (!filePath) return res.status(403).json({ error: 'File not allowed' });
-    const fullPath = path.join(process.cwd(), filePath);
     try {
       const backupPath = fullPath + '.backup';
       await fs.copyFile(fullPath, backupPath);
@@ -4815,6 +4756,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   });
 
   // Create HTTP server (already done outside this function)
+  console.log("[DEBUG] About to createServer");
   const httpServer = createServer(app);
   
   // Attach WebSocket server to this HTTP server
@@ -4826,7 +4768,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (upstoxAccessToken) {
         try {
           const res = await fetch('https://api.upstox.com/v2/market-quote/quotes', {
-            headers: { Authorization: `Bearer ${upstoxAccessToken}` }
+            headers: { Authorization: `Bearer ${getUpstoxToken(false)}` }
           });
           const data = await res.json();
           if (data.status === 'success') {
@@ -4838,6 +4780,120 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     
     ws.on('close', () => clearInterval(interval));
   }); // இது wss.on ஓட சரியான க்ளோசிங்
+
+
+  // ==========================================
+  // VAULT API ENDPOINTS FOR SETTINGS UI
+  // ==========================================
+  
+  // GET /api/settings - Retrieve all settings
+  app.get("/api/settings", async (req, res) => {
+    try {
+      if (!dbPool) {
+        return res.status(503).json({ 
+          error: "Database not connected", 
+          vault: "RED",
+          timestamp: Date.now()
+        });
+      }
+      const result = await dbPool.query("SELECT key, value FROM app_settings");
+      const settings = {};
+      result.rows.forEach(row => { settings[row.key] = row.value; });
+      res.json({ 
+        success: true, 
+        settings, 
+        vault: "GREEN", 
+        timestamp: Date.now() 
+      });
+    } catch (error) {
+      console.error("[VAULT API] Settings error:", error);
+      res.status(500).json({ 
+        error: "Failed to load settings", 
+        vault: "RED",
+        details: error.message 
+      });
+    }
+  });
+
+  // POST /api/settings - Save a setting
+  app.post("/api/settings", async (req, res) => {
+    try {
+      if (!dbPool) {
+        return res.status(503).json({ error: "Database not connected" });
+      }
+      const { key, value } = req.body;
+      if (!key) {
+        return res.status(400).json({ error: "Key is required" });
+      }
+      await dbPool.query(
+        "INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()",
+        [key, value]
+      );
+      res.json({ 
+        success: true, 
+        message: "Setting saved",
+        key: key,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error("[VAULT API] Save error:", error);
+      res.status(500).json({ error: "Failed to save setting", details: error.message });
+    }
+  });
+
+  // GET /api/vault - Get VAULT status
+  app.get("/api/vault", async (req, res) => {
+    try {
+      if (!dbPool) {
+        return res.status(503).json({ 
+          status: "RED", 
+          error: "Database not connected",
+          connected: false,
+          timestamp: Date.now()
+        });
+      }
+      const result = await dbPool.query("SELECT COUNT(*) as count FROM app_settings");
+      const count = parseInt(result.rows[0].count);
+      res.json({ 
+        status: count > 0 ? "GREEN" : "YELLOW", 
+        keys: count, 
+        connected: true,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error("[VAULT API] Vault error:", error);
+      res.status(500).json({ 
+        status: "RED", 
+        error: error.message,
+        connected: false 
+      });
+    }
+  });
+
+  // GET /api/system-status - Full system status
+  app.get("/api/system-status", async (req, res) => {
+    try {
+      const dbStatus = dbPool ? "CONNECTED" : "DISCONNECTED";
+      const vaultStatus = dbPool ? "GREEN" : "RED";
+      
+      res.json({
+        status: "ok",
+        timestamp: Date.now(),
+        services: {
+          database: dbStatus,
+          vault: vaultStatus,
+          websocket: "ACTIVE",
+          neural: "INITIALIZED",
+          lamy: "ONLINE"
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: "error", 
+        message: error.message 
+      });
+    }
+  });
 
   return httpServer;
 } // இது மெயின் registerRoutes ஓட பெர்ஃபெக்ட் க்ளோசிங்
