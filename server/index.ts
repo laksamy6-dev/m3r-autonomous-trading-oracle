@@ -1,14 +1,11 @@
 import "dotenv/config";
 import express from "express";
-import cookieParser from "cookie-parser";
 import type { Request, Response, NextFunction } from "express";
-import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 
 const app = express();
-app.set("trust proxy", 1);
 const log = console.log;
 
 declare module "http" {
@@ -33,13 +30,17 @@ function setupCors(app: express.Application) {
 
     const origin = req.header("origin");
 
+    // Allow localhost origins for Expo web development (any port)
     const isLocalhost =
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
 
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
-      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+      );
       res.header("Access-Control-Allow-Headers", "Content-Type");
       res.header("Access-Control-Allow-Credentials", "true");
     }
@@ -117,7 +118,9 @@ function serveExpoManifest(platform: string, res: Response) {
   );
 
   if (!fs.existsSync(manifestPath)) {
-    return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
+    return res
+      .status(404)
+      .json({ error: `Manifest not found for platform: ${platform}` });
   }
 
   res.setHeader("expo-protocol-version", "1");
@@ -194,13 +197,15 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (hasWebBuild) {
-      // Skip static files - let express.static handle them
+      // NEW: Check if this is a request for a static file
+      // If the path has an extension, it's likely a static file
+      // Let express.static handle it (404 if not found)
       if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json)$/)) {
-        return next();
+        return next(); // Pass to express.static (will 404 if file doesn't exist)
       }
-      
-      // Only serve index.html for root or non-file paths
-      if (req.path === '/' || !req.path.includes('.')) {
+
+      // Only serve index.html for root path or HTML requests
+      if (req.path === '/' || req.path === '/index.html' || !req.path.includes('.')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
@@ -214,19 +219,11 @@ function configureExpoAndLanding(app: express.Application) {
       }
     }
 
-    if (req.path === "/") {
-      const templatePath = path.resolve(process.cwd(), "server", "templates", "landing-page.html");
-      const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
-      const appName = getAppName();
-      return serveLandingPage({ req, res, landingPageTemplate, appName });
-    }
-
     next();
   });
-}
 
 function setupErrorHandler(app: express.Application) {
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     const error = err as {
       status?: number;
       statusCode?: number;
@@ -239,7 +236,7 @@ function setupErrorHandler(app: express.Application) {
     console.error("Internal Server Error:", err);
 
     if (res.headersSent) {
-      return;
+      return next(err);
     }
 
     return res.status(status).json({ message });
@@ -260,8 +257,9 @@ function setupErrorHandler(app: express.Application) {
   const server = await registerRoutes(app);
 
   setupErrorHandler(app);
-
   const port = parseInt(process.env.PORT || "5000", 10);
+
+  console.log("[SERVER] Starting server on port", port);
   server.listen(
     {
       port,
@@ -271,6 +269,6 @@ function setupErrorHandler(app: express.Application) {
     () => {
       log(`express server serving on port ${port}`);
     },
-  );
+);
 })();
-
+}

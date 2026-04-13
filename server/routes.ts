@@ -458,7 +458,6 @@ const savedVault = loadVaultFromFile();
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || env.UPSTOX_ACCESS_TOKEN || null;
-let upstoxExtendedToken = savedVault.UPSTOX_EXTENDED_TOKEN || env.UPSTOX_EXTENDED_TOKEN || upstoxAccessToken || null;
 
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
@@ -472,7 +471,6 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
     UPSTOX_API_KEY: env.UPSTOX_API_KEY,
     UPSTOX_SECRET_KEY: env.UPSTOX_SECRET_KEY,
     UPSTOX_ACCESS_TOKEN: env.UPSTOX_ACCESS_TOKEN,
-    UPSTOX_EXTENDED_TOKEN: env.UPSTOX_EXTENDED_TOKEN,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: env.TELEGRAM_CHAT_ID,
     GEMINI_API_KEY: env.GEMINI_API_KEY,
@@ -486,17 +484,6 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
   if (needsSave) {
     saveVaultToFile(vaultSync);
     console.log('[VAULT] Auto-synced environment secrets to vault file');
-  }
-}
-
-// Helper function to select appropriate Upstox token
-function getUpstoxToken(forTrading: boolean = false): string {
-  if (forTrading) {
-    // Use regular token for orders (short-lived but fresh)
-    return upstoxAccessToken || process.env.UPSTOX_ACCESS_TOKEN || '';
-  } else {
-    // Use extended token for data (longer lasting, falls back to regular token)
-    return upstoxExtendedToken || process.env.UPSTOX_EXTENDED_TOKEN || upstoxAccessToken || '';
   }
 }
 
@@ -516,7 +503,7 @@ if (!openaiApiKey) {
   console.log('[INFO] LAMY Core Engine — standby mode.');
 }
 const openai = new OpenAI({
-  apiKey: openaiApiKey || '',
+  apiKey: openaiApiKey || 'placeholder-key-not-configured',
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
@@ -1301,7 +1288,7 @@ async function checkUpstoxTokenHealth(): Promise<{ valid: boolean; message: stri
   if (!upstoxAccessToken) return { valid: false, message: 'No Upstox token configured' };
   try {
     const res = await fetch('https://api.upstox.com/v2/user/profile', {
-      headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+      headers: { Authorization: `Bearer ${upstoxAccessToken}` },
     });
     if (res.ok) return { valid: true, message: 'Token valid' };
     return { valid: false, message: 'Token expired — re-authentication needed' };
@@ -1346,7 +1333,6 @@ const VAULT_KEYS = [
   { id: 'UPSTOX_API_KEY', label: 'Upstox API Key', category: 'upstox' },
   { id: 'UPSTOX_SECRET_KEY', label: 'Upstox Secret Key', category: 'upstox' },
   { id: 'UPSTOX_ACCESS_TOKEN', label: 'Upstox Access Token', category: 'upstox' },
-  { id: 'UPSTOX_EXTENDED_TOKEN', label: 'Upstox Extended Token', category: 'upstox' },
   { id: 'TELEGRAM_BOT_TOKEN', label: 'Telegram Bot Token', category: 'telegram' },
   { id: 'TELEGRAM_CHAT_ID', label: 'Telegram Chat ID', category: 'telegram' },
   { id: 'GEMINI_API_KEY', label: 'LAMY Brain API Key', category: 'ai' },
@@ -1357,7 +1343,6 @@ function getVaultValue(keyId: string): string | undefined {
     case 'UPSTOX_API_KEY': return upstoxApiKey || env.UPSTOX_API_KEY;
     case 'UPSTOX_SECRET_KEY': return upstoxApiSecret || env.UPSTOX_SECRET_KEY;
     case 'UPSTOX_ACCESS_TOKEN': return upstoxAccessToken || undefined;
-    case 'UPSTOX_EXTENDED_TOKEN': return upstoxExtendedToken || undefined;
     case 'TELEGRAM_BOT_TOKEN': return process.env.TELEGRAM_BOT_TOKEN;
     case 'TELEGRAM_CHAT_ID': return process.env.TELEGRAM_CHAT_ID;
     case 'GEMINI_API_KEY': return process.env.GEMINI_API_KEY;
@@ -1461,7 +1446,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
     try {
       const contractRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
       );
       const contractData = await contractRes.json();
       if (contractData.status === 'success' && contractData.data) {
@@ -1473,7 +1458,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
-      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+      { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
     );
     const data = await ocRes.json();
     if (data.status === 'success' && data.data?.length > 0) {
@@ -1507,7 +1492,7 @@ async function scanStockMomentum(accessToken: string): Promise<Array<{
     const stockKeys = Object.values(STOCK_ISIN_MAP).map(k => encodeURIComponent(k)).join(',');
     const stocksRes = await fetch(
       `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`,
-      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const stocksData = await stocksRes.json();
     if (stocksData?.status !== 'success' || !stocksData?.data) return [];
@@ -1578,7 +1563,7 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
     try {
       const contractRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent(foInfo.foKey)}`,
-        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
       );
       const contractData = await contractRes.json();
       if (contractData.status === 'success' && contractData.data) {
@@ -1590,7 +1575,7 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
-      { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+      { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
     );
     const data = await ocRes.json();
     if (data.status !== 'success' || !data.data?.length) {
@@ -2226,7 +2211,7 @@ async function executeProposalOnUpstox(proposal: TradeProposal): Promise<{ succe
     const upstoxRes = await fetch('https://api.upstox.com/v2/order/place', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getUpstoxToken(true)}`,
+        Authorization: `Bearer ${upstoxAccessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(upstoxPayload),
@@ -2513,7 +2498,7 @@ async function updatePositionPricesFromUpstox() {
       if (!ik) continue;
       const quoteRes = await fetch(
         `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
-        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
       );
       const quoteData = await quoteRes.json();
       if (quoteData.status === 'success' && quoteData.data) {
@@ -2639,7 +2624,7 @@ async function updatePositionPricesFromUpstox() {
           const sellRes = await fetch('https://api.upstox.com/v2/order/place', {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${getUpstoxToken(false)}`,
+              Authorization: `Bearer ${upstoxAccessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(sellPayload),
@@ -3060,7 +3045,6 @@ setTimeout(async () => {
       case 'UPSTOX_API_KEY': upstoxApiKey = undefined; break;
       case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; break;
       case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; break;
-    case 'UPSTOX_EXTENDED_TOKEN': upstoxExtendedToken = null; break;
       case 'TELEGRAM_BOT_TOKEN': delete process.env.TELEGRAM_BOT_TOKEN; break;
       case 'TELEGRAM_CHAT_ID': delete process.env.TELEGRAM_CHAT_ID; break;
       case 'GEMINI_API_KEY': delete process.env.GEMINI_API_KEY; break;
@@ -3261,7 +3245,7 @@ setTimeout(async () => {
     }
     try {
       const profileRes = await fetch('https://api.upstox.com/v2/user/profile', {
-        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
       });
       const data = await profileRes.json();
       upstoxTokenValid = data.status === 'success';
@@ -3284,7 +3268,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.json({ available_margin: 0, used_margin: 0, realized_pnl: 0, error: 'Not connected' });
     try {
       const fundRes = await fetch('https://api.upstox.com/v2/user/get-funds-and-margin?segment=SEC', {
-        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
       });
       const fundData = await fundRes.json();
       if (fundData.status === 'success' && fundData.data) {
@@ -3371,7 +3355,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const profileRes = await fetch('https://api.upstox.com/v2/user/profile', {
-        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
       });
       const data = await profileRes.json();
       res.json(data);
@@ -3384,7 +3368,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const holdingsRes = await fetch('https://api.upstox.com/v2/portfolio/long-term-holdings', {
-        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
       });
       const data = await holdingsRes.json();
       res.json(data);
@@ -3397,7 +3381,7 @@ setTimeout(async () => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
       const posRes = await fetch('https://api.upstox.com/v2/portfolio/short-term-positions', {
-        headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+        headers: { Authorization: `Bearer ${upstoxAccessToken}` },
       });
       const data = await posRes.json();
       res.json(data);
@@ -3412,7 +3396,7 @@ setTimeout(async () => {
       const orderRes = await fetch('https://api.upstox.com/v2/order/place', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${getUpstoxToken(false)}`,
+          Authorization: `Bearer ${upstoxAccessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(req.body),
@@ -3430,7 +3414,7 @@ setTimeout(async () => {
     try {
       const ocRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-        { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+        { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
       );
       const data = await ocRes.json();
       if (data.status === 'success' && data.data) {
@@ -3452,7 +3436,7 @@ setTimeout(async () => {
       const url = expiry
         ? `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}&expiry_date=${expiry}`
         : `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`;
-      const ocRes = await fetch(url, { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } });
+      const ocRes = await fetch(url, { headers: { Authorization: `Bearer ${upstoxAccessToken}` } });
       const data = await ocRes.json();
       if (data.status !== 'success' || !data.data || data.data.length === 0) {
         return res.json({ source: 'error', error: 'Upstox returned no data: ' + (data.message || 'Empty chain') });
@@ -3567,7 +3551,7 @@ setTimeout(async () => {
       try {
         const ltp = await fetch(
           `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
-          { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
         );
         const ltpData = await ltp.json();
         if (ltpData.status === 'success' && ltpData.data) {
@@ -3715,10 +3699,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const indexKeys = Object.values(INDEX_KEY_MAP).map(k => encodeURIComponent(k)).join(',');
       const [stocksRes, indicesRes] = await Promise.all([
         fetch(`https://api.upstox.com/v2/market-quote/quotes?instrument_key=${stockKeys}`, {
-          headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+          headers: { Authorization: `Bearer ${upstoxAccessToken}` },
         }),
         fetch(`https://api.upstox.com/v2/market-quote/quotes?instrument_key=${indexKeys}`, {
-          headers: { Authorization: `Bearer ${getUpstoxToken(false)}` },
+          headers: { Authorization: `Bearer ${upstoxAccessToken}` },
         }),
       ]);
       const stocksData = await stocksRes.json();
@@ -4227,7 +4211,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (!instrumentKey) {
         const chainRes = await fetch(
           `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${expiry ? `&expiry_date=${expiry}` : ''}`,
-          { headers: { Authorization: `Bearer ${getUpstoxToken(false)}` } }
+          { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
         );
         const chainData = await chainRes.json();
         if (chainData.status === 'success' && chainData.data) {
@@ -4260,7 +4244,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const upstoxRes = await fetch('https://api.upstox.com/v2/order/place', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${getUpstoxToken(false)}`,
+          Authorization: `Bearer ${upstoxAccessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(upstoxPayload),
@@ -4362,7 +4346,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         const sellRes = await fetch('https://api.upstox.com/v2/order/place', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${getUpstoxToken(false)}`,
+            Authorization: `Bearer ${upstoxAccessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(sellPayload),
@@ -4768,7 +4752,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       if (upstoxAccessToken) {
         try {
           const res = await fetch('https://api.upstox.com/v2/market-quote/quotes', {
-            headers: { Authorization: `Bearer ${getUpstoxToken(false)}` }
+            headers: { Authorization: `Bearer ${upstoxAccessToken}` }
           });
           const data = await res.json();
           if (data.status === 'success') {
