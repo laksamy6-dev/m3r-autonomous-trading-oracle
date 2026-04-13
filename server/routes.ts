@@ -510,7 +510,7 @@ let consecutiveNiftySkips = 0;
 const NIFTY_SKIP_THRESHOLD = 3;
 
 // OpenAI (preserved)
-let paperTradingMode = true; // Default to SAFE paper trading
+let paperTradingMode = false; // Default to SAFE paper trading
 const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
   console.log('[INFO] LAMY Core Engine — standby mode.');
