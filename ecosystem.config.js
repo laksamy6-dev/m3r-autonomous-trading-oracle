@@ -7,7 +7,7 @@ module.exports = {
     exec_mode: 'fork',
     env: {
       NODE_ENV: 'production',
-      PORT: 80,
+      PORT: 5000,
       PG_HOST: 'localhost',
       PG_PORT: 5432,
       PG_USER: 'm3r_user',

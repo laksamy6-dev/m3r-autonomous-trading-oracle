@@ -51,7 +51,7 @@ let positionSimInterval: NodeJS.Timeout | null = null;
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000').transform(Number),
-  BASE_URL: z.string().url().default('https://www.m3r-tradingoragle.com'),
+  BASE_URL: z.string().url().default('https://www.m3r-trading-oracle.com'),
 
   // Telegram (all original variants preserved)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
