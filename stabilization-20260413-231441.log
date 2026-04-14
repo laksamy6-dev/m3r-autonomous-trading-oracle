@@ -1,0 +1,135 @@
+🚀 M3R TRADING ORACLE - 24/7 PRODUCTION STABILIZATION
+======================================================
+Mon Apr 13 23:14:41 UTC 2026
+
+🧹 STEP 1: KILLING ALL EXISTING PROCESSES...
+[PM2] Applying action deleteProcessId on app [all](ids: [ 0, 1 ])
+[PM2] [pm2-logrotate](0) ✓
+[PM2] [m3r-trading-oracle](1) ✓
+[PM2] [v] All Applications Stopped
+[PM2] [v] PM2 Daemon Stopped
+✅ All processes terminated
+
+🔍 STEP 2: SYSTEM HEALTH CHECK...
+✅ PostgreSQL: RUNNING
+✅ Disk Space: 46% used
+✅ Memory: 3303MB available
+
+📦 STEP 3: VERIFYING DEPENDENCIES...
+✅ Node.js: v20.20.2
+✅ tsx: Available
+[PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
+[PM2] PM2 Successfully daemonized
+[PM2][Module] Starting NPM module pm2-logrotate
+[PM2][WARN] Applications pm2-logrotate not running, starting...
+[PM2] App [pm2-logrotate] launched (1 instances)
+6.0.14
+✅ PM2: Available
+
+⚙️  STEP 4: VERIFYING ENVIRONMENT...
+✅ Environment configured for LIVE mode
+
+🗑️  STEP 5: CLEARING CACHES...
+[PM2] Flushing /root/.pm2/pm2.log
+[PM2] Flushing:
+[PM2] /root/.pm2/logs/pm2-logrotate-out.log
+[PM2] /root/.pm2/logs/pm2-logrotate-error.log
+[PM2] Logs flushed
+✅ Caches cleared
+
+🔒 STEP 6: CODE INTEGRITY CHECK...
+✅ paperTradingMode is FALSE (LIVE MODE)
+⚠️  WARNING: 81 console.log statements found
+
+📝 STEP 7: SETTING UP LOGGING INFRASTRUCTURE...
+✅ Logging directories ready
+
+⚡ STEP 8: CONFIGURING PM2 FOR 24/7 OPERATION...
+✅ PM2 ecosystem configured
+
+🚀 STEP 9: STARTING M3R TRADING ORACLE (24/7 MODE)...
+[PM2][WARN] Applications m3r-trading-oracle not running, starting...
+[PM2] App [m3r-trading-oracle] launched (1 instances)
+┌────┬───────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                  │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ m3r-trading-oracle    │ default     │ 1.0.0   │ fork    │ 2870380  │ 0s     │ 0    │ online    │ 0%       │ 18.3mb   │ root     │ disabled │
+└────┴───────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 0  │ pm2-logrotate                │ 3.0.0         │ 2870336  │ online   │ 0    │ 0%       │ 63.7mb   │ root     │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+❌ Process status is fork - Check logs
+[TAILING] Tailing last 50 lines for [m3r-trading-oracle] process (change the value with --lines option)
+/root/m3r-autonomous-trading-oracle/logs/errors/error.log last 50 lines:
+1|m3r-trad | {"message":"(node:2869489) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.\n(Use `node --trace-warnings ...` to show where the warning was created)\n","timestamp":"2026-04-13 23:02:51 +00:00","type":"err","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"ReferenceError: app is not defined\n    at startMarketScheduler (/root/m3r-autonomous-trading-oracle/server/routes.ts:2764:3)\n    at Timeout._onTimeout (/root/m3r-autonomous-trading-oracle/server/routes.ts:2872:5)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n","timestamp":"2026-04-13 23:02:55 +00:00","type":"err","process_id":1,"app_name":"m3r-trading-oracle"}
+
+/root/m3r-autonomous-trading-oracle/logs/out.log last 50 lines:
+1|m3r-trad | 2026-04-10 13:07:20 +00:00: [BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds
+1|m3r-trad | {"message":"[VAULT] Loaded saved tokens from disk (legacy)\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[INFO] LAMY Core Engine — standby mode.\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN] Loaded brain data. IQ: 133715.8 Gen: 12880\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[AUTO-TRADE] Mode restored from vault: ENABLED\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"Serving M3R web app from dist/\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"M3R Innovative Fintech Solutions — Web app ready at /\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[DEBUG] registerRoutes started\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[DEBUG] About to createServer\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"express server serving on port 5000\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN DB] Loaded brain from database. IQ: 133715.8 Gen: 12880\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[VAULT] PIN loaded from database\n","timestamp":"2026-04-13 23:02:45 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds\n","timestamp":"2026-04-13 23:02:46 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/health 200 in 7ms :: {\"status\":\"ok\",\"timestamp\":1776121371301}\n","timestamp":"2026-04-13 23:02:51 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/lamy/autonomy-status 200 in 430ms :: {\"checks\":[{\"id\":\"upstox_keys\",\"l…\n","timestamp":"2026-04-13 23:02:51 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/lamy/autonomy-status 200 in 422ms :: {\"checks\":[{\"id\":\"upstox_keys\",\"label\":\"Upstox API Keys\",\"ok\":true,\"detail\":\"Configured\"},{\"id\":\"upstox_token\",\"label\":\"Upstox Token\",\"ok\":false,\"detail\":\"Token expired — re-authentication needed\"},{\"\n","timestamp":"2026-04-13 23:02:51 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/lamy/autonomy-status 200 in 254ms :: {\"checks\":[{\"id\":\"upstox_keys\",\"l…\nGET /api/lamy/autonomy-status 200 in 252ms :: {\"checks\":[{\"id\":\"upstox_keys\",\"label\":\"Upstox API Keys\",\"ok\":true,\"detail\":\"Configured\"},{\"id\":\"upstox_token\",\"label\":\"Upstox Token\",\"ok\":false,\"detail\":\"Token expired — re-authentication needed\"},{\"\n","timestamp":"2026-04-13 23:02:53 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY BOOT] IST: 04:32:54 | UAE: 03:02 | Market: CLOSED | AutoTrade: ON\n","timestamp":"2026-04-13 23:02:54 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY BOOT] Upstox token: INVALID — Token expired — re-authentication needed\n","timestamp":"2026-04-13 23:02:55 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY SCHEDULER] Market hours scheduler started — checking every 60 seconds\n","timestamp":"2026-04-13 23:02:55 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY BOOT] IST: 04:32:56 | UAE: 03:02 | Market: CLOSED | AutoTrade: ON\n","timestamp":"2026-04-13 23:02:56 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY BOOT] Upstox token: INVALID — Token expired — re-authentication needed\n","timestamp":"2026-04-13 23:02:56 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/health 200 in 2ms :: {\"status\":\"ok\",\"timestamp\":1776121501143}\n","timestamp":"2026-04-13 23:05:01 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[VAULT] Loaded saved tokens from disk (legacy)\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[INFO] LAMY Core Engine — standby mode.\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN] Loaded brain data. IQ: 133741 Gen: 12883\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[AUTO-TRADE] Mode restored from vault: ENABLED\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"Serving M3R web app from dist/\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"M3R Innovative Fintech Solutions — Web app ready at /\n","timestamp":"2026-04-13 23:08:29 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[DEBUG] registerRoutes started\n","timestamp":"2026-04-13 23:08:30 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[DEBUG] About to createServer\nexpress server serving on port 5000\n","timestamp":"2026-04-13 23:08:30 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN DB] Loaded brain from database. IQ: 133741 Gen: 12883\n","timestamp":"2026-04-13 23:08:30 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[VAULT] PIN loaded from database\n","timestamp":"2026-04-13 23:08:30 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"[BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds\n","timestamp":"2026-04-13 23:08:30 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | {"message":"GET /api/health 200 in 7ms :: {\"status\":\"ok\",\"timestamp\":1776121801223}\n","timestamp":"2026-04-13 23:10:01 +00:00","type":"out","process_id":1,"app_name":"m3r-trading-oracle"}
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [VAULT] Loaded saved tokens from disk (legacy)
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [INFO] LAMY Core Engine — standby mode.
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [BRAIN] Loaded brain data. IQ: 133770.8 Gen: 12886
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [AUTO-TRADE] Mode restored from vault: ENABLED
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: Serving M3R web app from dist/
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: M3R Innovative Fintech Solutions — Web app ready at /
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [DEBUG] registerRoutes started
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [DEBUG] About to createServer
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: express server serving on port 5000
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [VAULT] PIN loaded from database
+1|m3r-trad | 2026-04-13 23:14:49 +00:00: [BRAIN DB] Loaded brain from database. IQ: 133770.8 Gen: 12886
+1|m3r-trad | 2026-04-13 23:14:50 +00:00: [BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds
+
+1|m3r-trading-oracle  | 2026-04-13 23:15:01 +00:00: GET /api/health 200 in 8ms :: {"status":"ok","timestamp":1776122101305}
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [VAULT] Loaded saved tokens from disk (legacy)
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [INFO] LAMY Core Engine — standby mode.
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [BRAIN] Loaded brain data. IQ: 133772.1 Gen: 12886
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [AUTO-TRADE] Mode restored from vault: ENABLED
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: Serving M3R web app from dist/
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: M3R Innovative Fintech Solutions — Web app ready at /
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [DEBUG] registerRoutes started
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [DEBUG] About to createServer
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: express server serving on port 5000
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [VAULT] PIN loaded from database
+1|m3r-trading-oracle  | 2026-04-13 23:15:07 +00:00: [BRAIN DB] Loaded brain from database. IQ: 133772.1 Gen: 12886
+1|m3r-trading-oracle  | 2026-04-13 23:15:08 +00:00: [BRAIN ENGINE] 24/7 Self-Improvement Engine STARTED - Learning every 5 seconds
