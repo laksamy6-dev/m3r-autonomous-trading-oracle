@@ -254,7 +254,8 @@ function setupErrorHandler(app: express.Application) {
 
   configureExpoAndLanding(app);
 
-  const server = await registerRoutes(app);
+  const server = app.use(express.json());
+  // await registerRoutes(app);
 
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
