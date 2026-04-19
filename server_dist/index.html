@@ -23,15 +23,43 @@
         flex: 1;
       }
     </style>
-  <link rel="preload" href="/_expo/static/css/native-tabs.module-78b0f59737571f455720970791a36bdd.css" as="style"><link rel="stylesheet" href="/_expo/static/css/native-tabs.module-78b0f59737571f455720970791a36bdd.css"><link rel="icon" href="/favicon.ico" /></head>
+  <link rel="preload" href="/_expo/static/css/native-tabs.module-78b0f59737571f455720970791a36bdd.css" as="style"><link rel="stylesheet" href="/_expo/static/css/native-tabs.module-78b0f59737571f455720970791a36bdd.css"><link rel="icon" href="/favicon.ico" />
+<script>
+// Force bypass splash and auth
+window.__EXPO_SPLASH_SCREEN_MANAGER = { preventAutoHideAsync: () => Promise.resolve(), hideAsync: () => Promise.resolve() };
+setTimeout(() => {
+  var root = document.getElementById('root');
+  if (root && root.children.length === 0) {
+    root.innerHTML = '<div style="padding:20px;background:#0A0E1A;color:white;"><h1>M3R Trading Oracle</h1><p>Loading trading interface...</p><button onclick="location.reload()">Reload</button></div>';
+  }
+}, 3000);
+</script>
+</head>
 
-  <body>
-    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
-    <noscript>
-      You need to enable JavaScript to run this app.
-    </noscript>
-    <!-- The root element for your Expo app. -->
-    <div id="root"></div>
-  <script src="/_expo/static/js/web/entry-c0d624f92f347efa974466210b1f4bd7.js" defer></script>
-</body>
+  
+<body style="background:#0A0E1A; color:white; font-family:system-ui; margin:0;">
+<div id="emergency-content" style="position:fixed; z-index:9999; top:0; left:0; right:0; padding:20px; background:#16213e; color:#00d4ff; text-align:center;">
+  <h1>🚀 M3R Trading Oracle</h1>
+  <p id="status-text">Initializing trading interface...</p>
+</div>
+<div id="root" style="padding-top:100px;"></div>
+
+<script>
+// Hide emergency message only when React successfully renders
+setTimeout(() => {
+  var root = document.getElementById('root');
+  var emergency = document.getElementById('emergency-content');
+  var status = document.getElementById('status-text');
+  
+  if (root && root.children.length > 0) {
+    // React rendered successfully, hide emergency
+    emergency.style.display = 'none';
+  } else {
+    // React failed to render
+    status.innerHTML = '⚠️ Interface failed to load. <a href="https://m3r-trading-oracle.com/test.html" style="color:#4cc9f0;">Try test page</a> or <button onclick="location.reload()" style="background:#00d4ff; color:#0A0E1A; border:none; padding:8px 16px; cursor:pointer;">Reload</button>';
+    status.style.color = '#ff6b6b';
+  }
+}, 6000);
+</script>
+
 </html>
