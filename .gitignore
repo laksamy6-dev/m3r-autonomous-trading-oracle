@@ -1,0 +1,37 @@
+# Large backup files - keep locally only
+*.zip
+*.tar.gz
+m3r-*.zip
+server.zip.clean
+
+# Node modules
+node_modules/
+npm-debug.log
+
+# Environment
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+*.log
+
+# Large directories - keep locally only
+attached_assets/
+.expo/
+server_dist/
+server.CORRUPTED/
+*.mp4
+*.mov
+*.avi
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.sql
+*.deb
+attached_assets/
+.expo/
+server_dist/
+server.CORRUPTED/

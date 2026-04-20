@@ -1,0 +1,9 @@
+{
+  "api_key": "7b15b4a4-052f-4ec7-8e10-d34e458f1a8b",
+  "api_secret": "he4tjktjz8",
+  "redirect_uri": "https://m3r-trading-oracle.com/api/auth/upstox/callback",
+  "postback_url": "https://m3r-trading-oracle.com/api/upstox/postback",
+  "webhook_url": "https://m3r-trading-oracle.com/api/upstox/webhook",
+  "api_base": "https://api.upstox.com/v2",
+  "version": "2.0"
+}
