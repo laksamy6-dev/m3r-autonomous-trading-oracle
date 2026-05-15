@@ -7099,7 +7099,7 @@ function setupErrorHandler(app2) {
   const server = await registerRoutes(app);
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
+  app.listen(
     {
       port,
       host: "0.0.0.0",
