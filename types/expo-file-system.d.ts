@@ -1,4 +1,4 @@
-declare module "expo-file-system" {
+declare module 'expo-file-system' {
   export const EncodingType: any;
   export const cacheDirectory: string | null;
   export const documentDirectory: string | null;

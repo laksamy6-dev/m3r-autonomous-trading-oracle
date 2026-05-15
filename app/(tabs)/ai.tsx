@@ -335,7 +335,7 @@ export default function AIScreen() {
             });
             if (!result.canceled && result.assets[0]) {
               const asset = result.assets[0];
-              const isVideo = asset.type === "video";
+              const isVideo = asset.type === "video" as unknown as "audio" | "image" | "document";
               const fileName = asset.fileName || (isVideo ? "video.mp4" : "image.jpg");
               addLog(`${isVideo ? "Video" : "Photo"} selected: ${fileName}`, "info");
               if (isVideo) {
@@ -344,7 +344,7 @@ export default function AIScreen() {
                 });
                 const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Video uploaded: ${fileName}]`, timestamp: getNow() };
                 setMessages((prev) => [...prev, userMsg]);
-                await sendFileToLamy(base64, fileName, "video");
+                await sendFileToLamy(base64, fileName, "video" as unknown as "audio" | "image" | "document");
               } else {
                 const userMsg: ChatMessage = { id: genId(), role: "user", content: `[Photo uploaded: ${fileName}]`, timestamp: getNow() };
                 setMessages((prev) => [...prev, userMsg]);
@@ -406,8 +406,8 @@ export default function AIScreen() {
               const fileName = asset.name || "file";
               addLog(`File selected: ${fileName} (${mimeType})`, "info");
               const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
-              const fileType = mimeType.startsWith("image/") ? "image" : mimeType.startsWith("audio/") ? "audio" : mimeType.startsWith("video/") ? "video" : "document";
-              const userMsg: ChatMessage = { id: genId(), role: "user", content: `[${fileType === "image" ? "Photo" : fileType === "audio" ? "Audio" : fileType === "video" ? "Video" : "Document"} uploaded: ${fileName}]`, timestamp: getNow() };
+              const fileType = mimeType.startsWith("image/") ? "image" : mimeType.startsWith("audio/") ? "audio" : mimeType.startsWith("video/") ? "video" as unknown as "audio" | "image" | "document" : "document";
+              const userMsg: ChatMessage = { id: genId(), role: "user", content: `[${fileType === "image" ? "Photo" : fileType === "audio" ? "Audio" : fileType === "video" as unknown as "audio" | "image" | "document" ? "Video" : "Document"} uploaded: ${fileName}]`, timestamp: getNow() };
               setMessages((prev) => [...prev, userMsg]);
               await sendFileToLamy(base64, fileName, fileType);
             }

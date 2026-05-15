@@ -725,7 +725,7 @@ function StrategyScreenInner() {
                   {(brain.strengths || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>STRENGTHS</Text>
-                      {(brain.strengths || []).map((s, i) => (
+                      {(brain.strengths || []).map((s: any, i: number) => (
                         <Text key={`s-${i}`} style={[styles.brainDetailValue, { color: NEON_GREEN, marginBottom: 4 }]}>{s}</Text>
                       ))}
                     </View>
@@ -733,7 +733,7 @@ function StrategyScreenInner() {
                   {(brain.weaknesses || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>WEAKNESSES</Text>
-                      {(brain.weaknesses || []).map((w, i) => (
+                      {(brain.weaknesses || []).map((w: any, i: number) => (
                         <Text key={`w-${i}`} style={[styles.brainDetailValue, { color: C.gold, marginBottom: 4 }]}>{w}</Text>
                       ))}
                     </View>
@@ -741,7 +741,7 @@ function StrategyScreenInner() {
                   {(brain.discoveries || []).length > 0 && (
                     <View style={styles.brainDetailSection}>
                       <Text style={styles.brainDetailLabel}>DISCOVERIES</Text>
-                      {(brain.discoveries || []).slice(0, 5).map((d, i) => (
+                      {(brain.discoveries || []).slice(0, 5).map((d: any, i: number) => (
                         <Text key={`d-${i}`} style={[styles.brainDetailValue, { color: "#8B5CF6", marginBottom: 6, fontSize: 12 }]}>{d}</Text>
                       ))}
                     </View>
@@ -1944,7 +1944,7 @@ function StrategyScreenInner() {
           {(output.neuroFusion.weaknessDetected || []).length > 0 && (
             <View style={{ marginTop: 8 }}>
               <Text style={styles.lessonsTitle}>WEAKNESSES DETECTED</Text>
-              {(output.neuroFusion.weaknessDetected || []).map((w, i) => (
+              {(output.neuroFusion.weaknessDetected || []).map((w: any, i: number) => (
                 <View key={`w-${i}`} style={styles.lessonItem}>
                   <Ionicons name="warning" size={10} color={C.gold} />
                   <Text style={[styles.lessonText, { color: C.gold }]}>{w}</Text>
@@ -1956,7 +1956,7 @@ function StrategyScreenInner() {
           {(output.neuroFusion.strengthsIdentified || []).length > 0 && (
             <View style={{ marginTop: 6 }}>
               <Text style={styles.lessonsTitle}>STRENGTHS IDENTIFIED</Text>
-              {(output.neuroFusion.strengthsIdentified || []).map((s, i) => (
+              {(output.neuroFusion.strengthsIdentified || []).map((s: any, i: number) => (
                 <View key={`s-${i}`} style={styles.lessonItem}>
                   <Ionicons name="checkmark-circle" size={10} color={NEON_GREEN} />
                   <Text style={[styles.lessonText, { color: NEON_GREEN }]}>{s}</Text>

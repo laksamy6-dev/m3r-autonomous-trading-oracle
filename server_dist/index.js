@@ -1,3 +1,6 @@
+// server/vault.ts
+import { Client } from "pg";
+
 // server/index.ts
 import express2 from "express";
 
