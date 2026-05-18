@@ -129,7 +129,7 @@ async function sendStartupNotification() {
 
   if (brain) {
     msg += `<b>🧠 BRAIN STATUS</b>\n`;
-    msg += `├ IQ: ${(typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A")} | Gen: ${brain.generation}\n`;
+    msg += `├ IQ: ${(typeof brain?.iq === "number" ? (typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A") : "N/A")} | Gen: ${brain.generation}\n`;
     msg += `├ Domains: ${Object.keys(brain.knowledgeAreas).length}\n`;
     msg += `├ Accuracy: ${brain.accuracyScore.toFixed(1)}%\n`;
     msg += `└ Phase: ${brain.currentPhase}\n\n`;
@@ -211,7 +211,7 @@ async function sendMarketSessionAlert(type: string, ist: Date) {
     msg += `└ 24/7 Monitoring: ON\n\n`;
     if (brain) {
       msg += `🧠 <b>Today's Brain Growth</b>\n`;
-      msg += `├ IQ: ${(typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A")} | Gen: ${brain.generation}\n`;
+      msg += `├ IQ: ${(typeof brain?.iq === "number" ? (typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A") : "N/A")} | Gen: ${brain.generation}\n`;
       msg += `├ Learning Cycles: ${brain.totalLearningCycles}\n`;
       msg += `└ Domains: ${Object.keys(brain.knowledgeAreas).length}\n\n`;
     }
@@ -311,7 +311,7 @@ async function runMarketAnalysis() {
 
     msg += `\n🎯 AI Confidence: ${confidence}%\n`;
     if (brain) {
-      msg += `🧠 Brain IQ: ${(typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A")} | Domains: ${Object.keys(brain.knowledgeAreas).length}\n`;
+      msg += `🧠 Brain IQ: ${(typeof brain?.iq === "number" ? (typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A") : "N/A")} | Domains: ${Object.keys(brain.knowledgeAreas).length}\n`;
     }
     msg += `\n🤖 <i>Market is closed, sir. Global factors and overnight data suggest Nifty will be in the ${niftyLow}-${niftyHigh} range. Monitoring continues 24/7.</i>`;
   }
@@ -355,7 +355,7 @@ async function runBrainProgressReport() {
   msg += `<b>⚡ Power Level: ${powerLevel}</b>\n\n`;
 
   msg += `<b>📊 Core Metrics</b>\n`;
-  msg += `├ IQ: ${(typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A")}\n`;
+  msg += `├ IQ: ${(typeof brain?.iq === "number" ? (typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A") : "N/A")}\n`;
   msg += `├ Generation: ${brain.generation}\n`;
   msg += `├ Learning Cycles: ${brain.totalLearningCycles.toLocaleString()}\n`;
   msg += `├ Interactions: ${brain.totalInteractions}\n`;
@@ -455,7 +455,7 @@ async function runHeartbeat() {
   msg += `├ Market: ${statusLabels[status]}\n`;
   msg += `├ Mode: ${tokens?.upstoxConnected ? "LIVE" : "OFFLINE"}\n`;
   if (brain) {
-    msg += `├ Brain IQ: ${(typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A")}\n`;
+    msg += `├ Brain IQ: ${(typeof brain?.iq === "number" ? (typeof brain?.iq === "number" ? brain.iq.toFixed(0) : "N/A") : "N/A")}\n`;
     msg += `├ Domains: ${Object.keys(brain.knowledgeAreas).length}\n`;
     msg += `├ Uptime: ${formatUptime(brain.uptime)}\n`;
   }

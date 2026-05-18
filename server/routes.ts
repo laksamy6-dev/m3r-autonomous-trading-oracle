@@ -1485,7 +1485,7 @@ Provide your trading signal and analysis.`;
 
       const brainContext = `
 MY BRAIN STATUS:
-- IQ: ${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}
+- IQ: ${(typeof brainStats.iq === "number" ? (typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A") : "N/A")}
 - Generation: ${brainStats.generation}
 - Learning Cycles: ${brainStats.totalLearningCycles}
 - Total Interactions: ${brainStats.totalInteractions}
@@ -5883,7 +5883,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         } catch {}
       }
 
-      const brainContext = `\n[MY BRAIN STATUS: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
+      const brainContext = `\n[MY BRAIN STATUS: IQ=${(typeof brainStats.iq === "number" ? (typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A") : "N/A")}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
       const slangContext = getSlangContext();
       const memoryContext = await getMemoriesForContext();
@@ -5975,7 +5975,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       brainStats.totalInteractions++;
       if (message) detectSlangProfile(message);
 
-      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
+      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? (typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A") : "N/A")}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
 
@@ -6130,7 +6130,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       brainStats.totalInteractions++;
       detectSlangProfile(userText);
 
-      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
+      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? (typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A") : "N/A")}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
 
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
