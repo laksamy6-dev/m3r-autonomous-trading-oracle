@@ -6486,10 +6486,3 @@ function ensureInteractionFields(obj:any){
   }catch(e){}
   return obj;
 }
-
-/* Temporary fallback export to avoid runtime undefined */
-export function registerRoutes(app:any){
-  try{
-    console.log("[routes] fallback registerRoutes executed");
-  }catch(e){ console.error("[routes] fallback registerRoutes error", e); }
-}

@@ -113,8 +113,8 @@ export async function triggerHeartbeat() {
 async function sendStartupNotification() {
   if (!isTelegramConfigured()) return;
   const ist = getIST();
-  const brain = getBrainStatsFn?.();
-  const tokens = getTokenStatusFn?.();
+  const brain = (typeof getBrainStatsFn === "function" ? getBrainStatsFn() : undefined);
+  const tokens = (typeof getTokenStatusFn === "function" ? getTokenStatusFn() : undefined);
 
   let msg = `🚀 <b>M3R LAMY v3.0 — ONLINE</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -159,19 +159,19 @@ async function runEngineLoop() {
 
   if (currentStatus === "PRE_MARKET" && lastMarketState !== `${dateKey}-PRE`) {
     lastMarketState = `${dateKey}-PRE`;
-    await sendMarketSessionAlert("PRE_MARKET", ist);
+    if (typeof sendMarketSessionAlert === "function") await sendMarketSessionAlert("PRE_MARKET", ist);
   } else if (currentStatus === "MARKET_OPEN" && lastMarketState !== `${dateKey}-OPEN`) {
     lastMarketState = `${dateKey}-OPEN`;
-    await sendMarketSessionAlert("MARKET_OPEN", ist);
+    if (typeof sendMarketSessionAlert === "function") await sendMarketSessionAlert("MARKET_OPEN", ist);
   } else if (currentStatus === "AFTER_HOURS" && lastMarketState !== `${dateKey}-CLOSE`) {
     lastMarketState = `${dateKey}-CLOSE`;
-    await sendMarketSessionAlert("MARKET_CLOSE", ist);
+    if (typeof sendMarketSessionAlert === "function") await sendMarketSessionAlert("MARKET_CLOSE", ist);
   }
 }
 
 async function sendMarketSessionAlert(type: string, ist: Date) {
-  const brain = getBrainStatsFn?.();
-  const tokens = getTokenStatusFn?.();
+  const brain = (typeof getBrainStatsFn === "function" ? getBrainStatsFn() : undefined);
+  const tokens = (typeof getTokenStatusFn === "function" ? getTokenStatusFn() : undefined);
   const time = fmtTime(ist);
 
   let msg = "";
@@ -230,8 +230,8 @@ async function runMarketAnalysis() {
   lastAnalysisTime = now;
 
   const status = getMarketStatus(ist);
-  const brain = getBrainStatsFn?.();
-  const tokens = getTokenStatusFn?.();
+  const brain = (typeof getBrainStatsFn === "function" ? getBrainStatsFn() : undefined);
+  const tokens = (typeof getTokenStatusFn === "function" ? getTokenStatusFn() : undefined);
 
   const niftyBase = 24500;
   const volatility = status === "MARKET_OPEN" ? 150 : 80;
@@ -325,7 +325,7 @@ async function runBrainProgressReport() {
   if (now - lastBrainReportTime < 55 * 60 * 1000) return;
   lastBrainReportTime = now;
 
-  const brain = getBrainStatsFn?.();
+  const brain = (typeof getBrainStatsFn === "function" ? getBrainStatsFn() : undefined);
   if (!brain) return;
 
   const ist = getIST();
@@ -387,7 +387,7 @@ async function runBrainProgressReport() {
 
 async function runTokenHealthCheck() {
   if (!isTelegramConfigured()) return;
-  const tokens = getTokenStatusFn?.();
+  const tokens = (typeof getTokenStatusFn === "function" ? getTokenStatusFn() : undefined);
   if (!tokens) return;
 
   const alerts: string[] = [];
@@ -436,8 +436,8 @@ async function runHeartbeat() {
   lastHeartbeatTime = now;
 
   const ist = getIST();
-  const brain = getBrainStatsFn?.();
-  const tokens = getTokenStatusFn?.();
+  const brain = (typeof getBrainStatsFn === "function" ? getBrainStatsFn() : undefined);
+  const tokens = (typeof getTokenStatusFn === "function" ? getTokenStatusFn() : undefined);
   const status = getMarketStatus(ist);
 
   const statusLabels: Record<string, string> = {
