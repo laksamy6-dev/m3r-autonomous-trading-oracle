@@ -1485,7 +1485,7 @@ Provide your trading signal and analysis.`;
 
       const brainContext = `
 MY BRAIN STATUS:
-- IQ: ${brainStats.iq.toFixed(1)}
+- IQ: ${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}
 - Generation: ${brainStats.generation}
 - Learning Cycles: ${brainStats.totalLearningCycles}
 - Total Interactions: ${brainStats.totalInteractions}
@@ -3974,7 +3974,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
             }).catch(() => {});
           }
         }
-        console.log(`[LAMY SCAN] Monitoring active position: ${activePos?.type} ${activePos?.strike} P&L: Rs.${activePos?.pnl.toFixed(0)}`);
+        console.log(`[LAMY SCAN] Monitoring active position: ${activePos?.type} ${activePos?.strike} P&L: Rs.${activePos?.pnl?.toFixed(0)}`);
         return;
       }
       if (hasRecentLiveOrder) {
@@ -5883,7 +5883,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
         } catch {}
       }
 
-      const brainContext = `\n[MY BRAIN STATUS: IQ=${brainStats.iq.toFixed(1)}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
+      const brainContext = `\n[MY BRAIN STATUS: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Generation=${brainStats.generation}, LearningCycles=${brainStats.totalLearningCycles}, Interactions=${brainStats.totalInteractions}, Phase=${brainStats.currentPhase}, KnowledgeDomains=${Object.keys(brainStats.knowledgeAreas).length}, Uptime=${brainStats.uptime}s, AccuracyScore=${brainStats.accuracyScore.toFixed(1)}%, EmotionalIQ=${brainStats.emotionalIQ.toFixed(1)}]`;
 
       const slangContext = getSlangContext();
       const memoryContext = await getMemoriesForContext();
@@ -5975,7 +5975,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       brainStats.totalInteractions++;
       if (message) detectSlangProfile(message);
 
-      const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
+      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Gen=${brainStats.generation}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
 
@@ -6130,7 +6130,7 @@ You are now in VOICE MODE — the user is speaking to you while driving.
       brainStats.totalInteractions++;
       detectSlangProfile(userText);
 
-      const brainContext = `\n[MY BRAIN: IQ=${brainStats.iq.toFixed(1)}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
+      const brainContext = `\n[MY BRAIN: IQ=${(typeof brainStats.iq === "number" ? brainStats.iq.toFixed(1) : "N/A")}, Gen=${brainStats.generation}, Cycles=${brainStats.totalLearningCycles}, Phase=${brainStats.currentPhase}, Domains=${Object.keys(brainStats.knowledgeAreas).length}]`;
 
       const slangCtx = getSlangContext();
       const memoryContext = await getMemoriesForContext();
@@ -6485,4 +6485,11 @@ function ensureInteractionFields(obj:any){
     if(obj.interactions === undefined && obj.total_interactions !== undefined) obj.interactions = obj.total_interactions;
   }catch(e){}
   return obj;
+}
+
+/* Temporary fallback export to avoid runtime undefined */
+export function registerRoutes(app:any){
+  try{
+    console.log("[routes] fallback registerRoutes executed");
+  }catch(e){ console.error("[routes] fallback registerRoutes error", e); }
 }
