@@ -52,7 +52,7 @@ let positionSimInterval: NodeJS.Timeout | null = null;
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000').transform(Number),
-  BASE_URL: z.string().url().default('https://www.m3r-tradingoragle.com'),
+  BASE_URL: z.string().url().default('https://m3r-trading-oracle.com'),
 
   // Telegram (all original variants preserved)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
@@ -3403,6 +3403,22 @@ setTimeout(async () => {
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get positions' });
+    }
+  });
+
+  app.get('/api/upstox/orders', async (_req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
+    try {
+      const ordersRes = await fetch('https://api.upstox.com/v2/order/retrieve-all', {
+        headers: {
+          Authorization: 'Bearer ' + upstoxAccessToken,
+          Accept: 'application/json',
+        },
+      });
+      const data = await ordersRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get orders' });
     }
   });
 
