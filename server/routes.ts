@@ -49,12 +49,16 @@ const {
 } = TelegramModule;
 
 type IntervalHandle = ReturnType<typeof setInterval>;
+type SendTelegramMessageFn = typeof TelegramModule.sendTelegramMessage;
+type IsTelegramConfiguredFn = typeof TelegramModule.isTelegramConfigured;
+type SendTradingAlertFn = typeof TelegramModule.sendTradingAlert;
+type GetBotInfoFn = typeof TelegramModule.getBotInfo;
 
 declare global {
-  var sendTelegramMessage: typeof sendTelegramMessage;
-  var isTelegramConfigured: typeof isTelegramConfigured;
-  var sendTradingAlert: typeof sendTradingAlert;
-  var getBotInfo: typeof getBotInfo;
+  var sendTelegramMessage: SendTelegramMessageFn;
+  var isTelegramConfigured: IsTelegramConfiguredFn;
+  var sendTradingAlert: SendTradingAlertFn;
+  var getBotInfo: GetBotInfoFn;
   var __m3rGenAI: GoogleGenAI | undefined;
   var __m3rSystemInstruction: string | undefined;
   var __m3rApiKey: string | undefined;
@@ -1496,7 +1500,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch { nearestExpiry = "2026-04-13"; }
+    } catch {}
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
@@ -1615,7 +1619,7 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch { nearestExpiry = "2026-04-13"; }
+    } catch {}
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
@@ -3631,7 +3635,7 @@ setTimeout(async () => {
           const key = Object.keys(ltpData.data)[0];
           spotPrice = ltpData.data[key]?.last_price || 0;
         }
-      } catch { nearestExpiry = "2026-04-13"; }
+      } catch {}
     }
     if (spotPrice > 0) {
       priceHistory.push(spotPrice);

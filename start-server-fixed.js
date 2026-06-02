@@ -1,7 +1,7 @@
 /* eslint-env node */
 // Load .env before anything else - EXPLICIT PATH
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(process.cwd(), '.env') });
 
 // Debug: Log if env vars loaded
 console.log('[ENV] UPSTOX_API_KEY:', process.env.UPSTOX_API_KEY ? 'Loaded' : 'NOT FOUND');
