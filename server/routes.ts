@@ -37,6 +37,7 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { createUpstoxMarketFeed } from './services/upstoxMarketFeed';
 
 // Trading Constants
 const MIN_HOLD_SECONDS = 60;
@@ -458,6 +459,9 @@ const savedVault = loadVaultFromFile();
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || env.UPSTOX_ACCESS_TOKEN || null;
+const upstoxMarketFeed = createUpstoxMarketFeed({
+  getAccessToken: () => upstoxAccessToken,
+});
 
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
@@ -2489,22 +2493,39 @@ function detectPositionKissPattern(pos: ActivePosition): { phase: string; should
   return { phase: 'NONE', shouldBook: false, description: 'Monitoring...' };
 }
 
+function syncActivePositionFeedSubscriptions() {
+  const activeInstrumentKeys = [...new Set(
+    activePositions
+      .filter((pos) => pos.status === 'ACTIVE' && !!pos.instrumentKey)
+      .map((pos) => pos.instrumentKey)
+  )];
+
+  upstoxMarketFeed.replaceInstrumentKeys(activeInstrumentKeys, 'ltpc');
+}
+
 async function updatePositionPricesFromUpstox() {
   if (!upstoxAccessToken) return;
+  syncActivePositionFeedSubscriptions();
   for (const pos of activePositions) {
     if (pos.status !== 'ACTIVE') continue;
     try {
       const ik = pos.instrumentKey;
       if (!ik) continue;
-      const quoteRes = await fetch(
-        `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
+      const liveTick = upstoxMarketFeed.getLatestTick(ik);
+      const hasFreshTick = !!liveTick && (Date.now() - liveTick.timestamp) < 15000;
+      if (hasFreshTick && liveTick) {
+        pos.currentPremium = parseFloat(liveTick.ltp.toFixed(2));
+      } else {
+        const quoteRes = await fetch(
+          `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
         { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
-      );
-      const quoteData = await quoteRes.json();
-      if (quoteData.status === 'success' && quoteData.data) {
-        const key = Object.keys(quoteData.data)[0];
-        if (key && quoteData.data[key]?.last_price) {
-          pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+        );
+        const quoteData = await quoteRes.json();
+        if (quoteData.status === 'success' && quoteData.data) {
+          const key = Object.keys(quoteData.data)[0];
+          if (key && quoteData.data[key]?.last_price) {
+            pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+          }
         }
       }
     } catch (e) {
@@ -2683,6 +2704,7 @@ async function updatePositionPricesFromUpstox() {
 }
 
 function startPositionMonitoring() {
+  syncActivePositionFeedSubscriptions();
   if (positionSimInterval) return;
   positionSimInterval = setInterval(updatePositionPricesFromUpstox, 5000);
 }
@@ -2692,6 +2714,7 @@ function stopPositionMonitoring() {
     clearInterval(positionSimInterval);
     positionSimInterval = null;
   }
+  syncActivePositionFeedSubscriptions();
 }
 
 // ============================================================================
@@ -2744,18 +2767,6 @@ function startMarketScheduler() {
       }
     }
   }, 60000);
-
-  // Missing endpoints
-  app.get('/api/settings', async (req, res) => {
-  //    res.json({ success: true, settings: {} });
-  //  });
-  //  
-  //  app.get('/api/env', async (req, res) => {
-  //    res.json({ 
-  //      NODE_ENV: process.env.NODE_ENV || 'development',
-  //      UPSTOX_API_KEY: upstoxApiKey ? '****' : null
-  //    });
-  });
 }
 
 // ============================================================================
@@ -3020,11 +3031,12 @@ setTimeout(async () => {
 
     // Update runtime variables
     switch (keyId) {
-      case 'UPSTOX_API_KEY': upstoxApiKey = trimmedValue; break;
-      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = trimmedValue; break;
+      case 'UPSTOX_API_KEY': upstoxApiKey = trimmedValue; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = trimmedValue; upstoxMarketFeed.refreshConnection(); break;
       case 'UPSTOX_ACCESS_TOKEN':
         upstoxAccessToken = trimmedValue || null;
         upstoxTokenValid = null;
+        upstoxMarketFeed.refreshConnection();
         break;
       case 'TELEGRAM_BOT_TOKEN': process.env.TELEGRAM_BOT_TOKEN = trimmedValue; break;
       case 'TELEGRAM_CHAT_ID': process.env.TELEGRAM_CHAT_ID = trimmedValue; break;
@@ -3042,9 +3054,9 @@ setTimeout(async () => {
     await saveVault(vault);
     // Update runtime
     switch (keyId) {
-      case 'UPSTOX_API_KEY': upstoxApiKey = undefined; break;
-      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; break;
-      case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; break;
+      case 'UPSTOX_API_KEY': upstoxApiKey = undefined; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; upstoxMarketFeed.refreshConnection(); break;
       case 'TELEGRAM_BOT_TOKEN': delete process.env.TELEGRAM_BOT_TOKEN; break;
       case 'TELEGRAM_CHAT_ID': delete process.env.TELEGRAM_CHAT_ID; break;
       case 'GEMINI_API_KEY': delete process.env.GEMINI_API_KEY; break;
@@ -3232,7 +3244,7 @@ setTimeout(async () => {
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const hasToken = !!upstoxAccessToken;
     if (!hasToken) {
-      return res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE' });
+      return res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE', websocket: upstoxMarketFeed.getStatus() });
     }
     const now = Date.now();
     if (upstoxTokenValid !== null && now - upstoxTokenLastChecked < 60000) {
@@ -3241,6 +3253,7 @@ setTimeout(async () => {
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
         mode: upstoxTokenValid ? 'LIVE' : 'OFFLINE',
+        websocket: upstoxMarketFeed.getStatus(),
       });
     }
     try {
@@ -3255,12 +3268,13 @@ setTimeout(async () => {
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
         mode: upstoxTokenValid ? 'LIVE' : 'OFFLINE',
+        websocket: upstoxMarketFeed.getStatus(),
         ...(upstoxTokenValid && data.data ? { userName: data.data.user_name } : {}),
       });
     } catch {
       upstoxTokenValid = false;
       upstoxTokenLastChecked = now;
-      res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE' });
+      res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE', websocket: upstoxMarketFeed.getStatus() });
     }
   });
 
@@ -3297,6 +3311,7 @@ setTimeout(async () => {
     upstoxApiSecret = vault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
     upstoxTokenValid = null;
     upstoxTokenLastChecked = 0;
+    upstoxMarketFeed.refreshConnection();
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const connected = !!upstoxAccessToken;
     console.log(`[UPSTOX] Token refreshed - configured: ${configured}, connected: ${connected}`);
@@ -3337,6 +3352,7 @@ setTimeout(async () => {
       upstoxAccessToken = tokenData.access_token || null;
       upstoxTokenValid = null;
       upstoxTokenLastChecked = 0;
+      upstoxMarketFeed.refreshConnection();
       if (upstoxAccessToken) {
         try {
           const currentVault = loadVaultFromFile();
@@ -4748,6 +4764,27 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
+    const sendJson = (payload: any) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify(payload));
+      }
+    };
+
+    const handlePrice = (tick: any) => sendJson({ type: 'price', data: tick });
+    const handleStatus = (status: any) => sendJson({ type: 'upstox-feed-status', data: status });
+    const handleError = (error: Error) => sendJson({ type: 'upstox-feed-error', error: error.message });
+
+    upstoxMarketFeed.on('price', handlePrice);
+    upstoxMarketFeed.on('status', handleStatus);
+    upstoxMarketFeed.on('error', handleError);
+
+    sendJson({ type: 'upstox-feed-status', data: upstoxMarketFeed.getStatus() });
+    ws.on('close', () => {
+      upstoxMarketFeed.off('price', handlePrice);
+      upstoxMarketFeed.off('status', handleStatus);
+      upstoxMarketFeed.off('error', handleError);
+    });
+    /*
     const interval = setInterval(async () => {
       if (upstoxAccessToken) {
         try {
@@ -4763,6 +4800,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     }, 1000);
     
     ws.on('close', () => clearInterval(interval));
+    */
   }); // இது wss.on ஓட சரியான க்ளோசிங்
 
 
@@ -4866,10 +4904,11 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         services: {
           database: dbStatus,
           vault: vaultStatus,
-          websocket: "ACTIVE",
+          websocket: upstoxMarketFeed.getStatus().connected ? "ACTIVE" : "DISCONNECTED",
           neural: "INITIALIZED",
           lamy: "ONLINE"
-        }
+        },
+        upstoxWebsocket: upstoxMarketFeed.getStatus(),
       });
     } catch (error) {
       res.status(500).json({ 
@@ -4881,4 +4920,3 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
   return httpServer;
 } // இது மெயின் registerRoutes ஓட பெர்ஃபெக்ட் க்ளோசிங்
-
