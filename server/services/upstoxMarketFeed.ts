@@ -52,7 +52,7 @@ export class UpstoxMarketFeed extends EventEmitter {
   private feedResponseType: FeedResponseType | null = null;
   private desiredInstrumentKeys = new Set<string>();
   private latestTicks = new Map<string, UpstoxMarketTick>();
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private ready = false;
   private closedManually = false;

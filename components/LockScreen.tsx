@@ -82,7 +82,7 @@ export default function LockScreen() {
     if (newPin.length === PIN_LENGTH) {
       setChecking(true);
       const success = await login(newPin);
-      if (!success || !success.success) {
+      if (!success) {
         setError(true);
         shake();
         if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

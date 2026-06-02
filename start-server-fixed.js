@@ -1,3 +1,4 @@
+/* eslint-env node */
 // Load .env before anything else - EXPLICIT PATH
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });

@@ -178,23 +178,6 @@ export default function LAMYPersonalScreen() {
   const insets = useSafeAreaInsets();
   const { isVisitor } = useAuth();
 
-  if (false) { // PIN bypassed - visitor mode disabled
-    return (
-      <View style={{ flex: 1, backgroundColor: "#050508", justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(255, 59, 48, 0.15)", justifyContent: "center", alignItems: "center", marginBottom: 20 }}>
-          <Ionicons name="lock-closed" size={36} color="#FF3B30" />
-        </View>
-        <Text style={{ color: "#FF3B30", fontSize: 22, fontFamily: "DMSans_600SemiBold", marginBottom: 8, textAlign: "center" }}>Access Denied</Text>
-        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "DMSans_400Regular", textAlign: "center", lineHeight: 20 }}>
-          This section requires owner authentication.{"\n"}Enter PIN to access full features.
-        </Text>
-        <View style={{ marginTop: 24, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: "rgba(0, 243, 255, 0.3)", backgroundColor: "rgba(0, 243, 255, 0.05)" }}>
-          <Text style={{ color: "#00F3FF", fontSize: 12, fontFamily: "DMSans_500Medium" }}>VISITOR MODE — LIMITED ACCESS</Text>
-        </View>
-      </View>
-    );
-  }
-
   const [activeTab, setActiveTab] = useState<"mind" | "chat">("mind");
   const [neuralFeed, setNeuralFeed] = useState<NeuralFeed | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);

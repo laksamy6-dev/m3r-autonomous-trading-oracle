@@ -35,7 +35,7 @@ export function startBrainEngine() {
       
       console.log(`[BRAIN] IQ: ${currentIQ} → ${newIQ} | Cycles: ${newCycles}`);
     } catch (err) {
-      console.error('[BRAIN ENGINE] Error:', err.message);
+      console.error('[BRAIN ENGINE] Error:', err instanceof Error ? err.message : String(err));
     }
   }, 5000);
 }

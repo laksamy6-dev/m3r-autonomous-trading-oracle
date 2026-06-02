@@ -39,6 +39,9 @@ export interface LamyBrainState {
   adaptiveMutationRate: number;
   strategiesEvolved: number;
   totalThinkingCycles: number;
+  strengths?: string[];
+  weaknesses?: string[];
+  discoveries?: string[];
 }
 
 export interface EvolutionEvent {
