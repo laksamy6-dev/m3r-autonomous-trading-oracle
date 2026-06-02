@@ -821,7 +821,7 @@ export default function SettingsScreen() {
               <Ionicons name="lock-closed" size={16} color={Colors.dark.gold} />
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>SECRETS VAULT</Text>
             </View>
-            <Pressable onPress={fetchVaultKeys} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, flexDirection: "row", alignItems: "center", gap: 4 }]}>
+            <Pressable onPress={() => void fetchVaultKeys()} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, flexDirection: "row", alignItems: "center", gap: 4 }]}>
               {vaultLoading ? <ActivityIndicator size="small" color={CYAN} /> : <Ionicons name="refresh" size={16} color={CYAN} />}
             </Pressable>
           </View>

@@ -327,7 +327,7 @@ export function generateTradeSignal(
     };
   }
 
-  if (currentStrategy.currentPosition !== "NONE" && currentStrategy.currentPremium && currentStrategy.entryPremium) {
+  if (currentStrategy.currentPremium && currentStrategy.entryPremium) {
     const pnlPercent = ((currentStrategy.currentPremium - currentStrategy.entryPremium) / currentStrategy.entryPremium) * 100;
 
     if (pnlPercent >= 30 && currentStrategy.partialBookedPercent < 50) {

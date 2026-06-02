@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { fetch } from "expo/fetch";
@@ -54,6 +54,7 @@ interface ChatMessage {
 }
 
 type VoiceStatus = "ready" | "listening" | "processing" | "speaking";
+type UploadType = "audio" | "document" | "image" | "video";
 
 interface ActivePosition {
   id: string;
@@ -302,10 +303,18 @@ export default function AIScreen() {
   const lastSpokenRef = useRef<string>("");
   const liveLoopRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const cacheDirectory = FileSystem.cacheDirectory;
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
   const tabBarHeight = Platform.OS === "web" ? 84 : 60;
+
+  function getCacheFileUri(fileName: string) {
+    if (!cacheDirectory) {
+      throw new Error("Cache directory unavailable");
+    }
+    return cacheDirectory + fileName;
+  }
 
   async function handleFileUpload() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -432,7 +441,7 @@ export default function AIScreen() {
     await sendFileToLamyWeb(file, fileType);
   }
 
-  async function sendFileToLamyWeb(file: File, fileType: "image" | "document" | "audio") {
+  async function sendFileToLamyWeb(file: File, fileType: UploadType) {
     setIsStreaming(true);
     addLog(`Sending ${fileType} to LAMY...`, "info");
     try {
@@ -454,7 +463,7 @@ export default function AIScreen() {
     }
   }
 
-  async function sendFileToLamy(base64Data: string, fileName: string, fileType: "image" | "document" | "audio") {
+  async function sendFileToLamy(base64Data: string, fileName: string, fileType: UploadType) {
     setIsStreaming(true);
     addLog(`Sending ${fileType} to LAMY...`, "info");
     try {
@@ -466,9 +475,18 @@ export default function AIScreen() {
         ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
         ".pdf": "application/pdf", ".doc": "application/msword", ".txt": "text/plain", ".csv": "text/csv",
         ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".aac": "audio/aac",
+        ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
       };
-      const ext = "." + fileName.split(".").pop()?.toLowerCase();
-      const mimeType = mimeMap[ext] || (fileType === "image" ? "image/jpeg" : fileType === "audio" ? "audio/mpeg" : "application/octet-stream");
+      const ext = "." + (fileName.split(".").pop()?.toLowerCase() || "");
+      const mimeType =
+        mimeMap[ext] ||
+        (fileType === "image"
+          ? "image/jpeg"
+          : fileType === "audio"
+            ? "audio/mpeg"
+            : fileType === "video"
+              ? "video/mp4"
+              : "application/octet-stream");
       const blob = new Blob([bytes], { type: mimeType });
       const formData = new FormData();
       formData.append("file", blob as any, fileName);
@@ -959,7 +977,7 @@ export default function AIScreen() {
               } else {
                 (async () => {
                   try {
-                    const uri = FileSystem.cacheDirectory + "lamy_live.mp3";
+                    const uri = getCacheFileUri("lamy_live.mp3");
                     await FileSystem.writeAsStringAsync(uri, data.audioBase64, { encoding: FileSystem.EncodingType.Base64 });
                     const { sound } = await Audio.Sound.createAsync({ uri });
                     soundRef.current = sound;
@@ -1549,7 +1567,7 @@ export default function AIScreen() {
           <View style={s.panel}>
             <View style={s.panelHeader}>
               <Ionicons name="stats-chart" size={14} color={AMBER} />
-              <Text style={s.panelTitle}>TODAY'S PERFORMANCE</Text>
+              <Text style={s.panelTitle}>TODAY’S PERFORMANCE</Text>
             </View>
             <View style={s.perfRow}>
               <View style={s.perfItem}>

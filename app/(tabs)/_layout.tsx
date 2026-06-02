@@ -1,54 +1,9 @@
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import Colors from "@/constants/colors";
-
-function NativeTabLayout() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "chart.line.uptrend.xyaxis", selected: "chart.line.uptrend.xyaxis" }} md="trending_up" />
-        <Label>Market</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="options">
-        <Icon sf={{ default: "tablecells", selected: "tablecells.fill" }} md="grid_on" />
-        <Label>Options</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="bot">
-        <Icon sf={{ default: "cpu", selected: "cpu.fill" }} md="smart_toy" />
-        <Label>Bot</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="strategy">
-        <Icon sf={{ default: "bolt.shield", selected: "bolt.shield.fill" }} md="auto_fix_high" />
-        <Label>Strategy</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="lamy">
-        <Icon sf={{ default: "heart.fill", selected: "heart.fill" }} md="favorite" />
-        <Label>LAMY</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ai">
-        <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile.fill" }} md="neurology" />
-        <Label>AI Chat</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="portfolio">
-        <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
-        <Label>Portfolio</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="watchlist">
-        <Icon sf={{ default: "shield.checkmark", selected: "shield.checkmark.fill" }} md="verified_user" />
-        <Label>Tracker</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
-        <Label>Settings</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
 
 function ClassicTabLayout() {
   const isWeb = Platform.OS === "web";
@@ -166,8 +121,5 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
   return <ClassicTabLayout />;
 }

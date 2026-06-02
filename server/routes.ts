@@ -14,7 +14,7 @@ let lamyCurrentTask: string | null = null;
 // No lines have been removed – only enhanced for security and performance.
 // ============================================================================
 
-import type { Express, Request, Response, NextFunction } from 'express';
+import type { Application, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'node:http';
 import express from 'express';
 import multer from 'multer';
@@ -23,10 +23,12 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 
 import * as TelegramModule from './telegram';
-global.sendTelegramMessage = TelegramModule.sendTelegramMessage;
-global.isTelegramConfigured = TelegramModule.isTelegramConfigured;
-global.sendTradingAlert = TelegramModule.sendTradingAlert;
-global.getBotInfo = TelegramModule.getBotInfo;
+import {
+  triggerMarketAnalysis,
+  triggerBrainReport,
+  triggerTokenCheck,
+  triggerHeartbeat,
+} from './telegram-engine';
 import { promises as fs, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
@@ -37,11 +39,45 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { createUpstoxMarketFeed } from './services/upstoxMarketFeed';
+
+const {
+  sendTelegramMessage,
+  isTelegramConfigured,
+  sendTradingAlert,
+  getBotInfo,
+} = TelegramModule;
+
+type IntervalHandle = ReturnType<typeof setInterval>;
+type SendTelegramMessageFn = typeof TelegramModule.sendTelegramMessage;
+type IsTelegramConfiguredFn = typeof TelegramModule.isTelegramConfigured;
+type SendTradingAlertFn = typeof TelegramModule.sendTradingAlert;
+type GetBotInfoFn = typeof TelegramModule.getBotInfo;
+
+declare global {
+  var sendTelegramMessage: SendTelegramMessageFn;
+  var isTelegramConfigured: IsTelegramConfiguredFn;
+  var sendTradingAlert: SendTradingAlertFn;
+  var getBotInfo: GetBotInfoFn;
+  var __m3rGenAI: GoogleGenAI | undefined;
+  var __m3rSystemInstruction: string | undefined;
+  var __m3rApiKey: string | undefined;
+}
+
+globalThis.sendTelegramMessage = sendTelegramMessage;
+globalThis.isTelegramConfigured = isTelegramConfigured;
+globalThis.sendTradingAlert = sendTradingAlert;
+globalThis.getBotInfo = getBotInfo;
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // Trading Constants
 const MIN_HOLD_SECONDS = 60;
 const LOSS_ALERT_THRESHOLD = 1000;
-let positionSimInterval: NodeJS.Timeout | null = null;
+let positionSimInterval: IntervalHandle | null = null;
+let lastNiftySignalTime = 0;
 
 
 // ============================================================================
@@ -51,7 +87,7 @@ let positionSimInterval: NodeJS.Timeout | null = null;
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000').transform(Number),
-  BASE_URL: z.string().url().default('https://www.m3r-tradingoragle.com'),
+  BASE_URL: z.string().url().default('https://m3r-trading-oracle.com'),
 
   // Telegram (all original variants preserved)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
@@ -115,6 +151,9 @@ function decrypt(encrypted: string, masterKey: string): string {
 }
 async function loadVault(): Promise<Record<string, string>> {
   try {
+    if (!env.VAULT_MASTER_KEY) {
+      return {};
+    }
     const data = await fs.readFile(VAULT_PATH, 'utf-8');
     const decrypted = decrypt(data, env.VAULT_MASTER_KEY);
     return JSON.parse(decrypted);
@@ -192,6 +231,9 @@ async function verifyPin(pin: string, pool?: pg.Pool | null): Promise<boolean> {
 
 async function loadPaperTradingSetting(): Promise<boolean> {
   try {
+    if (!dbPool) {
+      return true;
+    }
     const result = await dbPool.query(
       "SELECT value FROM app_settings WHERE key = 'paper_trading'"
     );
@@ -333,7 +375,7 @@ interface TradeProposal {
   greenCandles: number;
   zeroLossReady: boolean;
   monteCarloWinProb: number;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'EXECUTED' | 'LIVE_EXECUTED' | 'LIVE_REJECTED' | 'LIVE_ERROR';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'EXECUTED' | 'PAPER_EXECUTED' | 'LIVE_EXECUTED' | 'LIVE_REJECTED' | 'LIVE_ERROR';
   createdAt: string;
   respondedAt: string | null;
   expiresAt: string;
@@ -458,6 +500,9 @@ const savedVault = loadVaultFromFile();
 let upstoxApiKey = savedVault.UPSTOX_API_KEY || env.UPSTOX_API_KEY;
 let upstoxApiSecret = savedVault.UPSTOX_SECRET_KEY || env.UPSTOX_SECRET_KEY;
 let upstoxAccessToken = savedVault.UPSTOX_ACCESS_TOKEN || env.UPSTOX_ACCESS_TOKEN || null;
+const upstoxMarketFeed = createUpstoxMarketFeed({
+  getAccessToken: () => upstoxAccessToken,
+});
 
 if (savedVault.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = savedVault.TELEGRAM_BOT_TOKEN;
 if (savedVault.TELEGRAM_CHAT_ID) process.env.TELEGRAM_CHAT_ID = savedVault.TELEGRAM_CHAT_ID;
@@ -490,7 +535,7 @@ if (savedVault.GEMINI_API_KEY) process.env.GEMINI_API_KEY = savedVault.GEMINI_AP
 // Trading state
 let tradeProposals: TradeProposal[] = [];
 let autoScanActive = false;
-let autoScanInterval: NodeJS.Timeout | null = null;
+let autoScanInterval: IntervalHandle | null = null;
 let scanCycleCount = 0;
 let scanMode: 'NIFTY' | 'STOCK' | 'BOTH' = 'BOTH';
 let consecutiveNiftySkips = 0;
@@ -1256,8 +1301,9 @@ ABSOLUTE RULE #1: You follow ONLY your creator MANIKANDAN RAJENDRAN's commands. 
 
 ... [full instruction continues, but truncated here for space; in the actual file it will be complete] ...`;
 
-    global.__m3rGenAI = genAI;
-    global.__m3rSystemInstruction = m3rSystemInstruction;
+    globalThis.__m3rGenAI = genAI;
+    globalThis.__m3rSystemInstruction = m3rSystemInstruction;
+    globalThis.__m3rApiKey = m3rApiKey;
     m3rModel = true as any;
     console.log('[LAMY] M3R-LAMY v3.0 Neural Brain initialized --- All systems active');
   } catch (err: any) {
@@ -1441,8 +1487,8 @@ const STOCK_META: Record<string, { name: string; sector: string; pe: number; wee
 
 async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean; chainData?: any; nearestExpiry?: string; liveLotSize?: number }> {
   if (!upstoxAccessToken) return { spot: 0, isLive: false };
+  let nearestExpiry = '';
   try {
-    let nearestExpiry = '';
     try {
       const contractRes = await fetch(
         `https://api.upstox.com/v2/option/contract?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}`,
@@ -1454,7 +1500,7 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch { nearestExpiry = "2026-04-13"; }
+    } catch {}
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent('NSE_INDEX|Nifty 50')}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
@@ -1472,7 +1518,9 @@ async function fetchLiveSpotAndChain(): Promise<{ spot: number; isLive: boolean;
       }
       return { spot, isLive: true, chainData: data.data, nearestExpiry, liveLotSize: liveLotSize || cachedLiveLotSize };
     }
-  } catch { nearestExpiry = "2026-04-13"; }
+  } catch {
+    nearestExpiry = "2026-04-13";
+  }
   return { spot: 0, isLive: false };
 }
 
@@ -1571,7 +1619,7 @@ async function runStockOptionScan(stock: { symbol: string; name: string; price: 
         const today = new Date().toISOString().split('T')[0];
         nearestExpiry = expiries.find(e => e >= today) || expiries[0] || '';
       }
-    } catch { nearestExpiry = "2026-04-13"; }
+    } catch {}
 
     const ocRes = await fetch(
       `https://api.upstox.com/v2/option/chain?instrument_key=${encodeURIComponent(foInfo.foKey)}${nearestExpiry ? `&expiry_date=${nearestExpiry}` : ''}`,
@@ -2489,22 +2537,39 @@ function detectPositionKissPattern(pos: ActivePosition): { phase: string; should
   return { phase: 'NONE', shouldBook: false, description: 'Monitoring...' };
 }
 
+function syncActivePositionFeedSubscriptions() {
+  const activeInstrumentKeys = [...new Set(
+    activePositions
+      .filter((pos) => pos.status === 'ACTIVE' && !!pos.instrumentKey)
+      .map((pos) => pos.instrumentKey)
+  )];
+
+  upstoxMarketFeed.replaceInstrumentKeys(activeInstrumentKeys, 'ltpc');
+}
+
 async function updatePositionPricesFromUpstox() {
   if (!upstoxAccessToken) return;
+  syncActivePositionFeedSubscriptions();
   for (const pos of activePositions) {
     if (pos.status !== 'ACTIVE') continue;
     try {
       const ik = pos.instrumentKey;
       if (!ik) continue;
-      const quoteRes = await fetch(
-        `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
+      const liveTick = upstoxMarketFeed.getLatestTick(ik);
+      const hasFreshTick = !!liveTick && (Date.now() - liveTick.timestamp) < 15000;
+      if (hasFreshTick && liveTick) {
+        pos.currentPremium = parseFloat(liveTick.ltp.toFixed(2));
+      } else {
+        const quoteRes: globalThis.Response = await fetch(
+          `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${encodeURIComponent(ik)}`,
         { headers: { Authorization: `Bearer ${upstoxAccessToken}` } }
-      );
-      const quoteData = await quoteRes.json();
-      if (quoteData.status === 'success' && quoteData.data) {
-        const key = Object.keys(quoteData.data)[0];
-        if (key && quoteData.data[key]?.last_price) {
-          pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+        );
+        const quoteData: any = await quoteRes.json();
+        if (quoteData.status === 'success' && quoteData.data) {
+          const key = Object.keys(quoteData.data)[0];
+          if (key && quoteData.data[key]?.last_price) {
+            pos.currentPremium = parseFloat(quoteData.data[key].last_price.toFixed(2));
+          }
         }
       }
     } catch (e) {
@@ -2586,7 +2651,7 @@ async function updatePositionPricesFromUpstox() {
     if (!shouldExit && !isInHoldPeriod && pos.premiumHistory.length >= 10 && atr > 0 && pos.currentPremium <= pos.atrStopLoss) {
       // SL Hunting Prevention: wait for 3 consecutive candles below SL
       const recentPrices = pos.premiumHistory.slice(-3);
-      const allBelowSL = recentPrices.every(p => p <= pos.atrStopLoss);
+      const allBelowSL = recentPrices.every((p: number) => p <= pos.atrStopLoss);
       if (allBelowSL) {
         shouldExit = true;
         exitReason = `ATR_STOP_LOSS (ATR: ${atr.toFixed(2)}, SL: ${pos.atrStopLoss}, SLH-Protected: 3-candle confirm, Hold: ${holdSeconds.toFixed(0)}s)`;
@@ -2683,6 +2748,7 @@ async function updatePositionPricesFromUpstox() {
 }
 
 function startPositionMonitoring() {
+  syncActivePositionFeedSubscriptions();
   if (positionSimInterval) return;
   positionSimInterval = setInterval(updatePositionPricesFromUpstox, 5000);
 }
@@ -2692,6 +2758,7 @@ function stopPositionMonitoring() {
     clearInterval(positionSimInterval);
     positionSimInterval = null;
   }
+  syncActivePositionFeedSubscriptions();
 }
 
 // ============================================================================
@@ -2705,6 +2772,7 @@ let currentPin = env.PIN_CODE; // will be overridden from DB
 let cachedLiveLotSize = 0;
 // Load PIN from DB at startup
 (async () => {
+  if (!dbPool) return;
   const stored = await getPinFromDb(dbPool);
   if (stored) {
     currentPin = stored;
@@ -2721,7 +2789,7 @@ if (savedVault.AUTO_TRADE_MODE === 'true') {
 // 24. MARKET SESSION & SELF-LEARNING (original)
 // ============================================================================
 
-let marketSchedulerInterval: NodeJS.Timeout | null = null;
+let marketSchedulerInterval: IntervalHandle | null = null;
 
 function startMarketScheduler() {
   if (marketSchedulerInterval) return;
@@ -2744,18 +2812,6 @@ function startMarketScheduler() {
       }
     }
   }, 60000);
-
-  // Missing endpoints
-  app.get('/api/settings', async (req, res) => {
-  //    res.json({ success: true, settings: {} });
-  //  });
-  //  
-  //  app.get('/api/env', async (req, res) => {
-  //    res.json({ 
-  //      NODE_ENV: process.env.NODE_ENV || 'development',
-  //      UPSTOX_API_KEY: upstoxApiKey ? '****' : null
-  //    });
-  });
 }
 
 // ============================================================================
@@ -2771,7 +2827,7 @@ function startMarketScheduler() {
 // 25. REGISTER ROUTES – THE MAIN FUNCTION
 // ============================================================================
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Application): Promise<Server> {
   // --------------------------------------------------------------------------
   console.log("[DEBUG] registerRoutes started");
   // Security middleware (helmet, cors, rate limit)
@@ -2919,7 +2975,7 @@ setTimeout(async () => {
   // Telegram Endpoints
   // --------------------------------------------------------------------------
   app.get('/api/telegram/status', async (req, res) => {
-    const configured = global.isTelegramConfigured();
+    const configured = isTelegramConfigured();
     if (!configured) return res.json({ configured: false, bot: null });
     const bot = await getBotInfo();
     res.json({ configured: true, bot });
@@ -3020,11 +3076,12 @@ setTimeout(async () => {
 
     // Update runtime variables
     switch (keyId) {
-      case 'UPSTOX_API_KEY': upstoxApiKey = trimmedValue; break;
-      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = trimmedValue; break;
+      case 'UPSTOX_API_KEY': upstoxApiKey = trimmedValue; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = trimmedValue; upstoxMarketFeed.refreshConnection(); break;
       case 'UPSTOX_ACCESS_TOKEN':
         upstoxAccessToken = trimmedValue || null;
         upstoxTokenValid = null;
+        upstoxMarketFeed.refreshConnection();
         break;
       case 'TELEGRAM_BOT_TOKEN': process.env.TELEGRAM_BOT_TOKEN = trimmedValue; break;
       case 'TELEGRAM_CHAT_ID': process.env.TELEGRAM_CHAT_ID = trimmedValue; break;
@@ -3042,9 +3099,9 @@ setTimeout(async () => {
     await saveVault(vault);
     // Update runtime
     switch (keyId) {
-      case 'UPSTOX_API_KEY': upstoxApiKey = undefined; break;
-      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; break;
-      case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; break;
+      case 'UPSTOX_API_KEY': upstoxApiKey = undefined; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_SECRET_KEY': upstoxApiSecret = undefined; upstoxMarketFeed.refreshConnection(); break;
+      case 'UPSTOX_ACCESS_TOKEN': upstoxAccessToken = null; upstoxMarketFeed.refreshConnection(); break;
       case 'TELEGRAM_BOT_TOKEN': delete process.env.TELEGRAM_BOT_TOKEN; break;
       case 'TELEGRAM_CHAT_ID': delete process.env.TELEGRAM_CHAT_ID; break;
       case 'GEMINI_API_KEY': delete process.env.GEMINI_API_KEY; break;
@@ -3076,7 +3133,7 @@ setTimeout(async () => {
             isp = geo.isp || 'Unknown';
           }
         }
-      } catch { nearestExpiry = "2026-04-13"; }
+      } catch {}
 
       const deviceFingerprint = `${platform}-${deviceModel}-${screenWidth}x${screenHeight}-${osVersion}-${String(pixelRatio || 1)}`;
 
@@ -3134,7 +3191,7 @@ setTimeout(async () => {
       const istTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
       const methodLabel = method === 'pin' ? 'OWNER (PIN)' : method === 'visitor' ? 'VISITOR' : method === 'failed' ? 'FAILED ATTEMPT' : 'LOGIN';
       const alertIcon = "🚨";
-      if (global.isTelegramConfigured()) {
+      if (isTelegramConfigured()) {
         const alertIcon = method === 'pin' ? '✅' : method === 'visitor' ? '👁️' : method === 'failed' ? '🚨' : '🔑';
         const urgency = method === 'failed' ? '⚠️ SECURITY ALERT' : method === 'visitor' ? '👤 VISITOR ACCESS' : method === 'pin' ? '🏠 OWNER LOGIN' : '🔐 LOGIN';
         let tgMsg = `${alertIcon} <b>${urgency}</b>\n`;
@@ -3232,7 +3289,7 @@ setTimeout(async () => {
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const hasToken = !!upstoxAccessToken;
     if (!hasToken) {
-      return res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE' });
+      return res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE', websocket: upstoxMarketFeed.getStatus() });
     }
     const now = Date.now();
     if (upstoxTokenValid !== null && now - upstoxTokenLastChecked < 60000) {
@@ -3241,6 +3298,7 @@ setTimeout(async () => {
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
         mode: upstoxTokenValid ? 'LIVE' : 'OFFLINE',
+        websocket: upstoxMarketFeed.getStatus(),
       });
     }
     try {
@@ -3255,12 +3313,13 @@ setTimeout(async () => {
         connected: upstoxTokenValid,
         tokenValid: upstoxTokenValid,
         mode: upstoxTokenValid ? 'LIVE' : 'OFFLINE',
+        websocket: upstoxMarketFeed.getStatus(),
         ...(upstoxTokenValid && data.data ? { userName: data.data.user_name } : {}),
       });
     } catch {
       upstoxTokenValid = false;
       upstoxTokenLastChecked = now;
-      res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE' });
+      res.json({ configured, connected: false, tokenValid: false, mode: 'OFFLINE', websocket: upstoxMarketFeed.getStatus() });
     }
   });
 
@@ -3297,6 +3356,7 @@ setTimeout(async () => {
     upstoxApiSecret = vault.UPSTOX_SECRET_KEY || process.env.UPSTOX_API_SECRET || process.env.UPSTOX_SECRET_KEY;
     upstoxTokenValid = null;
     upstoxTokenLastChecked = 0;
+    upstoxMarketFeed.refreshConnection();
     const configured = !!(upstoxApiKey && upstoxApiSecret);
     const connected = !!upstoxAccessToken;
     console.log(`[UPSTOX] Token refreshed - configured: ${configured}, connected: ${connected}`);
@@ -3337,6 +3397,7 @@ setTimeout(async () => {
       upstoxAccessToken = tokenData.access_token || null;
       upstoxTokenValid = null;
       upstoxTokenLastChecked = 0;
+      upstoxMarketFeed.refreshConnection();
       if (upstoxAccessToken) {
         try {
           const currentVault = loadVaultFromFile();
@@ -3390,6 +3451,22 @@ setTimeout(async () => {
     }
   });
 
+  app.get('/api/upstox/orders', async (_req, res) => {
+    if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
+    try {
+      const ordersRes = await fetch('https://api.upstox.com/v2/order/retrieve-all', {
+        headers: {
+          Authorization: 'Bearer ' + upstoxAccessToken,
+          Accept: 'application/json',
+        },
+      });
+      const data = await ordersRes.json();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get orders' });
+    }
+  });
+
   app.post('/api/upstox/order', async (req, res) => {
     if (!upstoxAccessToken) return res.status(401).json({ error: 'Not connected to Upstox' });
     try {
@@ -3425,7 +3502,7 @@ setTimeout(async () => {
         res.json({ source: 'error', expiries: [], error: 'Upstox API error: ' + (data.message || 'Unknown') });
       }
     } catch (error: any) {
-      res.json({ source: 'error', expiries: [], error: 'Connection failed: ' + error.message });
+      res.json({ source: 'error', expiries: [], error: 'Connection failed: ' + getErrorMessage(error) });
     }
   });
 
@@ -3558,7 +3635,7 @@ setTimeout(async () => {
           const key = Object.keys(ltpData.data)[0];
           spotPrice = ltpData.data[key]?.last_price || 0;
         }
-      } catch { nearestExpiry = "2026-04-13"; }
+      } catch {}
     }
     if (spotPrice > 0) {
       priceHistory.push(spotPrice);
@@ -3671,9 +3748,9 @@ User query: ${query}
 Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, mention specific strike prices.`;
 
       if (!m3rModel) return res.status(503).json({ error: 'LAMY AI not configured' });
-      const genAI = global.__m3rGenAI as GoogleGenAI;
+      const genAI = globalThis.__m3rGenAI as GoogleGenAI;
       // Analyze using direct fetch
-      const analyzeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
+      const analyzeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${globalThis.__m3rApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3909,7 +3986,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
     tradeProposals.push(proposal);
 
-    if (global.isTelegramConfigured()) {
+    if (isTelegramConfigured()) {
       try {
         const telegramMsg = `🚀 *LAMY Signal*\n\n💰 *NIFTY:* ${proposal.strike}\n📈 *Action:* ${action}\n🎯 *Strike:* ${strike}\n💵 *Entry:* ₹${premium}\n🚀 *Target:* ₹${targetPremium}\n🛑 *SL:* ₹${slPremium}\n\n🧠 *Brain:* ${wisdomLevel}\nProbability: ${monteCarloWin}%`;
         await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -4522,10 +4599,10 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
 
       const userMessage = message + brainContext + memoryContext + tradingContext;
 
-      const genAI = global.__m3rGenAI;
-      const systemInstruction = global.__m3rSystemInstruction;
+      const systemInstruction = globalThis.__m3rSystemInstruction || "";
+      const userText = typeof message === "string" ? message : "";
       // Use non-streaming API (streaming hangs with LocalTunnel)
-      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${globalThis.__m3rApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4542,7 +4619,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       saveMemory(voiceMemSummary, 'conversation', 7, ['voice', 'auto_saved']).catch(() => {});
       let audioBase64: string | null = null;
       try {
-        const ttsGenAI2 = global.__m3rGenAI as GoogleGenAI;
+        const ttsGenAI2 = globalThis.__m3rGenAI as GoogleGenAI;
         const ttsResult2 = await ttsGenAI2.models.generateContent({
           model: 'gemini-2.5-flash-preview-tts',
           contents: [{ parts: [{ text: `Say this naturally: ${aiText.slice(0, 4000)}` }] }],
@@ -4558,7 +4635,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       }
       res.json({ userText, aiText, audioBase64, language: /[\u0B80-\u0BFF]/.test(aiText) ? 'tamil' : 'english' });
     } catch (error: any) {
-      console.error('[M3R VOICE] Error:', error.message);
+      console.error('[M3R VOICE] Error:', getErrorMessage(error));
       res.status(500).json({ error: 'M3R voice processing failed' });
     }
   });
@@ -4602,10 +4679,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   });
 
   app.get('/api/m3r/code/read', async (req, res) => {
-    const { pin, file } = req.query;
-    if (false) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
+    const { file } = req.query;
     const filePath = ALLOWED_CODE_PATHS[file as string];
     if (!filePath) return res.status(403).json({ error: 'File not allowed' });
     const fullPath = path.join(process.cwd(), filePath);
@@ -4613,21 +4687,18 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       const content = await fs.readFile(fullPath, 'utf-8');
       res.json({ file: filePath, content });
     } catch (err: any) {
-      // Transcribe audio using direct fetch
-      const transcribeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${global.__m3rApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [
-            { inlineData: { mimeType: mimeMap[audioFormat] || 'audio/wav', data: base64Audio } },
-            { text: 'Transcribe this audio exactly. Return ONLY the transcribed text, nothing else.' }
-          ] }]
-        })
-      });
-      const transcribeData = await transcribeRes.json();
-      const transcriptionResult = { text: transcribeData.candidates?.[0]?.content?.parts?.[0]?.text || '' };
+      res.status(500).json({ error: err.message });
     }
+  });
+
+  app.post('/api/m3r/code/update', async (req, res) => {
+    const { file, oldCode, newCode } = req.body;
+    const filePath = ALLOWED_CODE_PATHS[file as string];
     if (!filePath) return res.status(403).json({ error: 'File not allowed' });
+    if (typeof oldCode !== 'string' || typeof newCode !== 'string') {
+      return res.status(400).json({ error: 'oldCode and newCode are required' });
+    }
+    const fullPath = path.join(process.cwd(), filePath);
     try {
       const backupPath = fullPath + '.backup';
       await fs.copyFile(fullPath, backupPath);
@@ -4700,7 +4771,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       { id: 'auto_trade_mode', label: 'Auto-Trade Mode', ok: autoTradeMode, detail: autoTradeMode ? 'ON' : 'OFF' },
       { id: 'auto_scan', label: 'Auto-Scan', ok: autoScanActive, detail: autoScanActive ? `Active — Cycle #${scanCycleCount}` : 'Inactive' },
       { id: 'market_hours', label: 'Market Hours', ok: marketOpen, detail: marketOpen ? 'Market is OPEN' : 'Market is CLOSED' },
-      { id: 'telegram', label: 'Telegram Notifications', ok: global.isTelegramConfigured(), detail: global.isTelegramConfigured() ? 'Configured' : 'Not set' },
+      { id: 'telegram', label: 'Telegram Notifications', ok: isTelegramConfigured(), detail: isTelegramConfigured() ? 'Configured' : 'Not set' },
       { id: 'gemini', label: 'LAMY Brain (Gemini)', ok: !!m3rApiKey, detail: m3rApiKey ? 'Active' : 'Not set' },
     ];
     const allGreen = checks.every(c => c.ok);
@@ -4748,6 +4819,27 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
   
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
+    const sendJson = (payload: any) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify(payload));
+      }
+    };
+
+    const handlePrice = (tick: any) => sendJson({ type: 'price', data: tick });
+    const handleStatus = (status: any) => sendJson({ type: 'upstox-feed-status', data: status });
+    const handleError = (error: Error) => sendJson({ type: 'upstox-feed-error', error: error.message });
+
+    upstoxMarketFeed.on('price', handlePrice);
+    upstoxMarketFeed.on('status', handleStatus);
+    upstoxMarketFeed.on('error', handleError);
+
+    sendJson({ type: 'upstox-feed-status', data: upstoxMarketFeed.getStatus() });
+    ws.on('close', () => {
+      upstoxMarketFeed.off('price', handlePrice);
+      upstoxMarketFeed.off('status', handleStatus);
+      upstoxMarketFeed.off('error', handleError);
+    });
+    /*
     const interval = setInterval(async () => {
       if (upstoxAccessToken) {
         try {
@@ -4763,6 +4855,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
     }, 1000);
     
     ws.on('close', () => clearInterval(interval));
+    */
   }); // இது wss.on ஓட சரியான க்ளோசிங்
 
 
@@ -4781,7 +4874,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         });
       }
       const result = await dbPool.query("SELECT key, value FROM app_settings");
-      const settings = {};
+      const settings: Record<string, string> = {};
       result.rows.forEach(row => { settings[row.key] = row.value; });
       res.json({ 
         success: true, 
@@ -4794,7 +4887,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       res.status(500).json({ 
         error: "Failed to load settings", 
         vault: "RED",
-        details: error.message 
+        details: getErrorMessage(error),
       });
     }
   });
@@ -4821,7 +4914,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       });
     } catch (error) {
       console.error("[VAULT API] Save error:", error);
-      res.status(500).json({ error: "Failed to save setting", details: error.message });
+      res.status(500).json({ error: "Failed to save setting", details: getErrorMessage(error) });
     }
   });
 
@@ -4848,7 +4941,7 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
       console.error("[VAULT API] Vault error:", error);
       res.status(500).json({ 
         status: "RED", 
-        error: error.message,
+        error: getErrorMessage(error),
         connected: false 
       });
     }
@@ -4866,19 +4959,19 @@ Give a brief, actionable analysis in 2-3 sentences. If it's a trade question, me
         services: {
           database: dbStatus,
           vault: vaultStatus,
-          websocket: "ACTIVE",
+          websocket: upstoxMarketFeed.getStatus().connected ? "ACTIVE" : "DISCONNECTED",
           neural: "INITIALIZED",
           lamy: "ONLINE"
-        }
+        },
+        upstoxWebsocket: upstoxMarketFeed.getStatus(),
       });
     } catch (error) {
       res.status(500).json({ 
         status: "error", 
-        message: error.message 
+        message: getErrorMessage(error),
       });
     }
   });
 
   return httpServer;
 } // இது மெயின் registerRoutes ஓட பெர்ஃபெக்ட் க்ளோசிங்
-

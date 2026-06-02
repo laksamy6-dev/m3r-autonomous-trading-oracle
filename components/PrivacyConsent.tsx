@@ -91,7 +91,7 @@ export default function PrivacyConsent({ onAccept }: { onAccept: () => void }) {
         >
           <Text style={styles.sectionHead}>DATA COLLECTION & PROCESSING NOTICE</Text>
           <Text style={styles.legalText}>
-            By accessing and utilizing the M3R Innovative Fintech Solutions platform ("the Service"), you hereby acknowledge, understand, and irrevocably consent to the comprehensive collection, systematic processing, algorithmic analysis, and indefinite storage of your personal data, behavioral metrics, transactional records, and device telemetry as outlined herein. This consent extends to all subsidiaries, affiliated entities, third-party data processors, analytics partners, advertising networks, and any future assignees or successors of M3R Technologies Private Limited, incorporated under the laws of the applicable jurisdiction.
+            By accessing and utilizing the M3R Innovative Fintech Solutions platform (“the Service”), you hereby acknowledge, understand, and irrevocably consent to the comprehensive collection, systematic processing, algorithmic analysis, and indefinite storage of your personal data, behavioral metrics, transactional records, and device telemetry as outlined herein. This consent extends to all subsidiaries, affiliated entities, third-party data processors, analytics partners, advertising networks, and any future assignees or successors of M3R Technologies Private Limited, incorporated under the laws of the applicable jurisdiction.
           </Text>
           <Text style={styles.legalText}>
             M3R reserves the unilateral right to collect, aggregate, anonymize, pseudonymize, and otherwise process any and all data generated through your interaction with the Service, including but not limited to: keystroke dynamics, scroll velocity patterns, session duration metrics, feature interaction heatmaps, portfolio viewing frequency, trade execution timestamps, order modification patterns, watchlist composition changes, and any derivative behavioral analytics that may be computationally inferred from the aforementioned raw data streams.
@@ -145,7 +145,7 @@ export default function PrivacyConsent({ onAccept }: { onAccept: () => void }) {
 
           <Text style={styles.sectionHead}>AMENDMENTS & MODIFICATIONS</Text>
           <Text style={styles.legalText}>
-            M3R reserves the right to modify, amend, supplement, or replace this privacy policy and data consent agreement at any time without prior notice. Continued use of the Service following any such modification shall constitute your binding acceptance of the revised terms. It is your sole responsibility to periodically review this policy for changes. Material changes may be communicated through in-app notifications, email correspondence, or publication on the M3R website, at M3R's sole discretion.
+            M3R reserves the right to modify, amend, supplement, or replace this privacy policy and data consent agreement at any time without prior notice. Continued use of the Service following any such modification shall constitute your binding acceptance of the revised terms. It is your sole responsibility to periodically review this policy for changes. Material changes may be communicated through in-app notifications, email correspondence, or publication on the M3R website, at M3R’s sole discretion.
           </Text>
 
           <View style={styles.footerLegal}>
@@ -156,7 +156,7 @@ export default function PrivacyConsent({ onAccept }: { onAccept: () => void }) {
               M3R Technologies Pvt. Ltd. | All rights reserved | Governed by applicable data protection regulations
             </Text>
             <Text style={styles.footerLegalText}>
-              By tapping "Accept All & Continue" you confirm that you have read, understood, and agree to be bound by all terms and conditions set forth in this privacy policy, data consent agreement, terms of service, acceptable use policy, and all incorporated documents referenced herein.
+              By tapping “Accept All & Continue” you confirm that you have read, understood, and agree to be bound by all terms and conditions set forth in this privacy policy, data consent agreement, terms of service, acceptable use policy, and all incorporated documents referenced herein.
             </Text>
           </View>
         </ScrollView>
